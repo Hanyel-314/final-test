@@ -6,9 +6,12 @@
     <title>电梯体验 - Elevator Experience</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
     <style>
-        body {
+        * {
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
+        }
+        body {
             display: flex;
             justify-content: center;
             align-items: center;
@@ -16,16 +19,23 @@
             background: #0a0a0a;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
-        main {
-            display: flex;
-            justify-content: center;
-            align-items: center;
+        #errorMsg {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            color: red;
+            background: white;
+            padding: 10px;
+            display: none;
+            z-index: 1000;
         }
     </style>
 </head>
 <body>
-    <main></main>
+    <div id="errorMsg">检查控制台...</div>
     <script>
+        console.log('Script started');
+
         // 电梯状态常量
         const STATE = {
             IDLE: 'IDLE',
@@ -42,8 +52,7 @@
                 this.displayFloor = 1;
                 this.targetQueue = [];
                 this.state = STATE.IDLE;
-                this.doorProgress = 0; // 0 = closed, 1 = open
-                this.travelProgress = 0;
+                this.doorProgress = 0;
                 this.stateTimer = 0;
                 this.movingTimer = 0;
                 this.shakeOffset = 0;
@@ -74,11 +83,8 @@
 
                     case STATE.MOVING:
                         this.movingTimer += dt;
+                        this.shakeOffset = Math.sin(this.movingTimer * 0.01) * 1.5;
 
-                        // 电梯抖动效果
-                        this.shakeOffset = sin(this.movingTimer * 0.01) * 1.5;
-
-                        // 每800ms切换一次楼层
                         if (this.movingTimer > 800) {
                             const target = this.targetQueue[0];
 
@@ -92,7 +98,6 @@
 
                             this.movingTimer = 0;
 
-                            // 到达目标楼层
                             if (this.displayFloor === target) {
                                 this.currentFloor = target;
                                 this.targetQueue.shift();
@@ -100,7 +105,6 @@
                                 this.stateTimer = 0;
                                 this.shakeOffset = 0;
 
-                                // 更新按钮状态
                                 this.buttons.forEach(btn => {
                                     if (btn.floor === target) {
                                         btn.active = false;
@@ -111,7 +115,7 @@
                         break;
 
                     case STATE.DOOR_OPENING:
-                        this.doorProgress = min(1, this.doorProgress + dt / 800);
+                        this.doorProgress = Math.min(1, this.doorProgress + dt / 800);
                         if (this.doorProgress >= 1) {
                             this.state = STATE.DOOR_OPEN;
                             this.stateTimer = 0;
@@ -127,7 +131,7 @@
                         break;
 
                     case STATE.DOOR_CLOSING:
-                        this.doorProgress = max(0, this.doorProgress - dt / 800);
+                        this.doorProgress = Math.max(0, this.doorProgress - dt / 800);
                         if (this.doorProgress <= 0) {
                             this.state = STATE.IDLE;
                             this.stateTimer = 0;
@@ -171,97 +175,94 @@
         let lastTime = 0;
 
         function setup() {
-            let canvas = createCanvas(600, 800);
-            canvas.parent('main');
-            elevator = new Elevator();
-            textAlign(CENTER, CENTER);
-            lastTime = millis();
+            console.log('Setup called');
+            try {
+                let canvas = createCanvas(600, 800);
+                console.log('Canvas created:', canvas);
+                canvas.parent(document.body);
+                elevator = new Elevator();
+                textAlign(CENTER, CENTER);
+                lastTime = millis();
+                console.log('Setup complete');
+            } catch(e) {
+                console.error('Setup error:', e);
+                document.getElementById('errorMsg').style.display = 'block';
+                document.getElementById('errorMsg').textContent = 'Error: ' + e.message;
+            }
         }
 
         function draw() {
-            const currentTime = millis();
-            const deltaTime = currentTime - lastTime;
-            lastTime = currentTime;
+            try {
+                const currentTime = millis();
+                const deltaTime = currentTime - lastTime;
+                lastTime = currentTime;
 
-            if (!elevator) return;
+                if (!elevator) return;
 
-            elevator.update(deltaTime);
+                elevator.update(deltaTime);
 
-            // 绘制电梯内部
-            drawCabin();
+                // 背景
+                background(30, 35, 40);
 
-            // 绘制门和外部场景
-            drawDoors();
+                // 绘制电梯内部
+                drawCabin();
 
-            // 绘制按钮面板
-            drawPanel();
+                // 绘制门
+                drawDoors();
 
-            // 绘制楼层显示器
-            drawFloorIndicator();
+                // 绘制按钮面板
+                drawPanel();
 
-            // 绘制状态文字
-            drawStatusText();
+                // 绘制楼层显示器
+                drawFloorIndicator();
+
+                // 绘制状态文字
+                drawStatusText();
+
+            } catch(e) {
+                console.error('Draw error:', e);
+                fill(255, 0, 0);
+                text('Error: ' + e.message, 300, 400);
+            }
         }
 
         function drawCabin() {
-            background(20, 20, 25);
-
-            // 顶部光源 - 简化版本
-            push();
+            // 顶灯
+            fill(240, 240, 200, 200);
             noStroke();
+            rect(200, 40, 200, 40, 5);
+
+            // 顶部光源
             for (let i = 0; i < 5; i++) {
                 let alpha = map(i, 0, 5, 80, 0);
                 fill(255, 255, 220, alpha);
                 ellipse(300, 100, 500 - i * 50, 400 - i * 50);
             }
-            pop();
 
-            // 顶灯
-            push();
-            fill(240, 240, 200, 200);
-            noStroke();
-            rect(200, 40, 200, 40, 5);
-            fill(255, 255, 220, 100);
-            rect(210, 50, 180, 20, 3);
-            pop();
-
-            // 左墙 - 使用渐变矩形
-            push();
+            // 左墙
             for (let x = 0; x < 150; x += 3) {
-                let c = map(x, 0, 150, 26, 42);
-                if (x < 45 || x > 105) c = map(x < 45 ? x : 150 - x, 0, 45, 26, 42);
-                stroke(c, c, c + 10);
+                let c = 35;
+                if (x > 40 && x < 110) c = 45;
+                stroke(c, c + 5, c + 10);
                 line(x, 100, x, 800);
             }
-            pop();
 
             // 右墙
-            push();
             for (let x = 450; x < 600; x += 3) {
-                let c = map(x, 450, 600, 26, 42);
-                if (x < 495 || x > 555) c = map(x < 495 ? x - 450 : 600 - x, 0, 45, 26, 42);
-                stroke(c, c, c + 10);
+                let c = 35;
+                if (x > 490 && x < 560) c = 45;
+                stroke(c, c + 5, c + 10);
                 line(x, 100, x, 800);
             }
-            pop();
 
             // 地板网格
-            push();
-            stroke(40, 40, 50);
+            stroke(50, 55, 60);
             strokeWeight(1);
             for (let i = 0; i < 10; i++) {
-                let y = 600 + i * 20;
-                line(0, y, 600, y);
+                line(0, 600 + i * 20, 600, 600 + i * 20);
             }
             for (let i = 0; i < 12; i++) {
-                let x = i * 50;
-                line(x, 600, x, 800);
-            }
-            pop();
-
-            // 运行时的轻微抖动
-            if (elevator.state === STATE.MOVING) {
-                translate(0, elevator.shakeOffset);
+                line(i * 50, 600, i * 50, 800);
             }
         }
 
@@ -273,78 +274,46 @@
             const doorHeight = 450;
             const doorY = 120;
             const centerX = 300;
-
-            // 门的开合位移
             const slideOffset = doorWidth * elevator.doorProgress;
 
-            // 如果门打开，先绘制外部场景
+            // 绘制外部场景（如果门打开）
             if (elevator.doorProgress > 0) {
                 push();
-                // 使用 clip 裁剪
-                drawingContext.save();
-                drawingContext.beginPath();
-                drawingContext.rect(centerX - slideOffset, doorY, slideOffset * 2, doorHeight);
-                drawingContext.clip();
+                // 使用clip裁剪
+                let ctx = drawingContext;
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(centerX - slideOffset, doorY, slideOffset * 2, doorHeight);
+                ctx.clip();
 
+                // 绘制场景
                 drawExteriorScene(elevator.currentFloor);
 
-                drawingContext.restore();
+                ctx.restore();
                 pop();
             }
 
-            // 左门 - 简化渐变
-            push();
+            // 左门
             for (let x = 0; x < doorWidth; x += 2) {
-                let progress = x / doorWidth;
-                let c;
-                if (progress < 0.05) {
-                    c = map(progress, 0, 0.05, 58, 90);
-                } else if (progress < 0.5) {
-                    c = map(progress, 0.05, 0.5, 90, 74);
-                } else if (progress < 0.95) {
-                    c = map(progress, 0.5, 0.95, 74, 90);
-                } else {
-                    c = map(progress, 0.95, 1, 90, 58);
-                }
-                stroke(c, c, c + 10);
+                let c = 70;
+                if (x > 10 && x < doorWidth - 10) c = 80;
+                stroke(c, c + 5, c + 10);
                 line(centerX - doorWidth - slideOffset + x, doorY,
                      centerX - doorWidth - slideOffset + x, doorY + doorHeight);
             }
-            // 左门高光
-            stroke(100, 100, 110, 80);
-            strokeWeight(2);
-            line(centerX - doorWidth * 0.3 - slideOffset, doorY + 20,
-                 centerX - doorWidth * 0.3 - slideOffset, doorY + doorHeight - 20);
-            pop();
 
             // 右门
-            push();
             for (let x = 0; x < doorWidth; x += 2) {
-                let progress = x / doorWidth;
-                let c;
-                if (progress < 0.05) {
-                    c = map(progress, 0, 0.05, 58, 90);
-                } else if (progress < 0.5) {
-                    c = map(progress, 0.05, 0.5, 90, 74);
-                } else if (progress < 0.95) {
-                    c = map(progress, 0.5, 0.95, 74, 90);
-                } else {
-                    c = map(progress, 0.95, 1, 90, 58);
-                }
-                stroke(c, c, c + 10);
+                let c = 70;
+                if (x > 10 && x < doorWidth - 10) c = 80;
+                stroke(c, c + 5, c + 10);
                 line(centerX + slideOffset + x, doorY,
                      centerX + slideOffset + x, doorY + doorHeight);
             }
-            // 右门高光
-            stroke(100, 100, 110, 80);
-            strokeWeight(2);
-            line(centerX + doorWidth * 0.3 + slideOffset, doorY + 20,
-                 centerX + doorWidth * 0.3 + slideOffset, doorY + doorHeight - 20);
-            pop();
 
             // 门缝
             if (elevator.doorProgress < 1) {
-                stroke(10, 10, 15);
+                stroke(10, 15, 20);
                 strokeWeight(3);
                 line(centerX - slideOffset, doorY, centerX - slideOffset, doorY + doorHeight);
                 line(centerX + slideOffset, doorY, centerX + slideOffset, doorY + doorHeight);
@@ -354,372 +323,196 @@
         }
 
         function drawExteriorScene(floor) {
-            const scenes = {
-                1: drawLobby,
-                2: drawOffice,
-                3: drawGallery,
-                4: drawNeon,
-                5: drawRooftop
-            };
-
-            if (scenes[floor]) {
-                scenes[floor]();
+            switch(floor) {
+                case 1: drawLobby(); break;
+                case 2: drawOffice(); break;
+                case 3: drawGallery(); break;
+                case 4: drawNeon(); break;
+                case 5: drawRooftop(); break;
             }
         }
 
         function drawLobby() {
-            // 1层：大堂
             background(45, 40, 35);
 
-            // 暖色灯光
-            push();
-            noStroke();
-            for (let i = 0; i < 8; i++) {
-                fill(255, 220, 180, map(i, 0, 8, 80, 0));
-                ellipse(300, 200, 600 - i * 50, 600 - i * 50);
-            }
-            pop();
-
-            // 左侧墙面和植物
+            // 简化的大堂场景
             fill(30, 25, 20);
             rect(150, 150, 100, 400);
+            rect(350, 150, 100, 400);
+
             fill(40, 80, 40);
             ellipse(200, 450, 60, 80);
-            fill(50, 100, 50);
-            ellipse(200, 420, 40, 60);
 
-            // 右侧墙面和沙发
-            fill(30, 25, 20);
-            rect(350, 150, 100, 400);
-            fill(80, 60, 50);
-            rect(360, 420, 80, 50, 5);
-            fill(90, 70, 60);
-            rect(365, 400, 70, 30, 5);
-
-            // Reception标志
             fill(200, 180, 150);
             textSize(24);
-            textFont('serif');
             text('RECEPTION', 300, 300);
-
-            // 地面反光
-            fill(255, 220, 180, 30);
-            ellipse(300, 500, 200, 50);
         }
 
         function drawOffice() {
-            // 2层：办公层
             background(220, 225, 230);
 
-            // 左侧办公室门
             fill(180, 170, 160);
             rect(170, 200, 80, 180, 3);
+            rect(350, 200, 80, 180, 3);
+
             fill(150, 180, 200, 100);
             rect(180, 220, 60, 60, 2);
-            fill(100, 100, 100);
-            ellipse(235, 300, 8, 8);
-
-            // 右侧办公室门
-            fill(180, 170, 160);
-            rect(350, 200, 80, 180, 3);
-            fill(150, 180, 200, 100);
             rect(360, 220, 60, 60, 2);
-            fill(100, 100, 100);
-            ellipse(365, 300, 8, 8);
-
-            // 墙上的海报
-            fill(100, 120, 140);
-            rect(280, 180, 40, 60, 2);
-            fill(120, 100, 140);
-            rect(280, 260, 40, 60, 2);
-
-            // 地板线
-            stroke(180, 180, 190);
-            strokeWeight(2);
-            line(150, 550, 450, 550);
         }
 
         function drawGallery() {
-            // 3层：展览层
             background(35, 30, 40);
 
-            // 柔和光
-            push();
-            noStroke();
-            for (let i = 0; i < 6; i++) {
-                fill(200, 180, 200, map(i, 0, 6, 80, 0));
-                ellipse(300, 300, 500 - i * 50, 500 - i * 50);
-            }
-            pop();
-
-            // 左侧画框
-            push();
             fill(20, 15, 25);
             rect(170, 200, 90, 120, 3);
             fill(180, 120, 80);
             rect(180, 210, 70, 100);
-            // 画框光晕
-            noFill();
-            stroke(255, 220, 180, 100);
-            strokeWeight(3);
-            rect(170, 200, 90, 120, 3);
-            pop();
 
-            // 右侧画框
-            push();
             fill(20, 15, 25);
             rect(340, 250, 90, 120, 3);
             fill(80, 120, 180);
             rect(350, 260, 70, 100);
-            // 画框光晕
-            noFill();
-            stroke(180, 220, 255, 100);
-            strokeWeight(3);
-            rect(340, 250, 90, 120, 3);
-            pop();
-
-            // 中央雕塑轮廓
-            fill(60, 55, 65);
-            ellipse(300, 480, 40, 80);
-            ellipse(300, 440, 50, 60);
         }
 
         function drawNeon() {
-            // 4层：霓虹科技层
             background(10, 5, 20);
 
-            // 发光线条
-            push();
             strokeWeight(4);
-
-            // 左侧蓝色光条
             stroke(100, 150, 255, 200);
             line(180, 150, 180, 550);
-            stroke(100, 150, 255, 100);
-            strokeWeight(8);
-            line(180, 150, 180, 550);
 
-            // 右侧紫色光条
-            strokeWeight(4);
             stroke(200, 100, 255, 200);
             line(420, 150, 420, 550);
-            stroke(200, 100, 255, 100);
-            strokeWeight(8);
-            line(420, 150, 420, 550);
 
-            // 水平光条
-            strokeWeight(3);
             stroke(150, 200, 255, 180);
             line(200, 300, 400, 300);
-            stroke(150, 200, 255, 80);
-            strokeWeight(6);
-            line(200, 300, 400, 300);
-            pop();
-
-            // 地面发光线
-            push();
-            stroke(100, 200, 255, 150);
-            strokeWeight(6);
-            line(250, 520, 350, 520);
-            noStroke();
-            fill(100, 200, 255, 80);
-            ellipse(300, 520, 100, 20);
-            pop();
-
-            // 悬浮粒子效果
-            for (let i = 0; i < 8; i++) {
-                let x = 180 + (i % 4) * 80;
-                let y = 200 + floor(i / 4) * 200 + sin(millis() * 0.002 + i) * 20;
-                fill(150, 200, 255, 150);
-                noStroke();
-                ellipse(x, y, 4, 4);
-            }
         }
 
         function drawRooftop() {
-            // 5层：天台
             // 天空渐变
-            push();
             for (let y = 100; y < 600; y += 5) {
-                let c1 = map(y, 100, 600, 26, 58);
-                let c2 = map(y, 100, 600, 26, 58);
-                let c3 = map(y, 100, 600, 58, 90);
-                stroke(c1, c2, c3);
+                let c = map(y, 100, 600, 30, 60);
+                stroke(c, c, c + 20);
                 line(150, y, 450, y);
             }
-            pop();
 
             // 星星
             for (let i = 0; i < 15; i++) {
                 let x = 170 + (i * 23) % 260;
                 let y = 120 + (i * 37) % 200;
-                fill(255, 255, 220, 150 + sin(millis() * 0.003 + i) * 100);
+                fill(255, 255, 220, 200);
                 noStroke();
                 ellipse(x, y, 2, 2);
             }
 
-            // 城市天际线剪影
+            // 建筑剪影
             fill(10, 10, 20, 180);
             rect(160, 380, 50, 120);
             rect(220, 400, 40, 100);
             rect(270, 360, 60, 140);
             rect(340, 390, 45, 110);
-            rect(395, 370, 50, 130);
-
-            // 建筑窗户灯光
-            fill(255, 230, 150, 200);
-            for (let i = 0; i < 3; i++) {
-                for (let j = 0; j < 4; j++) {
-                    rect(165 + j * 10, 390 + i * 15, 6, 8);
-                }
-            }
-            for (let i = 0; i < 2; i++) {
-                for (let j = 0; j < 3; j++) {
-                    rect(345 + j * 10, 400 + i * 15, 6, 8);
-                }
-            }
-
-            // 栏杆
-            stroke(80, 80, 90);
-            strokeWeight(3);
-            line(160, 500, 440, 500);
-            for (let i = 0; i < 8; i++) {
-                line(170 + i * 40, 500, 170 + i * 40, 540);
-            }
-            line(160, 540, 440, 540);
         }
 
         function drawPanel() {
-            push();
-
             // 面板背景
-            fill(40, 40, 48);
-            stroke(60, 60, 68);
+            fill(40, 45, 50);
+            stroke(60, 65, 70);
             strokeWeight(2);
             rect(50, 150, 80, 310, 8);
 
-            // 内阴影效果
-            noStroke();
-            fill(20, 20, 25, 100);
-            rect(52, 152, 76, 4, 8);
-
             // 绘制按钮
             elevator.buttons.forEach(btn => {
-                push();
-
                 const isCurrent = btn.floor === elevator.currentFloor;
                 const isActive = btn.active;
 
-                // 按钮背景
+                // 按钮
                 if (isActive) {
-                    // 激活状态 - 金黄色
                     fill(255, 200, 50);
                     stroke(255, 220, 100);
                     strokeWeight(2);
                 } else if (isCurrent) {
-                    // 当前楼层 - 带绿色边
-                    fill(60, 60, 70);
+                    fill(60, 65, 70);
                     stroke(100, 200, 100);
                     strokeWeight(2);
                 } else {
-                    // 默认状态
-                    fill(60, 60, 70);
-                    stroke(80, 80, 90);
+                    fill(60, 65, 70);
+                    stroke(80, 85, 90);
                     strokeWeight(1);
                 }
 
                 ellipse(btn.x, btn.y, 50, 50);
 
-                // 按钮发光效果
+                // 发光
                 if (isActive) {
                     noStroke();
                     fill(255, 200, 50, 50);
                     ellipse(btn.x, btn.y, 60, 60);
                 }
 
-                // 楼层数字
+                // 数字
                 noStroke();
-                if (isActive) {
-                    fill(40, 30, 0);
-                } else {
-                    fill(220, 220, 230);
-                }
+                fill(isActive ? 40 : 220);
                 textSize(24);
-                textFont('monospace');
                 text(btn.floor, btn.x, btn.y);
 
-                // 当前楼层指示灯
+                // 当前楼层指示
                 if (isCurrent && !isActive) {
                     fill(100, 255, 100);
                     ellipse(btn.x + 22, btn.y - 22, 6, 6);
                 }
-
-                pop();
             });
-
-            pop();
         }
 
         function drawFloorIndicator() {
             push();
             translate(0, elevator.shakeOffset);
 
-            // 显示器外框
-            fill(20, 20, 25);
-            stroke(60, 60, 70);
+            // 外框
+            fill(20, 25, 30);
+            stroke(60, 65, 70);
             strokeWeight(3);
             rect(250, 60, 100, 50, 5);
 
-            // 显示屏
-            fill(10, 10, 15);
+            // 屏幕
+            fill(10, 15, 20);
             noStroke();
             rect(255, 65, 90, 40, 3);
 
-            // 楼层数字
-            const floorNum = elevator.displayFloor;
-
-            // 数字发光效果
-            push();
+            // 数字
             let glowAlpha = 255;
             if (elevator.floorChangeTimer < 200) {
                 glowAlpha = 255 - (elevator.floorChangeTimer / 200) * 100;
             }
 
-            // 外层光晕
             fill(255, 210, 90, glowAlpha * 0.3);
             textSize(50);
-            textFont('monospace');
-            text(floorNum, 300, 85);
+            text(elevator.displayFloor, 300, 85);
 
-            // 中层光晕
             fill(255, 210, 90, glowAlpha * 0.6);
             textSize(45);
-            text(floorNum, 300, 85);
+            text(elevator.displayFloor, 300, 85);
 
-            // 核心数字
             fill(255, 210, 90, glowAlpha);
             textSize(40);
-            text(floorNum, 300, 85);
-            pop();
+            text(elevator.displayFloor, 300, 85);
 
             pop();
         }
 
         function drawStatusText() {
-            push();
-            fill(180, 180, 190);
+            fill(180, 185, 190);
             textSize(14);
-            textFont('sans-serif');
             textAlign(LEFT, TOP);
+            noStroke();
             text(elevator.getStatusText(), 20, 20);
 
-            // 队列信息
             if (elevator.targetQueue.length > 0) {
                 textSize(12);
-                fill(150, 150, 160);
+                fill(150, 155, 160);
                 text(`队列: ${elevator.targetQueue.join(', ')}`, 20, 740);
             }
-            pop();
+
+            textAlign(CENTER, CENTER); // 恢复默认
         }
 
         function mousePressed() {
@@ -734,16 +527,25 @@
         }
 
         function handleClick(x, y) {
-            // 检查是否点击了按钮
-            if (elevator.state === STATE.IDLE || elevator.state === STATE.DOOR_OPEN || elevator.state === STATE.MOVING) {
+            if (elevator.state === STATE.IDLE ||
+                elevator.state === STATE.DOOR_OPEN ||
+                elevator.state === STATE.MOVING) {
                 elevator.buttons.forEach(btn => {
                     const d = dist(x, y, btn.x, btn.y);
                     if (d < 25) {
                         elevator.addTarget(btn.floor);
+                        console.log('Button clicked:', btn.floor);
                     }
                 });
             }
         }
+
+        // 错误处理
+        window.addEventListener('error', function(e) {
+            console.error('Global error:', e.error);
+            document.getElementById('errorMsg').style.display = 'block';
+            document.getElementById('errorMsg').textContent = 'Error: ' + e.message;
+        });
     </script>
 </body>
 </html>
