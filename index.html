@@ -3,32 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D电梯体验 - 3D Elevator Experience</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <title>画廊式电梯 - Gallery Elevator</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            overflow: hidden;
         }
         body {
             width: 100vw;
             height: 100vh;
             background: #000;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            cursor: crosshair;
+            overflow: hidden;
         }
         canvas {
             display: block;
+            cursor: crosshair;
         }
     </style>
 </head>
 <body>
+    <canvas id="elevator"></canvas>
     <script>
-        console.log('3D Elevator started');
+        'use strict';
 
-        // ========== 状态常量 ==========
+        // ========== 配置和常量 ==========
         const STATE = {
             IDLE: 'IDLE',
             MOVING: 'MOVING',
@@ -37,77 +37,56 @@
             DOOR_CLOSING: 'DOOR_CLOSING'
         };
 
-        // ========== 3D相机和投影 ==========
-        class Camera {
-            constructor() {
-                this.pos = { x: 0, y: 0, z: -2.5 }; // 相机位置（电梯内部后方）
-                this.yaw = 0;   // 左右旋转（鼠标x）
-                this.pitch = 0; // 上下旋转（鼠标y）
-                this.fov = 60;  // 视场角
-                this.near = 0.1;
-                this.far = 100;
-            }
+        const CONFIG = {
+            vanishingPoint: { x: 0.5, y: 0.45 }, // 消失点位置（屏幕比例）
+            ceilingLights: 4, // 天花板灯数量
+            perspectiveFactor: 0.7, // 透视强度
+            floorGridSize: 12, // 地板网格线数量
+            wallRailsCount: 5 // 墙面横条数量
+        };
 
-            // 3D点投影到2D屏幕
-            project(x, y, z) {
-                // 应用相机旋转
-                let dx = x - this.pos.x;
-                let dy = y - this.pos.y;
-                let dz = z - this.pos.z;
+        // ========== 画布设置 ==========
+        const canvas = document.getElementById('elevator');
+        const ctx = canvas.getContext('2d');
+        let W, H, VP_X, VP_Y; // 画布尺寸和消失点坐标
 
-                // 简单旋转（yaw和pitch）
-                let cosYaw = Math.cos(this.yaw);
-                let sinYaw = Math.sin(this.yaw);
-                let cosPitch = Math.cos(this.pitch);
-                let sinPitch = Math.sin(this.pitch);
+        function resizeCanvas() {
+            W = canvas.width = window.innerWidth;
+            H = canvas.height = window.innerHeight;
+            VP_X = W * CONFIG.vanishingPoint.x;
+            VP_Y = H * CONFIG.vanishingPoint.y;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
 
-                // 先绕Y轴旋转（yaw）
-                let tx = dx * cosYaw + dz * sinYaw;
-                let tz = -dx * sinYaw + dz * cosYaw;
-                dx = tx;
-                dz = tz;
-
-                // 再绕X轴旋转（pitch）
-                let ty = dy * cosPitch - dz * sinPitch;
-                tz = dy * sinPitch + dz * cosPitch;
-                dy = ty;
-                dz = tz;
-
-                // 透视投影
-                if (dz <= this.near) dz = this.near + 0.01;
-
-                let scale = (width / 2) / Math.tan((this.fov * Math.PI / 180) / 2);
-                let screenX = (dx * scale / dz) + width / 2;
-                let screenY = (-dy * scale / dz) + height / 2;
-
-                return { x: screenX, y: screenY, z: dz };
-            }
-
-            updateFromMouse(mx, my) {
-                // 鼠标位置映射到角度（±5度）
-                let maxAngle = 0.087; // 约5度
-                this.yaw = ((mx / width) - 0.5) * 2 * maxAngle;
-                this.pitch = ((my / height) - 0.5) * 2 * maxAngle;
-            }
-
-            addVibration(amount) {
-                this.pos.y += amount;
-            }
+        // ========== 透视投影辅助函数 ==========
+        // 根据深度(z: 0=近处, 1=远处)计算透视缩放
+        function getPerspectiveScale(z) {
+            return 1 - z * CONFIG.perspectiveFactor;
         }
 
-        // ========== 电梯类（保持原有逻辑）==========
+        // 将3D点(x: -1到1, y: -1到1, z: 0到1)投影到屏幕
+        function project3D(x, y, z) {
+            const scale = getPerspectiveScale(z);
+            const screenX = VP_X + (x * W * 0.5 * scale);
+            const screenY = VP_Y + (y * H * 0.5 * scale);
+            return { x: screenX, y: screenY, scale };
+        }
+
+        // ========== 电梯状态机 ==========
         class Elevator {
             constructor() {
                 this.currentFloor = 1;
                 this.displayFloor = 1;
                 this.targetQueue = [];
                 this.state = STATE.IDLE;
-                this.doorProgress = 0;
+                this.doorProgress = 0; // 0=关闭, 1=打开
                 this.stateTimer = 0;
-                this.movingTimer = 0;
-                this.shakeOffset = 0;
+                this.moveTimer = 0;
                 this.floorChangeTimer = 0;
+                this.vibration = 0;
 
+                // 按钮配置
                 this.buttons = [
                     { floor: 5, active: false },
                     { floor: 4, active: false },
@@ -123,18 +102,20 @@
                 switch(this.state) {
                     case STATE.IDLE:
                         this.doorProgress = 0;
+                        this.vibration = 0;
                         if (this.targetQueue.length > 0) {
                             this.state = STATE.MOVING;
-                            this.movingTimer = 0;
+                            this.moveTimer = 0;
                             this.floorChangeTimer = 0;
                         }
                         break;
 
                     case STATE.MOVING:
-                        this.movingTimer += dt;
-                        this.shakeOffset = Math.sin(this.movingTimer * 0.01) * 0.02;
+                        this.moveTimer += dt;
+                        // 轻微振动
+                        this.vibration = Math.sin(this.moveTimer * 0.01) * 2;
 
-                        if (this.movingTimer > 800) {
+                        if (this.moveTimer > 800) {
                             const target = this.targetQueue[0];
 
                             if (this.displayFloor < target) {
@@ -145,14 +126,14 @@
                                 this.floorChangeTimer = 0;
                             }
 
-                            this.movingTimer = 0;
+                            this.moveTimer = 0;
 
                             if (this.displayFloor === target) {
                                 this.currentFloor = target;
                                 this.targetQueue.shift();
                                 this.state = STATE.DOOR_OPENING;
                                 this.stateTimer = 0;
-                                this.shakeOffset = 0;
+                                this.vibration = 0;
 
                                 this.buttons.forEach(btn => {
                                     if (btn.floor === target) btn.active = false;
@@ -162,7 +143,7 @@
                         break;
 
                     case STATE.DOOR_OPENING:
-                        this.doorProgress = Math.min(1, this.doorProgress + dt / 800);
+                        this.doorProgress = Math.min(1, this.doorProgress + dt / 1000);
                         if (this.doorProgress >= 1) {
                             this.state = STATE.DOOR_OPEN;
                             this.stateTimer = 0;
@@ -171,14 +152,14 @@
 
                     case STATE.DOOR_OPEN:
                         this.doorProgress = 1;
-                        if (this.stateTimer > 1500) {
+                        if (this.stateTimer > 2000) {
                             this.state = STATE.DOOR_CLOSING;
                             this.stateTimer = 0;
                         }
                         break;
 
                     case STATE.DOOR_CLOSING:
-                        this.doorProgress = Math.max(0, this.doorProgress - dt / 800);
+                        this.doorProgress = Math.max(0, this.doorProgress - dt / 1000);
                         if (this.doorProgress <= 0) {
                             this.state = STATE.IDLE;
                             this.stateTimer = 0;
@@ -200,792 +181,619 @@
 
             getStatusText() {
                 switch(this.state) {
-                    case STATE.IDLE: return '点击左侧按钮选择楼层';
-                    case STATE.MOVING: return '电梯运行中...';
-                    case STATE.DOOR_OPENING:
-                    case STATE.DOOR_OPEN: return `已到达 ${this.currentFloor} 层`;
-                    case STATE.DOOR_CLOSING: return '关门中...';
+                    case STATE.IDLE: return 'Select a floor';
+                    case STATE.MOVING: return 'Moving...';
+                    case STATE.DOOR_OPENING: return `Arriving floor ${this.currentFloor}`;
+                    case STATE.DOOR_OPEN: return `Floor ${this.currentFloor}`;
+                    case STATE.DOOR_CLOSING: return 'Closing...';
                     default: return '';
                 }
             }
         }
 
-        // ========== 3D绘制辅助函数 ==========
-        function drawQuad3D(cam, v1, v2, v3, v4, color, doStroke = false) {
-            let p1 = cam.project(v1.x, v1.y, v1.z);
-            let p2 = cam.project(v2.x, v2.y, v2.z);
-            let p3 = cam.project(v3.x, v3.y, v3.z);
-            let p4 = cam.project(v4.x, v4.y, v4.z);
-
-            fill(color);
-            if (doStroke) {
-                stroke(0, 0, 0, 100);
-                strokeWeight(1);
-            } else {
-                noStroke();
+        // ========== 场景渲染 ==========
+        class Scene {
+            constructor() {
+                this.elevator = new Elevator();
             }
 
-            beginShape();
-            vertex(p1.x, p1.y);
-            vertex(p2.x, p2.y);
-            vertex(p3.x, p3.y);
-            vertex(p4.x, p4.y);
-            endShape(CLOSE);
+            // 绘制地板（透视网格）
+            drawFloor() {
+                ctx.save();
+                ctx.translate(0, this.elevator.vibration);
+
+                // 地板梯形
+                const floorBottom = H;
+                const floorTop = VP_Y;
+
+                // 地板基础填充
+                const floorGrad = ctx.createLinearGradient(0, floorTop, 0, floorBottom);
+                floorGrad.addColorStop(0, '#3a3a3a');
+                floorGrad.addColorStop(0.6, '#2a2a2a');
+                floorGrad.addColorStop(1, '#1a1a1a');
+
+                ctx.fillStyle = floorGrad;
+                ctx.beginPath();
+                const floorNear = W * 0.9;
+                const floorFar = W * 0.3;
+                ctx.moveTo((W - floorNear) / 2, floorBottom);
+                ctx.lineTo((W + floorNear) / 2, floorBottom);
+                ctx.lineTo(VP_X + floorFar / 2, floorTop);
+                ctx.lineTo(VP_X - floorFar / 2, floorTop);
+                ctx.closePath();
+                ctx.fill();
+
+                // 透视网格线
+                ctx.strokeStyle = 'rgba(80, 80, 80, 0.4)';
+                ctx.lineWidth = 1;
+
+                // 横向网格线（向消失点收束）
+                for (let i = 0; i <= CONFIG.floorGridSize; i++) {
+                    const ratio = i / CONFIG.floorGridSize;
+                    const y = floorTop + (floorBottom - floorTop) * ratio;
+                    const width = floorFar + (floorNear - floorFar) * ratio;
+
+                    ctx.beginPath();
+                    ctx.moveTo(VP_X - width / 2, y);
+                    ctx.lineTo(VP_X + width / 2, y);
+                    ctx.stroke();
+                }
+
+                // 纵向网格线（向消失点汇聚）
+                for (let i = 0; i <= 8; i++) {
+                    const xRatio = (i - 4) / 4;
+                    const xNear = VP_X + (floorNear / 2) * xRatio;
+                    const xFar = VP_X + (floorFar / 2) * xRatio;
+
+                    ctx.beginPath();
+                    ctx.moveTo(xNear, floorBottom);
+                    ctx.lineTo(xFar, floorTop);
+                    ctx.stroke();
+                }
+
+                // 地板中央反光
+                const reflectGrad = ctx.createRadialGradient(VP_X, H * 0.7, 0, VP_X, H * 0.7, W * 0.3);
+                reflectGrad.addColorStop(0, 'rgba(255, 255, 255, 0.08)');
+                reflectGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                ctx.fillStyle = reflectGrad;
+                ctx.fillRect(0, floorTop, W, floorBottom - floorTop);
+
+                ctx.restore();
+            }
+
+            // 绘制天花板和吊灯
+            drawCeiling() {
+                ctx.save();
+                ctx.translate(0, this.elevator.vibration);
+
+                const ceilingTop = 0;
+                const ceilingBottom = VP_Y;
+
+                // 天花板梯形
+                const ceilGrad = ctx.createLinearGradient(0, ceilingTop, 0, ceilingBottom);
+                ceilGrad.addColorStop(0, '#4a4a4a');
+                ceilGrad.addColorStop(1, '#3a3a3a');
+
+                ctx.fillStyle = ceilGrad;
+                ctx.beginPath();
+                const ceilNear = W * 0.9;
+                const ceilFar = W * 0.3;
+                ctx.moveTo((W - ceilNear) / 2, ceilingTop);
+                ctx.lineTo((W + ceilNear) / 2, ceilingTop);
+                ctx.lineTo(VP_X + ceilFar / 2, ceilingBottom);
+                ctx.lineTo(VP_X - ceilFar / 2, ceilingBottom);
+                ctx.closePath();
+                ctx.fill();
+
+                // 绘制天花板吊灯（递减透视）
+                for (let i = 0; i < CONFIG.ceilingLights; i++) {
+                    const z = i / (CONFIG.ceilingLights - 1); // 0到1
+                    const y = ceilingTop + (ceilingBottom - ceilingTop) * z * 0.8;
+                    const scale = getPerspectiveScale(z);
+                    const lightSize = 60 * scale;
+
+                    // 灯体
+                    ctx.fillStyle = '#f5f5dc';
+                    ctx.beginPath();
+                    ctx.arc(VP_X, y, lightSize * 0.3, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // 灯光光晕（多层）
+                    for (let j = 0; j < 4; j++) {
+                        const glowGrad = ctx.createRadialGradient(
+                            VP_X, y, lightSize * (0.3 + j * 0.2),
+                            VP_X, y, lightSize * (0.8 + j * 0.5)
+                        );
+                        glowGrad.addColorStop(0, `rgba(255, 248, 220, ${0.3 - j * 0.06})`);
+                        glowGrad.addColorStop(1, 'rgba(255, 248, 220, 0)');
+                        ctx.fillStyle = glowGrad;
+                        ctx.fillRect(VP_X - lightSize * 2, y - lightSize * 2, lightSize * 4, lightSize * 4);
+                    }
+                }
+
+                ctx.restore();
+            }
+
+            // 绘制左右墙壁
+            drawWalls() {
+                ctx.save();
+                ctx.translate(0, this.elevator.vibration);
+
+                const topY = 0;
+                const bottomY = H;
+                const midY = VP_Y;
+
+                // 左墙
+                const leftGrad = ctx.createLinearGradient(0, midY, W * 0.2, midY);
+                leftGrad.addColorStop(0, '#1a1a1a');
+                leftGrad.addColorStop(0.3, '#2a2a2a');
+                leftGrad.addColorStop(1, '#1a1a1a');
+
+                ctx.fillStyle = leftGrad;
+                ctx.beginPath();
+                ctx.moveTo(0, topY);
+                ctx.lineTo(W * 0.1, topY);
+                ctx.lineTo(VP_X - W * 0.15, midY);
+                ctx.lineTo(VP_X - W * 0.15, midY);
+                ctx.lineTo(W * 0.1, bottomY);
+                ctx.lineTo(0, bottomY);
+                ctx.closePath();
+                ctx.fill();
+
+                // 右墙
+                const rightGrad = ctx.createLinearGradient(W * 0.8, midY, W, midY);
+                rightGrad.addColorStop(0, '#1a1a1a');
+                rightGrad.addColorStop(0.7, '#2a2a2a');
+                rightGrad.addColorStop(1, '#1a1a1a');
+
+                ctx.fillStyle = rightGrad;
+                ctx.beginPath();
+                ctx.moveTo(W, topY);
+                ctx.lineTo(W * 0.9, topY);
+                ctx.lineTo(VP_X + W * 0.15, midY);
+                ctx.lineTo(VP_X + W * 0.15, midY);
+                ctx.lineTo(W * 0.9, bottomY);
+                ctx.lineTo(W, bottomY);
+                ctx.closePath();
+                ctx.fill();
+
+                // 墙面横条（增强透视）
+                ctx.strokeStyle = 'rgba(100, 100, 100, 0.3)';
+                ctx.lineWidth = 2;
+
+                for (let i = 1; i <= CONFIG.wallRailsCount; i++) {
+                    const ratio = i / (CONFIG.wallRailsCount + 1);
+                    const y = topY + (bottomY - topY) * ratio;
+
+                    // 左墙横条
+                    ctx.beginPath();
+                    const leftNearX = W * 0.1 * (1 - ratio * 0.5);
+                    const leftFarX = VP_X - W * 0.15;
+                    ctx.moveTo(leftNearX, y);
+                    ctx.lineTo(leftFarX, midY + (y - midY) * 0.3);
+                    ctx.stroke();
+
+                    // 右墙横条
+                    ctx.beginPath();
+                    const rightNearX = W - W * 0.1 * (1 - ratio * 0.5);
+                    const rightFarX = VP_X + W * 0.15;
+                    ctx.moveTo(rightNearX, y);
+                    ctx.lineTo(rightFarX, midY + (y - midY) * 0.3);
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+
+            // 绘制背景墙（门的背景）
+            drawBackWall() {
+                ctx.save();
+                ctx.translate(0, this.elevator.vibration);
+
+                const wallWidth = W * 0.3;
+                const wallHeight = H * 0.5;
+                const wallX = VP_X - wallWidth / 2;
+                const wallY = VP_Y - wallHeight / 2;
+
+                // 背景墙
+                ctx.fillStyle = '#2a2a2a';
+                ctx.fillRect(wallX, wallY, wallWidth, wallHeight);
+
+                // 墙面边缘阴影
+                ctx.strokeStyle = '#1a1a1a';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(wallX, wallY, wallWidth, wallHeight);
+
+                ctx.restore();
+            }
+
+            // 绘制3D门
+            drawDoors() {
+                ctx.save();
+                ctx.translate(0, this.elevator.vibration);
+
+                const doorWidth = W * 0.13;
+                const doorHeight = H * 0.45;
+                const doorY = VP_Y - doorHeight / 2;
+                const slideOffset = doorWidth * this.elevator.doorProgress;
+
+                // 门框
+                ctx.fillStyle = '#555';
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 4;
+                const frameThick = 8;
+
+                // 顶部门框
+                ctx.fillRect(VP_X - doorWidth - frameThick, doorY - frameThick,
+                            doorWidth * 2 + frameThick * 2, frameThick);
+                // 底部门框
+                ctx.fillRect(VP_X - doorWidth - frameThick, doorY + doorHeight,
+                            doorWidth * 2 + frameThick * 2, frameThick);
+                // 左侧门框
+                ctx.fillRect(VP_X - doorWidth - frameThick, doorY,
+                            frameThick, doorHeight);
+                // 右侧门框
+                ctx.fillRect(VP_X + doorWidth, doorY,
+                            frameThick, doorHeight);
+
+                // 如果门打开，绘制外部走廊
+                if (this.elevator.doorProgress > 0) {
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.rect(VP_X - slideOffset, doorY, slideOffset * 2, doorHeight);
+                    ctx.clip();
+
+                    // 外部走廊（过曝光效果）
+                    const hallwayGrad = ctx.createLinearGradient(VP_X, doorY, VP_X, doorY + doorHeight);
+                    hallwayGrad.addColorStop(0, '#d0d0d0');
+                    hallwayGrad.addColorStop(0.5, '#f0f0f0');
+                    hallwayGrad.addColorStop(1, '#d0d0d0');
+                    ctx.fillStyle = hallwayGrad;
+                    ctx.fillRect(VP_X - slideOffset, doorY, slideOffset * 2, doorHeight);
+
+                    // 外部楼层装饰
+                    this.drawExteriorScene(this.elevator.currentFloor, doorY, doorHeight);
+
+                    ctx.restore();
+                }
+
+                // 左门
+                const leftDoorGrad = ctx.createLinearGradient(
+                    VP_X - doorWidth - slideOffset, 0,
+                    VP_X - slideOffset, 0
+                );
+                leftDoorGrad.addColorStop(0, '#4a4a4a');
+                leftDoorGrad.addColorStop(0.05, '#6a6a6a');
+                leftDoorGrad.addColorStop(0.5, '#5a5a5a');
+                leftDoorGrad.addColorStop(0.95, '#6a6a6a');
+                leftDoorGrad.addColorStop(1, '#4a4a4a');
+
+                ctx.fillStyle = leftDoorGrad;
+                ctx.fillRect(VP_X - doorWidth - slideOffset, doorY, doorWidth, doorHeight);
+
+                // 左门高光线
+                ctx.strokeStyle = 'rgba(150, 150, 150, 0.5)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(VP_X - doorWidth * 0.5 - slideOffset, doorY + 20);
+                ctx.lineTo(VP_X - doorWidth * 0.5 - slideOffset, doorY + doorHeight - 20);
+                ctx.stroke();
+
+                // 左门把手
+                ctx.fillStyle = '#333';
+                ctx.fillRect(VP_X - doorWidth * 0.3 - slideOffset, doorY + doorHeight * 0.45,
+                            doorWidth * 0.15, doorHeight * 0.08);
+
+                // 右门
+                const rightDoorGrad = ctx.createLinearGradient(
+                    VP_X + slideOffset, 0,
+                    VP_X + doorWidth + slideOffset, 0
+                );
+                rightDoorGrad.addColorStop(0, '#4a4a4a');
+                rightDoorGrad.addColorStop(0.05, '#6a6a6a');
+                rightDoorGrad.addColorStop(0.5, '#5a5a5a');
+                rightDoorGrad.addColorStop(0.95, '#6a6a6a');
+                rightDoorGrad.addColorStop(1, '#4a4a4a');
+
+                ctx.fillStyle = rightDoorGrad;
+                ctx.fillRect(VP_X + slideOffset, doorY, doorWidth, doorHeight);
+
+                // 右门高光线
+                ctx.strokeStyle = 'rgba(150, 150, 150, 0.5)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(VP_X + doorWidth * 0.5 + slideOffset, doorY + 20);
+                ctx.lineTo(VP_X + doorWidth * 0.5 + slideOffset, doorY + doorHeight - 20);
+                ctx.stroke();
+
+                // 右门把手
+                ctx.fillStyle = '#333';
+                ctx.fillRect(VP_X + doorWidth * 0.15 + slideOffset, doorY + doorHeight * 0.45,
+                            doorWidth * 0.15, doorHeight * 0.08);
+
+                // 门缝
+                if (this.elevator.doorProgress < 1) {
+                    ctx.strokeStyle = '#000';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(VP_X - slideOffset, doorY);
+                    ctx.lineTo(VP_X - slideOffset, doorY + doorHeight);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(VP_X + slideOffset, doorY);
+                    ctx.lineTo(VP_X + slideOffset, doorY + doorHeight);
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+
+            // 绘制外部场景装饰
+            drawExteriorScene(floor, doorY, doorHeight) {
+                ctx.fillStyle = '#666';
+                ctx.font = 'bold 24px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                switch(floor) {
+                    case 1:
+                        ctx.fillText('LOBBY', VP_X, doorY + doorHeight * 0.3);
+                        break;
+                    case 2:
+                        ctx.fillText('OFFICE', VP_X, doorY + doorHeight * 0.3);
+                        break;
+                    case 3:
+                        ctx.fillText('GALLERY', VP_X, doorY + doorHeight * 0.3);
+                        break;
+                    case 4:
+                        ctx.fillText('NEON', VP_X, doorY + doorHeight * 0.3);
+                        break;
+                    case 5:
+                        ctx.fillText('ROOFTOP', VP_X, doorY + doorHeight * 0.3);
+                        break;
+                }
+            }
+
+            // 绘制楼层显示器
+            drawFloorIndicator() {
+                ctx.save();
+                ctx.translate(0, this.elevator.vibration);
+
+                const indW = W * 0.08;
+                const indH = H * 0.05;
+                const indX = VP_X - indW / 2;
+                const indY = VP_Y - H * 0.3;
+
+                // 显示器外壳（带透视倾斜）
+                ctx.fillStyle = '#2a2a2a';
+                ctx.strokeStyle = '#555';
+                ctx.lineWidth = 2;
+                ctx.fillRect(indX, indY, indW, indH);
+                ctx.strokeRect(indX, indY, indW, indH);
+
+                // 显示屏
+                ctx.fillStyle = '#0a0a0a';
+                ctx.fillRect(indX + 4, indY + 4, indW - 8, indH - 8);
+
+                // LED数字
+                let glowAlpha = 1;
+                if (this.elevator.floorChangeTimer < 200) {
+                    glowAlpha = 1 - (this.elevator.floorChangeTimer / 200) * 0.4;
+                }
+
+                ctx.fillStyle = `rgba(255, 200, 50, ${glowAlpha})`;
+                ctx.font = `bold ${indH * 0.6}px monospace`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.elevator.displayFloor, VP_X, indY + indH / 2);
+
+                // LED光晕
+                const glowGrad = ctx.createRadialGradient(VP_X, indY + indH / 2, 0,
+                                                         VP_X, indY + indH / 2, indH);
+                glowGrad.addColorStop(0, `rgba(255, 200, 50, ${glowAlpha * 0.3})`);
+                glowGrad.addColorStop(1, 'rgba(255, 200, 50, 0)');
+                ctx.fillStyle = glowGrad;
+                ctx.fillRect(indX - indH, indY - indH / 2, indW + indH * 2, indH * 2);
+
+                ctx.restore();
+            }
+
+            // 绘制按钮面板
+            drawButtonPanel() {
+                ctx.save();
+                ctx.translate(0, this.elevator.vibration);
+
+                // 面板位置（左墙上，有透视）
+                const panelX = W * 0.15;
+                const panelY = H * 0.35;
+                const panelW = W * 0.08;
+                const panelH = H * 0.45;
+
+                // 面板阴影
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fillRect(panelX + 5, panelY + 5, panelW, panelH);
+
+                // 面板主体（带厚度）
+                const panelGrad = ctx.createLinearGradient(panelX, panelY, panelX + panelW, panelY);
+                panelGrad.addColorStop(0, '#3a3a3a');
+                panelGrad.addColorStop(0.1, '#4a4a4a');
+                panelGrad.addColorStop(0.9, '#3a3a3a');
+                panelGrad.addColorStop(1, '#2a2a2a');
+
+                ctx.fillStyle = panelGrad;
+                ctx.fillRect(panelX, panelY, panelW, panelH);
+
+                // 面板边框
+                ctx.strokeStyle = '#555';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(panelX, panelY, panelW, panelH);
+
+                // 绘制按钮
+                const buttonRadius = Math.min(panelW, panelH) * 0.12;
+                const buttonSpacing = panelH * 0.16;
+                const startY = panelY + panelH * 0.15;
+
+                this.elevator.buttons.forEach((btn, i) => {
+                    const bx = panelX + panelW / 2;
+                    const by = startY + i * buttonSpacing;
+
+                    const isCurrent = btn.floor === this.elevator.currentFloor;
+                    const isActive = btn.active;
+
+                    // 按钮阴影
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                    ctx.beginPath();
+                    ctx.arc(bx + 2, by + 2, buttonRadius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // 按钮本体（凸起效果）
+                    const btnGrad = ctx.createRadialGradient(
+                        bx - buttonRadius * 0.3, by - buttonRadius * 0.3, 0,
+                        bx, by, buttonRadius
+                    );
+
+                    if (isActive) {
+                        btnGrad.addColorStop(0, '#ffd700');
+                        btnGrad.addColorStop(0.6, '#ffaa00');
+                        btnGrad.addColorStop(1, '#cc8800');
+                    } else {
+                        btnGrad.addColorStop(0, '#666');
+                        btnGrad.addColorStop(0.6, '#444');
+                        btnGrad.addColorStop(1, '#222');
+                    }
+
+                    ctx.fillStyle = btnGrad;
+                    ctx.beginPath();
+                    ctx.arc(bx, by, buttonRadius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // 按钮边缘
+                    ctx.strokeStyle = isCurrent ? '#0f0' : '#333';
+                    ctx.lineWidth = isCurrent ? 2 : 1;
+                    ctx.beginPath();
+                    ctx.arc(bx, by, buttonRadius, 0, Math.PI * 2);
+                    ctx.stroke();
+
+                    // 按钮光晕（激活时）
+                    if (isActive) {
+                        const glowGrad = ctx.createRadialGradient(bx, by, buttonRadius,
+                                                                 bx, by, buttonRadius * 2);
+                        glowGrad.addColorStop(0, 'rgba(255, 200, 50, 0.4)');
+                        glowGrad.addColorStop(1, 'rgba(255, 200, 50, 0)');
+                        ctx.fillStyle = glowGrad;
+                        ctx.beginPath();
+                        ctx.arc(bx, by, buttonRadius * 2, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
+                    // 数字
+                    ctx.fillStyle = isActive ? '#000' : '#fff';
+                    ctx.font = `bold ${buttonRadius}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(btn.floor, bx, by);
+
+                    // 保存按钮位置用于点击检测
+                    btn.screenPos = { x: bx, y: by, radius: buttonRadius };
+                });
+
+                ctx.restore();
+            }
+
+            // 绘制大气雾效果
+            drawAtmosphere() {
+                // 从底部到消失点的雾气渐变
+                const fogGrad = ctx.createLinearGradient(0, H, 0, VP_Y);
+                fogGrad.addColorStop(0, 'rgba(0, 0, 0, 0.3)');
+                fogGrad.addColorStop(0.5, 'rgba(0, 0, 0, 0.1)');
+                fogGrad.addColorStop(1, 'rgba(255, 248, 220, 0.1)');
+
+                ctx.fillStyle = fogGrad;
+                ctx.fillRect(0, 0, W, H);
+            }
+
+            // 绘制状态文字
+            drawStatusText() {
+                ctx.fillStyle = 'rgba(220, 220, 220, 0.8)';
+                ctx.font = '16px Arial';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'top';
+                ctx.fillText(this.elevator.getStatusText(), 20, 20);
+
+                if (this.elevator.targetQueue.length > 0) {
+                    ctx.fillStyle = 'rgba(180, 180, 180, 0.8)';
+                    ctx.font = '14px Arial';
+                    ctx.fillText(`Queue: ${this.elevator.targetQueue.join(', ')}`, 20, H - 40);
+                }
+            }
+
+            // 主渲染函数
+            render() {
+                // 清屏
+                ctx.fillStyle = '#0a0a0a';
+                ctx.fillRect(0, 0, W, H);
+
+                // 绘制顺序（从后到前）
+                this.drawFloor();
+                this.drawCeiling();
+                this.drawWalls();
+                this.drawBackWall();
+                this.drawDoors();
+                this.drawAtmosphere();
+                this.drawFloorIndicator();
+                this.drawButtonPanel();
+                this.drawStatusText();
+            }
         }
 
-        function drawLine3D(cam, v1, v2, col, weight = 1) {
-            let p1 = cam.project(v1.x, v1.y, v1.z);
-            let p2 = cam.project(v2.x, v2.y, v2.z);
-            stroke(col);
-            strokeWeight(weight);
-            line(p1.x, p1.y, p2.x, p2.y);
-        }
+        // ========== 主循环 ==========
+        const scene = new Scene();
+        let lastTime = performance.now();
 
-        // 简单Lambert着色（法向量dot光源方向）
-        function getLambertColor(normal, lightDir, baseColor) {
-            let dot = Math.max(0, normal.x * lightDir.x + normal.y * lightDir.y + normal.z * lightDir.z);
-            let brightness = 0.3 + dot * 0.7; // 环境光0.3 + 漫反射0.7
-            return color(
-                red(baseColor) * brightness,
-                green(baseColor) * brightness,
-                blue(baseColor) * brightness
-            );
-        }
-
-        // ========== 全局变量 ==========
-        let elevator;
-        let camera;
-        let lastTime = 0;
-        let mouseXSmooth = 0;
-        let mouseYSmooth = 0;
-
-        // 光源方向（从上方照射）
-        const lightDir = { x: 0, y: -1, z: 0 };
-
-        function setup() {
-            createCanvas(windowWidth, windowHeight);
-            elevator = new Elevator();
-            camera = new Camera();
-            textAlign(CENTER, CENTER);
-            lastTime = millis();
-
-            mouseXSmooth = width / 2;
-            mouseYSmooth = height / 2;
-        }
-
-        function windowResized() {
-            resizeCanvas(windowWidth, windowHeight);
-        }
-
-        function draw() {
-            const currentTime = millis();
+        function animate(currentTime) {
             const deltaTime = currentTime - lastTime;
             lastTime = currentTime;
 
-            if (!elevator) return;
+            scene.elevator.update(deltaTime);
+            scene.render();
 
-            elevator.update(deltaTime);
-
-            // 平滑鼠标移动
-            mouseXSmooth = lerp(mouseXSmooth, mouseX, 0.1);
-            mouseYSmooth = lerp(mouseYSmooth, mouseY, 0.1);
-            camera.updateFromMouse(mouseXSmooth, mouseYSmooth);
-
-            // 电梯运行时的振动
-            if (elevator.state === STATE.MOVING) {
-                camera.addVibration(elevator.shakeOffset);
-            }
-
-            // 清屏
-            background(5, 8, 12);
-
-            // 绘制3D场景
-            draw3DCabin();
-            draw3DDoors();
-            draw3DButtonPanel();
-            drawFloorIndicator();
-            drawStatusText();
-
-            // 恢复相机振动
-            if (elevator.state === STATE.MOVING) {
-                camera.pos.y -= elevator.shakeOffset;
-            }
+            requestAnimationFrame(animate);
         }
 
-        // ========== 绘制3D电梯舱 ==========
-        function draw3DCabin() {
-            // 电梯舱尺寸（3D坐标）
-            const w = 2;    // 宽度
-            const h = 3;    // 高度
-            const d = 4;    // 深度
+        animate(performance.now());
 
-            const left = -w;
-            const right = w;
-            const bottom = -h/2;
-            const top = h/2;
-            const back = d;
-            const front = 0;
-
-            // === 地板（带透视网格）===
-            push();
-            let floorNormal = { x: 0, y: 1, z: 0 };
-            let floorColor = getLambertColor(floorNormal, lightDir, color(30, 35, 40));
-
-            // 地板主体
-            drawQuad3D(camera,
-                { x: left, y: bottom, z: front },
-                { x: right, y: bottom, z: front },
-                { x: right, y: bottom, z: back },
-                { x: left, y: bottom, z: back },
-                floorColor
-            );
-
-            // 地板网格
-            stroke(50, 55, 60, 150);
-            strokeWeight(1);
-            for (let i = 0; i <= 10; i++) {
-                let zPos = front + (back - front) * i / 10;
-                drawLine3D(camera,
-                    { x: left, y: bottom, z: zPos },
-                    { x: right, y: bottom, z: zPos },
-                    color(50, 55, 60, 150)
-                );
-            }
-            for (let i = 0; i <= 8; i++) {
-                let xPos = left + (right - left) * i / 8;
-                drawLine3D(camera,
-                    { x: xPos, y: bottom, z: front },
-                    { x: xPos, y: bottom, z: back },
-                    color(50, 55, 60, 150)
-                );
-            }
-            pop();
-
-            // === 天花板（带灯光面板）===
-            push();
-            let ceilNormal = { x: 0, y: -1, z: 0 };
-            let ceilColor = getLambertColor(ceilNormal, lightDir, color(40, 45, 50));
-
-            drawQuad3D(camera,
-                { x: left, y: top, z: back },
-                { x: right, y: top, z: back },
-                { x: right, y: top, z: front },
-                { x: left, y: top, z: front },
-                ceilColor
-            );
-
-            // 天花板灯光面板（发光）
-            let lightPanel = {
-                x1: -0.6, x2: 0.6,
-                y: top - 0.05,
-                z1: 1.5, z2: 2.5
-            };
-
-            drawQuad3D(camera,
-                { x: lightPanel.x1, y: lightPanel.y, z: lightPanel.z1 },
-                { x: lightPanel.x2, y: lightPanel.y, z: lightPanel.z1 },
-                { x: lightPanel.x2, y: lightPanel.y, z: lightPanel.z2 },
-                { x: lightPanel.x1, y: lightPanel.y, z: lightPanel.z2 },
-                color(240, 240, 220, 200)
-            );
-
-            // 灯光光晕
-            noStroke();
-            let centerX = (lightPanel.x1 + lightPanel.x2) / 2;
-            let centerZ = (lightPanel.z1 + lightPanel.z2) / 2;
-            let pc = camera.project(centerX, lightPanel.y, centerZ);
-            for (let i = 0; i < 5; i++) {
-                fill(255, 250, 220, 60 - i * 10);
-                ellipse(pc.x, pc.y, 300 - i * 40, 200 - i * 30);
-            }
-            pop();
-
-            // === 左墙 ===
-            push();
-            let leftNormal = { x: 1, y: 0, z: 0 };
-            let leftColor = getLambertColor(leftNormal, lightDir, color(35, 40, 45));
-
-            drawQuad3D(camera,
-                { x: left, y: bottom, z: back },
-                { x: left, y: bottom, z: front },
-                { x: left, y: top, z: front },
-                { x: left, y: top, z: back },
-                leftColor
-            );
-
-            // 左墙金属条纹
-            stroke(55, 60, 65, 100);
-            strokeWeight(2);
-            for (let i = 0; i < 5; i++) {
-                let zPos = front + (back - front) * (0.2 + i * 0.15);
-                drawLine3D(camera,
-                    { x: left, y: bottom + 0.2, z: zPos },
-                    { x: left, y: top - 0.2, z: zPos },
-                    color(55, 60, 65, 100), 2
-                );
-            }
-            pop();
-
-            // === 右墙 ===
-            push();
-            let rightNormal = { x: -1, y: 0, z: 0 };
-            let rightColor = getLambertColor(rightNormal, lightDir, color(35, 40, 45));
-
-            drawQuad3D(camera,
-                { x: right, y: bottom, z: front },
-                { x: right, y: bottom, z: back },
-                { x: right, y: top, z: back },
-                { x: right, y: top, z: front },
-                rightColor
-            );
-
-            // 右墙金属条纹
-            stroke(55, 60, 65, 100);
-            strokeWeight(2);
-            for (let i = 0; i < 5; i++) {
-                let zPos = front + (back - front) * (0.2 + i * 0.15);
-                drawLine3D(camera,
-                    { x: right, y: bottom + 0.2, z: zPos },
-                    { x: right, y: top - 0.2, z: zPos },
-                    color(55, 60, 65, 100), 2
-                );
-            }
-            pop();
-
-            // === 背墙 ===
-            push();
-            let backNormal = { x: 0, y: 0, z: -1 };
-            let backColor = getLambertColor(backNormal, lightDir, color(25, 28, 32));
-
-            drawQuad3D(camera,
-                { x: left, y: bottom, z: back },
-                { x: right, y: bottom, z: back },
-                { x: right, y: top, z: back },
-                { x: left, y: top, z: back },
-                backColor
-            );
-            pop();
-        }
-
-        // ========== 绘制3D门 ==========
-        function draw3DDoors() {
-            const doorW = 0.8;
-            const doorH = 2.2;
-            const doorY = -1.1;
-            const doorZ = 0.01;
-
-            const slideOffset = doorW * elevator.doorProgress;
-
-            // 门框
-            push();
-            noStroke();
-            fill(60, 65, 70);
-
-            let frameThick = 0.1;
-            // 顶部门框
-            drawQuad3D(camera,
-                { x: -doorW - 0.1, y: doorY + doorH, z: doorZ - 0.05 },
-                { x: doorW + 0.1, y: doorY + doorH, z: doorZ - 0.05 },
-                { x: doorW + 0.1, y: doorY + doorH + frameThick, z: doorZ - 0.05 },
-                { x: -doorW - 0.1, y: doorY + doorH + frameThick, z: doorZ - 0.05 },
-                color(60, 65, 70)
-            );
-
-            // 左侧门框
-            drawQuad3D(camera,
-                { x: -doorW - 0.1, y: doorY, z: doorZ - 0.05 },
-                { x: -doorW - 0.1 + frameThick, y: doorY, z: doorZ - 0.05 },
-                { x: -doorW - 0.1 + frameThick, y: doorY + doorH, z: doorZ - 0.05 },
-                { x: -doorW - 0.1, y: doorY + doorH, z: doorZ - 0.05 },
-                color(60, 65, 70)
-            );
-
-            // 右侧门框
-            drawQuad3D(camera,
-                { x: doorW + 0.1 - frameThick, y: doorY, z: doorZ - 0.05 },
-                { x: doorW + 0.1, y: doorY, z: doorZ - 0.05 },
-                { x: doorW + 0.1, y: doorY + doorH, z: doorZ - 0.05 },
-                { x: doorW + 0.1 - frameThick, y: doorY + doorH, z: doorZ - 0.05 },
-                color(60, 65, 70)
-            );
-            pop();
-
-            // 如果门打开，绘制外部场景
-            if (elevator.doorProgress > 0) {
-                push();
-                draw3DExteriorScene(elevator.currentFloor, slideOffset);
-                pop();
-            }
-
-            // === 左门 ===
-            push();
-            let doorNormal = { x: 0, y: 0, z: -1 };
-            let doorBaseColor = color(70, 75, 80);
-            let leftDoorColor = getLambertColor(doorNormal, lightDir, doorBaseColor);
-
-            // 门的阴影
-            fill(0, 0, 0, 40);
-            drawQuad3D(camera,
-                { x: -doorW - slideOffset - 0.02, y: doorY, z: doorZ },
-                { x: -slideOffset, y: doorY, z: doorZ },
-                { x: -slideOffset, y: doorY + doorH, z: doorZ },
-                { x: -doorW - slideOffset - 0.02, y: doorY + doorH, z: doorZ },
-                color(0, 0, 0, 40)
-            );
-
-            // 门本体
-            drawQuad3D(camera,
-                { x: -doorW - slideOffset, y: doorY, z: doorZ },
-                { x: -slideOffset, y: doorY, z: doorZ },
-                { x: -slideOffset, y: doorY + doorH, z: doorZ },
-                { x: -doorW - slideOffset, y: doorY + doorH, z: doorZ },
-                leftDoorColor
-            );
-
-            // 门的高光线
-            stroke(100, 110, 120, 180);
-            strokeWeight(3);
-            let midX = -doorW/2 - slideOffset;
-            drawLine3D(camera,
-                { x: midX, y: doorY + 0.1, z: doorZ },
-                { x: midX, y: doorY + doorH - 0.1, z: doorZ },
-                color(100, 110, 120, 180), 3
-            );
-
-            // 门把手
-            fill(40, 45, 50);
-            let p1 = camera.project(-doorW * 0.2 - slideOffset, doorY + doorH * 0.5, doorZ);
-            rect(p1.x - 10, p1.y - 15, 20, 30, 3);
-            pop();
-
-            // === 右门 ===
-            push();
-            let rightDoorColor = getLambertColor(doorNormal, lightDir, doorBaseColor);
-
-            // 门的阴影
-            fill(0, 0, 0, 40);
-            drawQuad3D(camera,
-                { x: slideOffset, y: doorY, z: doorZ },
-                { x: doorW + slideOffset + 0.02, y: doorY, z: doorZ },
-                { x: doorW + slideOffset + 0.02, y: doorY + doorH, z: doorZ },
-                { x: slideOffset, y: doorY + doorH, z: doorZ },
-                color(0, 0, 0, 40)
-            );
-
-            // 门本体
-            drawQuad3D(camera,
-                { x: slideOffset, y: doorY, z: doorZ },
-                { x: doorW + slideOffset, y: doorY, z: doorZ },
-                { x: doorW + slideOffset, y: doorY + doorH, z: doorZ },
-                { x: slideOffset, y: doorY + doorH, z: doorZ },
-                rightDoorColor
-            );
-
-            // 门的高光线
-            stroke(100, 110, 120, 180);
-            strokeWeight(3);
-            midX = doorW/2 + slideOffset;
-            drawLine3D(camera,
-                { x: midX, y: doorY + 0.1, z: doorZ },
-                { x: midX, y: doorY + doorH - 0.1, z: doorZ },
-                color(100, 110, 120, 180), 3
-            );
-
-            // 门把手
-            fill(40, 45, 50);
-            let p2 = camera.project(doorW * 0.2 + slideOffset, doorY + doorH * 0.5, doorZ);
-            rect(p2.x - 10, p2.y - 15, 20, 30, 3);
-            pop();
-
-            // 门缝
-            if (elevator.doorProgress < 1) {
-                stroke(5, 8, 12);
-                strokeWeight(4);
-                drawLine3D(camera,
-                    { x: -slideOffset, y: doorY - 0.1, z: doorZ },
-                    { x: -slideOffset, y: doorY + doorH + 0.1, z: doorZ },
-                    color(5, 8, 12), 4
-                );
-                drawLine3D(camera,
-                    { x: slideOffset, y: doorY - 0.1, z: doorZ },
-                    { x: slideOffset, y: doorY + doorH + 0.1, z: doorZ },
-                    color(5, 8, 12), 4
-                );
-            }
-        }
-
-        // ========== 绘制3D外部场景（走廊）==========
-        function draw3DExteriorScene(floor, doorOpenWidth) {
-            const corridorDepth = 6;
-            const corridorWidth = 3;
-            const corridorHeight = 3;
-
-            // 走廊地板
-            push();
-            let floorCol = color(50, 45, 40);
-            if (floor === 2) floorCol = color(200, 205, 210);
-            if (floor === 3) floorCol = color(30, 25, 35);
-            if (floor === 4) floorCol = color(10, 5, 20);
-            if (floor === 5) floorCol = color(20, 25, 35);
-
-            drawQuad3D(camera,
-                { x: -corridorWidth, y: -1.5, z: 0.1 },
-                { x: corridorWidth, y: -1.5, z: 0.1 },
-                { x: corridorWidth, y: -1.5, z: corridorDepth },
-                { x: -corridorWidth, y: -1.5, z: corridorDepth },
-                floorCol
-            );
-            pop();
-
-            // 走廊天花板
-            push();
-            drawQuad3D(camera,
-                { x: -corridorWidth, y: 1.5, z: corridorDepth },
-                { x: corridorWidth, y: 1.5, z: corridorDepth },
-                { x: corridorWidth, y: 1.5, z: 0.1 },
-                { x: -corridorWidth, y: 1.5, z: 0.1 },
-                color(60, 65, 70)
-            );
-            pop();
-
-            // 走廊左墙
-            push();
-            let wallCol = color(40, 35, 30);
-            if (floor === 2) wallCol = color(180, 175, 170);
-            if (floor === 3) wallCol = color(25, 20, 30);
-            if (floor === 4) wallCol = color(15, 10, 25);
-
-            drawQuad3D(camera,
-                { x: -corridorWidth, y: -1.5, z: 0.1 },
-                { x: -corridorWidth, y: -1.5, z: corridorDepth },
-                { x: -corridorWidth, y: 1.5, z: corridorDepth },
-                { x: -corridorWidth, y: 1.5, z: 0.1 },
-                wallCol
-            );
-            pop();
-
-            // 走廊右墙
-            push();
-            drawQuad3D(camera,
-                { x: corridorWidth, y: -1.5, z: corridorDepth },
-                { x: corridorWidth, y: -1.5, z: 0.1 },
-                { x: corridorWidth, y: 1.5, z: 0.1 },
-                { x: corridorWidth, y: 1.5, z: corridorDepth },
-                wallCol
-            );
-            pop();
-
-            // 楼层特色装饰
-            drawFloorDecoration(floor);
-        }
-
-        function drawFloorDecoration(floor) {
-            push();
-            switch(floor) {
-                case 1: // Lobby
-                    // 植物
-                    fill(40, 80, 40);
-                    let pp = camera.project(-1.5, -0.5, 3);
-                    ellipse(pp.x, pp.y, 40, 60);
-
-                    // RECEPTION文字
-                    fill(200, 180, 150);
-                    textSize(24);
-                    let tp = camera.project(0, 0, 4);
-                    text('RECEPTION', tp.x, tp.y);
-                    break;
-
-                case 2: // Office
-                    // 办公室门
-                    fill(180, 170, 160);
-                    drawQuad3D(camera,
-                        { x: -2, y: -1, z: 2 },
-                        { x: -1.5, y: -1, z: 2 },
-                        { x: -1.5, y: 0.5, z: 2 },
-                        { x: -2, y: 0.5, z: 2 },
-                        color(180, 170, 160)
-                    );
-                    break;
-
-                case 3: // Gallery
-                    // 画框
-                    fill(180, 120, 80);
-                    drawQuad3D(camera,
-                        { x: -2.5, y: -0.2, z: 2.5 },
-                        { x: -1.8, y: -0.2, z: 2.5 },
-                        { x: -1.8, y: 0.5, z: 2.5 },
-                        { x: -2.5, y: 0.5, z: 2.5 },
-                        color(180, 120, 80)
-                    );
-                    break;
-
-                case 4: // Neon
-                    // 霓虹线条
-                    stroke(100, 150, 255, 200);
-                    strokeWeight(4);
-                    drawLine3D(camera,
-                        { x: -2.5, y: -1, z: 1 },
-                        { x: -2.5, y: 1, z: 1 },
-                        color(100, 150, 255, 200), 4
-                    );
-                    drawLine3D(camera,
-                        { x: 2.5, y: -1, z: 1 },
-                        { x: 2.5, y: 1, z: 1 },
-                        color(200, 100, 255, 200), 4
-                    );
-                    break;
-
-                case 5: // Rooftop
-                    // 星星
-                    noStroke();
-                    for (let i = 0; i < 10; i++) {
-                        let sx = -2 + Math.random() * 4;
-                        let sy = 0 + Math.random() * 1;
-                        let sz = 2 + Math.random() * 3;
-                        let sp = camera.project(sx, sy, sz);
-                        fill(255, 255, 220, 200);
-                        ellipse(sp.x, sp.y, 3, 3);
-                    }
-                    break;
-            }
-            pop();
-        }
-
-        // ========== 绘制3D按钮面板 ==========
-        function draw3DButtonPanel() {
-            const panelX = -1.8;
-            const panelY = -0.5;
-            const panelZ = 1.5;
-            const panelW = 0.4;
-            const panelH = 1.8;
-            const panelDepth = 0.1;
-
-            // 面板阴影
-            push();
-            fill(0, 0, 0, 80);
-            drawQuad3D(camera,
-                { x: panelX - 0.02, y: panelY - 0.02, z: panelZ },
-                { x: panelX + panelW + 0.02, y: panelY - 0.02, z: panelZ },
-                { x: panelX + panelW + 0.02, y: panelY + panelH + 0.02, z: panelZ },
-                { x: panelX - 0.02, y: panelY + panelH + 0.02, z: panelZ },
-                color(0, 0, 0, 80)
-            );
-            pop();
-
-            // 面板主体（前面）
-            push();
-            let panelNormal = { x: 1, y: 0, z: -0.3 };
-            let panelColor = getLambertColor(panelNormal, lightDir, color(42, 47, 52));
-
-            drawQuad3D(camera,
-                { x: panelX, y: panelY, z: panelZ },
-                { x: panelX + panelW, y: panelY, z: panelZ },
-                { x: panelX + panelW, y: panelY + panelH, z: panelZ },
-                { x: panelX, y: panelY + panelH, z: panelZ },
-                panelColor
-            );
-
-            // 面板边缘（右侧）
-            drawQuad3D(camera,
-                { x: panelX + panelW, y: panelY, z: panelZ },
-                { x: panelX + panelW, y: panelY, z: panelZ - panelDepth },
-                { x: panelX + panelW, y: panelY + panelH, z: panelZ - panelDepth },
-                { x: panelX + panelW, y: panelY + panelH, z: panelZ },
-                color(55, 60, 65)
-            );
-            pop();
-
-            // 绘制3D按钮
-            const buttonRadius = 0.08;
-            const buttonSpacing = 0.32;
-            const startY = panelY + 0.3;
-
-            elevator.buttons.forEach((btn, i) => {
-                let bx = panelX + panelW / 2;
-                let by = startY + i * buttonSpacing;
-                let bz = panelZ + 0.02;
-
-                const isCurrent = btn.floor === elevator.currentFloor;
-                const isActive = btn.active;
-
-                // 按钮投影位置
-                let bp = camera.project(bx, by, bz);
-
-                push();
-                // 按钮阴影
-                fill(0, 0, 0, 100);
-                ellipse(bp.x + 3, bp.y + 3, buttonRadius * 200, buttonRadius * 200);
-
-                // 按钮外圈
-                if (isActive) {
-                    fill(180, 140, 30);
-                } else if (isCurrent) {
-                    fill(50, 55, 60);
-                } else {
-                    fill(55, 60, 65);
-                }
-                ellipse(bp.x, bp.y, buttonRadius * 200, buttonRadius * 200);
-
-                // 按钮内圈
-                if (isActive) {
-                    fill(255, 200, 50);
-                } else if (isCurrent) {
-                    fill(65, 70, 75);
-                } else {
-                    fill(60, 65, 70);
-                }
-                ellipse(bp.x, bp.y, buttonRadius * 170, buttonRadius * 170);
-
-                // 按钮高光
-                if (!isActive) {
-                    fill(255, 255, 255, 40);
-                    ellipse(bp.x - buttonRadius * 30, bp.y - buttonRadius * 30,
-                           buttonRadius * 60, buttonRadius * 60);
-                }
-
-                // 发光效果
-                if (isActive) {
-                    noStroke();
-                    for (let j = 0; j < 3; j++) {
-                        fill(255, 200, 50, 60 - j * 20);
-                        ellipse(bp.x, bp.y, buttonRadius * (240 + j * 40), buttonRadius * (240 + j * 40));
-                    }
-                }
-
-                // 数字
-                noStroke();
-                fill(isActive ? 40 : 220);
-                textSize(buttonRadius * 100);
-                textStyle(BOLD);
-                text(btn.floor, bp.x, bp.y);
-
-                // 当前楼层指示灯
-                if (isCurrent && !isActive) {
-                    fill(40, 45, 50);
-                    ellipse(bp.x + buttonRadius * 80, bp.y - buttonRadius * 80,
-                           buttonRadius * 30, buttonRadius * 30);
-                    fill(100, 255, 100, 200);
-                    ellipse(bp.x + buttonRadius * 80, bp.y - buttonRadius * 80,
-                           buttonRadius * 20, buttonRadius * 20);
-                    fill(100, 255, 100, 80);
-                    ellipse(bp.x + buttonRadius * 80, bp.y - buttonRadius * 80,
-                           buttonRadius * 40, buttonRadius * 40);
-                }
-
-                // 存储按钮位置用于点击检测
-                btn.screenPos = { x: bp.x, y: bp.y, radius: buttonRadius * 100 };
-                pop();
-            });
-        }
-
-        // ========== 绘制楼层显示器 ==========
-        function drawFloorIndicator() {
-            push();
-
-            const indicatorPos = camera.project(0, 0.9, 0.05);
-            const indicatorW = width * 0.12;
-            const indicatorH = height * 0.08;
-
-            // 显示器阴影
-            fill(0, 0, 0, 100);
-            rect(indicatorPos.x - indicatorW/2 + 5, indicatorPos.y - indicatorH/2 + 5,
-                 indicatorW, indicatorH, 5);
-
-            // 显示器外框
-            fill(50, 55, 60);
-            rect(indicatorPos.x - indicatorW/2, indicatorPos.y - indicatorH/2,
-                 indicatorW, indicatorH, 5);
-
-            fill(65, 70, 75);
-            rect(indicatorPos.x - indicatorW/2 + 3, indicatorPos.y - indicatorH/2 + 3,
-                 indicatorW - 6, indicatorH - 6, 4);
-
-            // 屏幕
-            fill(8, 12, 18);
-            rect(indicatorPos.x - indicatorW/2 + 5, indicatorPos.y - indicatorH/2 + 5,
-                 indicatorW - 10, indicatorH - 10, 3);
-
-            // 数字发光
-            let glowAlpha = 255;
-            if (elevator.floorChangeTimer < 200) {
-                glowAlpha = 255 - (elevator.floorChangeTimer / 200) * 100;
-            }
-
-            const fontSize = indicatorH * 0.6;
-
-            fill(255, 210, 90, glowAlpha * 0.2);
-            textSize(fontSize * 1.4);
-            text(elevator.displayFloor, indicatorPos.x, indicatorPos.y);
-
-            fill(255, 210, 90, glowAlpha * 0.5);
-            textSize(fontSize * 1.2);
-            text(elevator.displayFloor, indicatorPos.x, indicatorPos.y);
-
-            fill(255, 210, 90, glowAlpha);
-            textSize(fontSize);
-            textStyle(BOLD);
-            text(elevator.displayFloor, indicatorPos.x, indicatorPos.y);
-
-            pop();
-        }
-
-        // ========== 绘制状态文字 ==========
-        function drawStatusText() {
-            push();
-
-            fill(200, 205, 210);
-            textSize(Math.min(width * 0.018, height * 0.022));
-            textAlign(LEFT, TOP);
-            textStyle(NORMAL);
-            noStroke();
-
-            // 文字阴影
-            fill(0, 0, 0, 100);
-            text(elevator.getStatusText(), width * 0.025, height * 0.025);
-
-            // 文字主体
-            fill(200, 205, 210);
-            text(elevator.getStatusText(), width * 0.02, height * 0.02);
-
-            if (elevator.targetQueue.length > 0) {
-                textSize(Math.min(width * 0.015, height * 0.018));
-                fill(0, 0, 0, 100);
-                text(`队列: ${elevator.targetQueue.join(', ')}`, width * 0.025, height * 0.955);
-                fill(160, 165, 170);
-                text(`队列: ${elevator.targetQueue.join(', ')}`, width * 0.02, height * 0.95);
-            }
-
-            pop();
-        }
-
-        // ========== 鼠标/触摸交互 ==========
-        function mousePressed() {
-            handleClick(mouseX, mouseY);
-        }
-
-        function touchStarted() {
-            if (touches.length > 0) {
-                handleClick(touches[0].x, touches[0].y);
-            }
-            return false;
-        }
-
+        // ========== 交互事件 ==========
         function handleClick(x, y) {
-            if (elevator.state === STATE.IDLE ||
-                elevator.state === STATE.DOOR_OPEN ||
-                elevator.state === STATE.MOVING) {
+            if (scene.elevator.state === STATE.IDLE ||
+                scene.elevator.state === STATE.DOOR_OPEN ||
+                scene.elevator.state === STATE.MOVING) {
 
-                elevator.buttons.forEach(btn => {
+                scene.elevator.buttons.forEach(btn => {
                     if (btn.screenPos) {
-                        const d = dist(x, y, btn.screenPos.x, btn.screenPos.y);
-                        if (d < btn.screenPos.radius) {
-                            elevator.addTarget(btn.floor);
-                            console.log('Button clicked:', btn.floor);
+                        const dx = x - btn.screenPos.x;
+                        const dy = y - btn.screenPos.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+
+                        if (dist < btn.screenPos.radius) {
+                            scene.elevator.addTarget(btn.floor);
+                            console.log('Floor selected:', btn.floor);
                         }
                     }
                 });
             }
         }
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            handleClick(e.clientX - rect.left, e.clientY - rect.top);
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            handleClick(touch.clientX - rect.left, touch.clientY - rect.top);
+        }, { passive: false });
     </script>
 </body>
 </html>
