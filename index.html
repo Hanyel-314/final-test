@@ -645,8 +645,8 @@
                 ctx.lineWidth = 1;
                 ctx.strokeRect(rightDoorX + singleDoorWidth * 0.05, handleY, handleWidth, handleHeight);
 
-                // 中间门缝（仅在门关闭或半开时）
-                if (this.elevator.doorProgress < 0.95) {
+                // 中间门缝（仅在门未完全打开时显示）
+                if (this.elevator.doorProgress < 0.98) {
                     ctx.strokeStyle = '#000';
                     ctx.lineWidth = 4;
                     ctx.beginPath();
@@ -787,10 +787,10 @@
                 ctx.save();
                 ctx.translate(0, this.elevator.vibration);
 
-                // 面板位置 - 在左墙上，扩大以容纳所有7个按钮
-                const panelX = W * 0.12;
+                // 面板位置 - 在左墙上，扩大宽度以完全容纳所有按钮
+                const panelX = W * 0.10;
                 const panelY = VP_Y - H * 0.32;
-                const panelW = W * 0.08;
+                const panelW = W * 0.14; // 增加宽度确保OPEN/CLOSE按钮完全在内部
                 const panelH = H * 0.64; // 增加高度以容纳7个按钮
 
                 // 面板阴影（给一点3D深度感）
@@ -901,7 +901,7 @@
                 // 绘制开门/关门按钮（并排在最下方）
                 const doorControlY = panelInnerTop + 5 * buttonStep;
                 const panelCenterX = panelX + panelW / 2;
-                const horizontalOffset = buttonRadius * 1.4;
+                const horizontalOffset = buttonRadius * 1.5; // 增加间距以更好地利用宽面板
 
                 // OPEN 按钮（左侧）
                 const openBtnX = panelCenterX - horizontalOffset;
