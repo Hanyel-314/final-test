@@ -646,7 +646,7 @@
                 ctx.strokeRect(rightDoorX + singleDoorWidth * 0.05, handleY, handleWidth, handleHeight);
 
                 // 中间门缝（仅在门未完全打开时显示）
-                if (this.elevator.doorProgress < 0.98) {
+                if (this.elevator.doorProgress < 0.99) {
                     ctx.strokeStyle = '#000';
                     ctx.lineWidth = 4;
                     ctx.beginPath();
@@ -787,11 +787,18 @@
                 ctx.save();
                 ctx.translate(0, this.elevator.vibration);
 
-                // 面板位置 - 在左墙上，扩大宽度以完全容纳所有按钮
-                const panelX = W * 0.10;
-                const panelY = VP_Y - H * 0.32;
-                const panelW = W * 0.14; // 增加宽度确保OPEN/CLOSE按钮完全在内部
-                const panelH = H * 0.64; // 增加高度以容纳7个按钮
+                // 面板缩放因子 - 使面板更小更精致
+                const PANEL_SCALE = 0.75;
+
+                // 基础尺寸
+                const basePanelW = W * 0.14;
+                const basePanelH = H * 0.64;
+
+                // 应用缩放后的面板尺寸
+                const panelW = basePanelW * PANEL_SCALE;
+                const panelH = basePanelH * PANEL_SCALE;
+                const panelX = W * 0.08;
+                const panelY = VP_Y - panelH / 2;
 
                 // 面板阴影（给一点3D深度感）
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
@@ -818,7 +825,8 @@
                 ctx.strokeRect(panelX + 6, panelY + 6, panelW - 12, panelH - 12);
 
                 // 统一按钮配置：5个楼层按钮 + 1行门控按钮
-                const buttonRadius = Math.min(panelW * 0.22, panelH * 0.055);
+                const baseButtonRadius = Math.min(panelW * 0.22, panelH * 0.055);
+                const buttonRadius = baseButtonRadius * PANEL_SCALE;
                 const panelInnerTop = panelY + panelH * 0.08;
                 const panelInnerBottom = panelY + panelH * 0.92;
                 const availableHeight = panelInnerBottom - panelInnerTop;
