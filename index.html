@@ -38,12 +38,11 @@
         };
 
         const CONFIG = {
-            vanishingPoint: { x: 0.5, y: 0.5 }, // 消失点位置（屏幕比例）
-            eyeHeight: 0.5, // 视线高度（屏幕比例）
-            cabinDepth: 0.15, // 电梯厢深度（短浅箱体，非走廊）
-            doorWidthRatio: 0.38, // 门宽度占屏幕比例（双门总宽）
-            floorVisible: 0.22, // 地板可见高度比例
-            ceilingVisible: 0.15 // 天花板可见高度比例
+            // 全屏3D电梯厢配置
+            doorWidthRatio: 0.32, // 门宽度占屏幕比例
+            doorHeightRatio: 0.55, // 门高度占屏幕比例
+            perspectiveDepth: 0.25, // 透视深度（墙面收束程度）
+            eyeLevel: 0.52 // 视线高度（0.5 = 屏幕中央）
         };
 
         // ========== 画布设置 ==========
