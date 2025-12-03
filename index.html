@@ -65,8 +65,8 @@
 
             updateButtonPositions() {
                 // 按钮位置 - 响应式（左侧，垂直居中）
-                const panelX = width * 0.08;
-                const startY = height * 0.25;
+                const panelX = width * 0.12;
+                const startY = height * 0.28;
                 const spacing = height * 0.08;
 
                 this.buttons = [
@@ -222,16 +222,16 @@
                 elevator.update(deltaTime);
 
                 // 清除画布 - 深灰色背景
-                background(30, 35, 40);
+                background(15, 18, 22);
 
-                // 绘制电梯内部
-                drawCabin();
+                // 绘制电梯内部（3D空间）
+                drawCabin3D();
 
                 // 绘制门和外部场景
                 drawDoors();
 
-                // 绘制按钮面板
-                drawPanel();
+                // 绘制按钮面板（带3D效果）
+                drawPanel3D();
 
                 // 绘制楼层显示器
                 drawFloorIndicator();
@@ -246,60 +246,154 @@
             }
         }
 
-        function drawCabin() {
+        function drawCabin3D() {
             push();
+            translate(0, elevator.shakeOffset);
 
-            // 响应式尺寸
             const centerX = width / 2;
-            const topY = height * 0.05;
-            const floorY = height * 0.75;
+            const centerY = height / 2;
 
-            // 顶灯
-            fill(240, 240, 200, 200);
+            // 3D透视参数
+            const vanishY = height * 0.35; // 消失点Y
+            const depth = height * 0.6; // 深度
+
+            // === 背墙（深处） ===
+            push();
+            fill(25, 28, 32);
             noStroke();
-            const lampW = width * 0.3;
-            const lampH = height * 0.05;
-            rect(centerX - lampW/2, topY, lampW, lampH, 5);
+            const backWallTop = vanishY;
+            const backWallBottom = vanishY + depth * 0.5;
+            const backWallLeft = width * 0.28;
+            const backWallRight = width * 0.72;
+            quad(
+                backWallLeft, backWallTop,
+                backWallRight, backWallTop,
+                backWallRight, backWallBottom,
+                backWallLeft, backWallBottom
+            );
+            pop();
 
-            // 顶部光源
-            for (let i = 0; i < 5; i++) {
-                let alpha = map(i, 0, 5, 80, 0);
-                fill(255, 255, 220, alpha);
-                ellipse(centerX, topY + lampH * 2, width * 0.8 - i * 50, height * 0.5 - i * 50);
+            // === 天花板（透视） ===
+            push();
+            // 中央灯光区域
+            fill(240, 240, 220, 180);
+            noStroke();
+            quad(
+                width * 0.35, vanishY - height * 0.05,
+                width * 0.65, vanishY - height * 0.05,
+                width * 0.75, 0,
+                width * 0.25, 0
+            );
+
+            // 天花板透视线条
+            for (let i = 0; i < 8; i++) {
+                let ratio = i / 8;
+                stroke(40 + i * 5, 43 + i * 5, 48 + i * 5);
+                strokeWeight(1);
+
+                // 从边缘到消失点的线条
+                let topX = lerp(width * 0.25, width * 0.35, ratio);
+                let topX2 = lerp(width * 0.75, width * 0.65, ratio);
+                line(0, 0, topX, vanishY);
+                line(width, 0, topX2, vanishY);
             }
 
-            // 左墙（响应式宽度）
-            const leftWallW = width * 0.2;
-            for (let x = 0; x < leftWallW; x += 3) {
-                let c = 35;
-                if (x > leftWallW * 0.3 && x < leftWallW * 0.7) c = 45;
-                stroke(c, c + 5, c + 10);
-                line(x, topY + lampH * 3, x, height);
+            // 天花板格子
+            stroke(35, 38, 42);
+            strokeWeight(2);
+            for (let i = 1; i < 4; i++) {
+                let y = vanishY * i / 4;
+                let leftX = lerp(0, width * 0.35, i / 4);
+                let rightX = lerp(width, width * 0.65, i / 4);
+                line(leftX, y, rightX, y);
+            }
+            pop();
+
+            // === 顶部光源（柔和光晕） ===
+            push();
+            noStroke();
+            for (let i = 0; i < 8; i++) {
+                let alpha = map(i, 0, 8, 100, 0);
+                fill(255, 250, 220, alpha);
+                let size = height * (0.5 + i * 0.15);
+                ellipse(centerX, vanishY * 0.5, size, size * 0.6);
+            }
+            pop();
+
+            // === 左墙（透视） ===
+            push();
+            for (let i = 0; i < 15; i++) {
+                let ratio = i / 15;
+                let c = 30 + i * 3;
+                if (i > 5 && i < 10) c += 10; // 中间亮一些
+
+                stroke(c, c + 5, c + 8);
+                strokeWeight(2);
+
+                let topX = lerp(0, width * 0.28, ratio);
+                let bottomX = lerp(0, width * 0.05, ratio);
+                line(topX, vanishY, bottomX, height);
             }
 
-            // 右墙
-            const rightWallStart = width - leftWallW;
-            for (let x = rightWallStart; x < width; x += 3) {
-                let c = 35;
-                let relX = x - rightWallStart;
-                if (relX > leftWallW * 0.3 && relX < leftWallW * 0.7) c = 45;
-                stroke(c, c + 5, c + 10);
-                line(x, topY + lampH * 3, x, height);
+            // 左墙金属条纹
+            stroke(55, 60, 65, 100);
+            strokeWeight(3);
+            line(width * 0.15, vanishY, width * 0.03, height);
+            pop();
+
+            // === 右墙（透视） ===
+            push();
+            for (let i = 0; i < 15; i++) {
+                let ratio = i / 15;
+                let c = 30 + i * 3;
+                if (i > 5 && i < 10) c += 10;
+
+                stroke(c, c + 5, c + 8);
+                strokeWeight(2);
+
+                let topX = lerp(width, width * 0.72, ratio);
+                let bottomX = lerp(width, width * 0.95, ratio);
+                line(topX, vanishY, bottomX, height);
             }
 
-            // 地板网格
-            stroke(50, 55, 60);
+            // 右墙金属条纹
+            stroke(55, 60, 65, 100);
+            strokeWeight(3);
+            line(width * 0.85, vanishY, width * 0.97, height);
+            pop();
+
+            // === 地板（透视网格） ===
+            push();
+            stroke(45, 50, 55);
             strokeWeight(1);
-            const gridStartY = floorY;
-            const gridLines = 10;
-            for (let i = 0; i < gridLines; i++) {
-                let y = gridStartY + (height - gridStartY) * i / gridLines;
-                line(0, y, width, y);
-            }
+
+            // 横向透视线
             for (let i = 0; i < 12; i++) {
-                let x = width * i / 12;
-                line(x, gridStartY, x, height);
+                let y = height * (0.7 + i * 0.025);
+                let progress = (y - height * 0.7) / (height * 0.3);
+                let leftX = lerp(width * 0.05, width * 0.28, progress);
+                let rightX = lerp(width * 0.95, width * 0.72, progress);
+                line(leftX, y, rightX, y);
             }
+
+            // 纵向透视线
+            for (let i = 0; i < 10; i++) {
+                let ratio = i / 10;
+                let bottomX = lerp(width * 0.05, width * 0.95, ratio);
+                let topX = lerp(width * 0.28, width * 0.72, ratio);
+                line(bottomX, height, topX, height * 0.7);
+            }
+
+            // 地板反光
+            noStroke();
+            fill(255, 255, 240, 15);
+            quad(
+                width * 0.35, height * 0.75,
+                width * 0.65, height * 0.75,
+                width * 0.7, height,
+                width * 0.3, height
+            );
+            pop();
 
             pop();
         }
@@ -309,52 +403,116 @@
             translate(0, elevator.shakeOffset);
 
             const centerX = width / 2;
-            const doorWidth = width * 0.22;
-            const doorHeight = height * 0.55;
-            const doorY = height * 0.15;
+            const doorWidth = width * 0.18;
+            const doorHeight = height * 0.48;
+            const doorY = height * 0.22;
             const slideOffset = doorWidth * elevator.doorProgress;
+
+            // 门框（3D效果）
+            push();
+            fill(50, 55, 60);
+            noStroke();
+            // 顶部门框
+            rect(centerX - doorWidth * 1.1, doorY - 15, doorWidth * 2.2, 15);
+            // 左侧门框
+            rect(centerX - doorWidth * 1.1, doorY, 15, doorHeight);
+            // 右侧门框
+            rect(centerX + doorWidth * 1.1 - 15, doorY, 15, doorHeight);
+            // 底部门框
+            rect(centerX - doorWidth * 1.1, doorY + doorHeight, doorWidth * 2.2, 15);
+
+            // 门框高光
+            stroke(80, 85, 90, 150);
+            strokeWeight(2);
+            line(centerX - doorWidth * 1.1, doorY - 15, centerX + doorWidth * 1.1, doorY - 15);
+            line(centerX - doorWidth * 1.1, doorY, centerX - doorWidth * 1.1, doorY + doorHeight);
+            pop();
 
             // 绘制外部场景（如果门打开）
             if (elevator.doorProgress > 0) {
                 push();
-                // 使用clip裁剪
                 let ctx = drawingContext;
                 ctx.save();
                 ctx.beginPath();
                 ctx.rect(centerX - slideOffset, doorY, slideOffset * 2, doorHeight);
                 ctx.clip();
 
-                // 绘制场景
                 drawExteriorScene(elevator.currentFloor);
 
                 ctx.restore();
                 pop();
             }
 
-            // 左门
+            // 左门（金属质感+3D效果）
+            push();
+            // 门的阴影（立体感）
+            fill(0, 0, 0, 50);
+            rect(centerX - doorWidth - slideOffset - 5, doorY, doorWidth + 5, doorHeight);
+
+            // 门本体
             for (let x = 0; x < doorWidth; x += 2) {
-                let c = 70;
-                if (x > 10 && x < doorWidth - 10) c = 80;
-                stroke(c, c + 5, c + 10);
+                let progress = x / doorWidth;
+                let c = 65;
+                if (progress < 0.1 || progress > 0.9) {
+                    c = 50; // 边缘暗
+                } else if (progress > 0.3 && progress < 0.7) {
+                    c = 85; // 中间亮
+                }
+                stroke(c, c + 8, c + 12);
                 line(centerX - doorWidth - slideOffset + x, doorY,
                      centerX - doorWidth - slideOffset + x, doorY + doorHeight);
             }
 
-            // 右门
+            // 门的高光线
+            stroke(100, 110, 120, 180);
+            strokeWeight(3);
+            line(centerX - doorWidth * 0.5 - slideOffset, doorY + 20,
+                 centerX - doorWidth * 0.5 - slideOffset, doorY + doorHeight - 20);
+
+            // 门把手区域
+            fill(40, 45, 50);
+            rect(centerX - doorWidth * 0.2 - slideOffset, doorY + doorHeight * 0.45,
+                 doorWidth * 0.15, doorHeight * 0.1, 3);
+            pop();
+
+            // 右门（金属质感+3D效果）
+            push();
+            // 门的阴影
+            fill(0, 0, 0, 50);
+            rect(centerX + slideOffset, doorY, doorWidth + 5, doorHeight);
+
+            // 门本体
             for (let x = 0; x < doorWidth; x += 2) {
-                let c = 70;
-                if (x > 10 && x < doorWidth - 10) c = 80;
-                stroke(c, c + 5, c + 10);
+                let progress = x / doorWidth;
+                let c = 65;
+                if (progress < 0.1 || progress > 0.9) {
+                    c = 50;
+                } else if (progress > 0.3 && progress < 0.7) {
+                    c = 85;
+                }
+                stroke(c, c + 8, c + 12);
                 line(centerX + slideOffset + x, doorY,
                      centerX + slideOffset + x, doorY + doorHeight);
             }
 
+            // 门的高光线
+            stroke(100, 110, 120, 180);
+            strokeWeight(3);
+            line(centerX + doorWidth * 0.5 + slideOffset, doorY + 20,
+                 centerX + doorWidth * 0.5 + slideOffset, doorY + doorHeight - 20);
+
+            // 门把手区域
+            fill(40, 45, 50);
+            rect(centerX + doorWidth * 0.05 + slideOffset, doorY + doorHeight * 0.45,
+                 doorWidth * 0.15, doorHeight * 0.1, 3);
+            pop();
+
             // 门缝
             if (elevator.doorProgress < 1) {
-                stroke(10, 15, 20);
-                strokeWeight(3);
-                line(centerX - slideOffset, doorY, centerX - slideOffset, doorY + doorHeight);
-                line(centerX + slideOffset, doorY, centerX + slideOffset, doorY + doorHeight);
+                stroke(5, 8, 12);
+                strokeWeight(4);
+                line(centerX - slideOffset, doorY - 5, centerX - slideOffset, doorY + doorHeight + 5);
+                line(centerX + slideOffset, doorY - 5, centerX + slideOffset, doorY + doorHeight + 5);
             }
 
             pop();
@@ -377,7 +535,6 @@
 
             background(45, 40, 35);
 
-            // 简化的大堂场景
             fill(30, 25, 20);
             rect(sceneLeft, height * 0.2, sceneW * 0.3, height * 0.5);
             rect(sceneLeft + sceneW * 0.7, height * 0.2, sceneW * 0.3, height * 0.5);
@@ -413,13 +570,11 @@
 
             background(35, 30, 40);
 
-            // 左侧画框
             fill(20, 15, 25);
             rect(sceneLeft + sceneW * 0.1, height * 0.25, sceneW * 0.3, height * 0.2, 3);
             fill(180, 120, 80);
             rect(sceneLeft + sceneW * 0.13, height * 0.27, sceneW * 0.24, height * 0.16);
 
-            // 右侧画框
             fill(20, 15, 25);
             rect(sceneLeft + sceneW * 0.6, height * 0.35, sceneW * 0.3, height * 0.2, 3);
             fill(80, 120, 180);
@@ -435,14 +590,12 @@
 
             strokeWeight(4);
 
-            // 左侧蓝色光条
             stroke(100, 150, 255, 200);
             line(sceneLeft + sceneW * 0.1, height * 0.2, sceneLeft + sceneW * 0.1, height * 0.7);
             stroke(100, 150, 255, 100);
             strokeWeight(8);
             line(sceneLeft + sceneW * 0.1, height * 0.2, sceneLeft + sceneW * 0.1, height * 0.7);
 
-            // 右侧紫色光条
             strokeWeight(4);
             stroke(200, 100, 255, 200);
             line(sceneLeft + sceneW * 0.9, height * 0.2, sceneLeft + sceneW * 0.9, height * 0.7);
@@ -450,7 +603,6 @@
             strokeWeight(8);
             line(sceneLeft + sceneW * 0.9, height * 0.2, sceneLeft + sceneW * 0.9, height * 0.7);
 
-            // 水平光条
             strokeWeight(3);
             stroke(150, 200, 255, 180);
             line(sceneLeft + sceneW * 0.2, height * 0.4, sceneLeft + sceneW * 0.8, height * 0.4);
@@ -461,14 +613,12 @@
             const sceneW = width * 0.5;
             const sceneLeft = centerX - sceneW / 2;
 
-            // 天空渐变
             for (let y = height * 0.15; y < height * 0.7; y += 5) {
                 let c = map(y, height * 0.15, height * 0.7, 30, 60);
                 stroke(c, c, c + 20);
                 line(sceneLeft, y, sceneLeft + sceneW, y);
             }
 
-            // 星星
             for (let i = 0; i < 15; i++) {
                 let x = sceneLeft + (i * 23) % sceneW;
                 let y = height * 0.2 + (i * 37) % (height * 0.25);
@@ -477,7 +627,6 @@
                 ellipse(x, y, 2, 2);
             }
 
-            // 建筑剪影
             fill(10, 10, 20, 180);
             rect(sceneLeft + sceneW * 0.05, height * 0.5, sceneW * 0.15, height * 0.2);
             rect(sceneLeft + sceneW * 0.25, height * 0.53, sceneW * 0.12, height * 0.17);
@@ -485,63 +634,119 @@
             rect(sceneLeft + sceneW * 0.7, height * 0.52, sceneW * 0.13, height * 0.18);
         }
 
-        function drawPanel() {
+        function drawPanel3D() {
             push();
 
-            // 响应式面板
-            const panelX = width * 0.04;
-            const panelY = height * 0.2;
-            const panelW = width * 0.1;
-            const panelH = height * 0.5;
+            const panelX = width * 0.05;
+            const panelY = height * 0.23;
+            const panelW = width * 0.12;
+            const panelH = height * 0.52;
 
-            // 面板背景
-            fill(40, 45, 50);
-            stroke(60, 65, 70);
-            strokeWeight(2);
+            // 面板阴影（3D深度）
+            fill(0, 0, 0, 80);
+            rect(panelX + 8, panelY + 8, panelW, panelH, 8);
+
+            // 面板外框（凸起效果）
+            // 暗边（左+上）
+            fill(30, 35, 40);
             rect(panelX, panelY, panelW, panelH, 8);
 
-            // 绘制按钮
-            const buttonSize = Math.min(width * 0.06, height * 0.06);
+            // 亮边（右+下）
+            fill(55, 60, 65);
+            rect(panelX + 4, panelY + 4, panelW - 4, panelH - 4, 6);
+
+            // 面板主体
+            fill(42, 47, 52);
+            rect(panelX + 6, panelY + 6, panelW - 12, panelH - 12, 5);
+
+            // 面板内凹陷区域
+            fill(28, 32, 36);
+            rect(panelX + 10, panelY + 10, panelW - 20, panelH - 20, 4);
+
+            // 绘制3D按钮
+            const buttonSize = Math.min(width * 0.055, height * 0.055);
 
             elevator.buttons.forEach(btn => {
                 const isCurrent = btn.floor === elevator.currentFloor;
                 const isActive = btn.active;
 
-                // 按钮
+                push();
+
+                // 按钮阴影（凹陷/凸起效果）
                 if (isActive) {
-                    fill(255, 200, 50);
-                    stroke(255, 220, 100);
-                    strokeWeight(2);
-                } else if (isCurrent) {
-                    fill(60, 65, 70);
-                    stroke(100, 200, 100);
-                    strokeWeight(2);
+                    // 按下状态 - 凹陷
+                    fill(0, 0, 0, 100);
+                    ellipse(btn.x + 2, btn.y + 2, buttonSize, buttonSize);
                 } else {
-                    fill(60, 65, 70);
-                    stroke(80, 85, 90);
-                    strokeWeight(1);
+                    // 未按下 - 凸起
+                    fill(0, 0, 0, 60);
+                    ellipse(btn.x + 4, btn.y + 4, buttonSize, buttonSize);
                 }
 
+                // 按钮外圈（立体边缘）
+                if (isActive) {
+                    fill(180, 140, 30);
+                } else if (isCurrent) {
+                    fill(50, 55, 60);
+                } else {
+                    fill(55, 60, 65);
+                }
                 ellipse(btn.x, btn.y, buttonSize, buttonSize);
 
-                // 发光
+                // 按钮内圈（主体）
+                if (isActive) {
+                    // 激活状态 - 金黄色发光
+                    fill(255, 200, 50);
+                    ellipse(btn.x, btn.y, buttonSize * 0.85, buttonSize * 0.85);
+                } else if (isCurrent) {
+                    fill(65, 70, 75);
+                    ellipse(btn.x, btn.y, buttonSize * 0.85, buttonSize * 0.85);
+                } else {
+                    fill(60, 65, 70);
+                    ellipse(btn.x, btn.y, buttonSize * 0.85, buttonSize * 0.85);
+                }
+
+                // 按钮高光（球面效果）
+                if (!isActive) {
+                    fill(255, 255, 255, 40);
+                    noStroke();
+                    ellipse(btn.x - buttonSize * 0.15, btn.y - buttonSize * 0.15,
+                           buttonSize * 0.3, buttonSize * 0.3);
+                }
+
+                // 发光效果
                 if (isActive) {
                     noStroke();
-                    fill(255, 200, 50, 50);
-                    ellipse(btn.x, btn.y, buttonSize * 1.2, buttonSize * 1.2);
+                    for (let i = 0; i < 3; i++) {
+                        fill(255, 200, 50, 60 - i * 20);
+                        ellipse(btn.x, btn.y, buttonSize * (1.2 + i * 0.2), buttonSize * (1.2 + i * 0.2));
+                    }
                 }
 
                 // 数字
                 noStroke();
                 fill(isActive ? 40 : 220);
-                textSize(buttonSize * 0.5);
+                textSize(buttonSize * 0.45);
+                textStyle(BOLD);
                 text(btn.floor, btn.x, btn.y);
 
-                // 当前楼层指示
+                // 当前楼层指示灯（3D效果）
                 if (isCurrent && !isActive) {
-                    fill(100, 255, 100);
-                    ellipse(btn.x + buttonSize * 0.45, btn.y - buttonSize * 0.45, buttonSize * 0.12, buttonSize * 0.12);
+                    // 指示灯外壳
+                    fill(40, 45, 50);
+                    ellipse(btn.x + buttonSize * 0.4, btn.y - buttonSize * 0.4,
+                           buttonSize * 0.15, buttonSize * 0.15);
+                    // 指示灯发光
+                    fill(100, 255, 100, 200);
+                    ellipse(btn.x + buttonSize * 0.4, btn.y - buttonSize * 0.4,
+                           buttonSize * 0.1, buttonSize * 0.1);
+                    // 光晕
+                    fill(100, 255, 100, 80);
+                    ellipse(btn.x + buttonSize * 0.4, btn.y - buttonSize * 0.4,
+                           buttonSize * 0.2, buttonSize * 0.2);
                 }
+
+                pop();
             });
 
             pop();
@@ -552,40 +757,45 @@
             translate(0, elevator.shakeOffset);
 
             const centerX = width / 2;
-            const indicatorW = width * 0.12;
-            const indicatorH = height * 0.06;
-            const indicatorY = height * 0.08;
+            const indicatorW = width * 0.13;
+            const indicatorH = height * 0.08;
+            const indicatorY = height * 0.1;
 
-            // 外框
-            fill(20, 25, 30);
-            stroke(60, 65, 70);
-            strokeWeight(3);
+            // 显示器阴影
+            fill(0, 0, 0, 100);
+            rect(centerX - indicatorW/2 + 5, indicatorY + 5, indicatorW, indicatorH, 5);
+
+            // 显示器外框（金属边框 - 3D效果）
+            fill(50, 55, 60);
             rect(centerX - indicatorW/2, indicatorY, indicatorW, indicatorH, 5);
 
-            // 屏幕
-            fill(10, 15, 20);
-            noStroke();
-            rect(centerX - indicatorW/2 + indicatorW * 0.05, indicatorY + indicatorH * 0.1,
-                 indicatorW * 0.9, indicatorH * 0.8, 3);
+            fill(65, 70, 75);
+            rect(centerX - indicatorW/2 + 3, indicatorY + 3, indicatorW - 6, indicatorH - 6, 4);
 
-            // 数字
+            // 屏幕（内凹陷）
+            fill(8, 12, 18);
+            rect(centerX - indicatorW/2 + 5, indicatorY + 5, indicatorW - 10, indicatorH - 10, 3);
+
+            // 数字发光
             let glowAlpha = 255;
             if (elevator.floorChangeTimer < 200) {
                 glowAlpha = 255 - (elevator.floorChangeTimer / 200) * 100;
             }
 
-            const fontSize = indicatorH * 0.7;
+            const fontSize = indicatorH * 0.6;
 
-            fill(255, 210, 90, glowAlpha * 0.3);
-            textSize(fontSize * 1.2);
+            // 多层光晕
+            fill(255, 210, 90, glowAlpha * 0.2);
+            textSize(fontSize * 1.4);
             text(elevator.displayFloor, centerX, indicatorY + indicatorH/2);
 
-            fill(255, 210, 90, glowAlpha * 0.6);
-            textSize(fontSize * 1.1);
+            fill(255, 210, 90, glowAlpha * 0.5);
+            textSize(fontSize * 1.2);
             text(elevator.displayFloor, centerX, indicatorY + indicatorH/2);
 
             fill(255, 210, 90, glowAlpha);
             textSize(fontSize);
+            textStyle(BOLD);
             text(elevator.displayFloor, centerX, indicatorY + indicatorH/2);
 
             pop();
@@ -594,15 +804,25 @@
         function drawStatusText() {
             push();
 
-            fill(180, 185, 190);
+            fill(200, 205, 210);
             textSize(Math.min(width * 0.018, height * 0.022));
             textAlign(LEFT, TOP);
+            textStyle(NORMAL);
             noStroke();
+
+            // 文字阴影
+            fill(0, 0, 0, 100);
+            text(elevator.getStatusText(), width * 0.025, height * 0.025);
+
+            // 文字主体
+            fill(200, 205, 210);
             text(elevator.getStatusText(), width * 0.02, height * 0.02);
 
             if (elevator.targetQueue.length > 0) {
                 textSize(Math.min(width * 0.015, height * 0.018));
-                fill(150, 155, 160);
+                fill(0, 0, 0, 100);
+                text(`队列: ${elevator.targetQueue.join(', ')}`, width * 0.025, height * 0.955);
+                fill(160, 165, 170);
                 text(`队列: ${elevator.targetQueue.join(', ')}`, width * 0.02, height * 0.95);
             }
 
@@ -625,7 +845,7 @@
                 elevator.state === STATE.DOOR_OPEN ||
                 elevator.state === STATE.MOVING) {
 
-                const buttonSize = Math.min(width * 0.06, height * 0.06);
+                const buttonSize = Math.min(width * 0.055, height * 0.055);
 
                 elevator.buttons.forEach(btn => {
                     const d = dist(x, y, btn.x, btn.y);
