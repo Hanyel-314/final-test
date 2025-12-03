@@ -40,10 +40,10 @@
         const CONFIG = {
             vanishingPoint: { x: 0.5, y: 0.5 }, // 消失点位置（屏幕比例）
             eyeHeight: 0.5, // 视线高度（屏幕比例）
-            cabinDepth: 0.6, // 电梯厢深度（透视系数）
-            doorWidthRatio: 0.35, // 门宽度占屏幕比例（双门总宽）
-            floorGridSize: 10, // 地板网格线数量
-            ceilingLights: 2 // 天花板灯数量
+            cabinDepth: 0.15, // 电梯厢深度（短浅箱体，非走廊）
+            doorWidthRatio: 0.38, // 门宽度占屏幕比例（双门总宽）
+            floorVisible: 0.22, // 地板可见高度比例
+            ceilingVisible: 0.15 // 天花板可见高度比例
         };
 
         // ========== 画布设置 ==========
@@ -61,22 +61,22 @@
         window.addEventListener('resize', resizeCanvas);
 
         // ========== 电梯厢几何定义 ==========
-        // 定义电梯厢的3D空间边界
+        // 定义短浅封闭式电梯厢（非走廊）
         function getCabinGeometry() {
-            // 电梯厢高度：从屏幕10%到90%
-            const floorY = H * 0.88;
-            const ceilingY = H * 0.12;
+            // 地板和天花板的屏幕位置
+            const floorY = H * (1 - CONFIG.floorVisible);
+            const ceilingY = H * CONFIG.ceilingVisible;
             const cabinHeight = floorY - ceilingY;
 
-            // 前墙（门）的宽度和位置
+            // 前墙（门所在墙面）宽度
             const frontWallWidth = W * CONFIG.doorWidthRatio;
             const frontWallLeft = VP_X - frontWallWidth / 2;
             const frontWallRight = VP_X + frontWallWidth / 2;
 
-            // 后墙（相机后方）的宽度 - 更宽，因为透视
-            const backWallWidth = W * 0.85;
-            const backWallLeft = W * 0.075;
-            const backWallRight = W * 0.925;
+            // 观察者位置（后方）的宽度 - 仅略宽于前墙，形成短箱体
+            const viewerWallWidth = frontWallWidth * (1 + CONFIG.cabinDepth);
+            const viewerWallLeft = VP_X - viewerWallWidth / 2;
+            const viewerWallRight = VP_X + viewerWallWidth / 2;
 
             return {
                 floorY,
@@ -85,9 +85,9 @@
                 frontWallWidth,
                 frontWallLeft,
                 frontWallRight,
-                backWallWidth,
-                backWallLeft,
-                backWallRight
+                viewerWallWidth,
+                viewerWallLeft,
+                viewerWallRight
             };
         }
 
@@ -215,217 +215,304 @@
                 this.elevator = new Elevator();
             }
 
-            // 绘制地板（透视网格）
+            // 绘制地板（短浅抛光瓷砖）
             drawFloor() {
                 const geo = getCabinGeometry();
                 ctx.save();
                 ctx.translate(0, this.elevator.vibration);
 
-                // 地板梯形：后方宽，前方窄
-                const floorGrad = ctx.createLinearGradient(0, VP_Y, 0, geo.floorY);
-                floorGrad.addColorStop(0, '#3a3a3a');
-                floorGrad.addColorStop(0.7, '#2a2a2a');
-                floorGrad.addColorStop(1, '#1a1a1a');
+                // 地板梯形 - 短浅透视
+                const floorTopY = geo.floorY - geo.cabinHeight * 0.05; // 地板前沿（靠近门）
+                const floorBottomY = H; // 地板后沿（屏幕底部）
+
+                // 主地板 - 浅灰色瓷砖
+                const floorGrad = ctx.createLinearGradient(0, floorTopY, 0, floorBottomY);
+                floorGrad.addColorStop(0, '#4a4a4a');
+                floorGrad.addColorStop(0.5, '#3a3a3a');
+                floorGrad.addColorStop(1, '#2a2a2a');
 
                 ctx.fillStyle = floorGrad;
                 ctx.beginPath();
-                // 后方（屏幕底部边缘）
-                ctx.moveTo(geo.backWallLeft, geo.floorY);
-                ctx.lineTo(geo.backWallRight, geo.floorY);
-                // 前方（门底部）
-                ctx.lineTo(geo.frontWallRight, VP_Y);
-                ctx.lineTo(geo.frontWallLeft, VP_Y);
+                ctx.moveTo(geo.viewerWallLeft, floorBottomY);
+                ctx.lineTo(geo.viewerWallRight, floorBottomY);
+                ctx.lineTo(geo.frontWallRight, floorTopY);
+                ctx.lineTo(geo.frontWallLeft, floorTopY);
                 ctx.closePath();
                 ctx.fill();
 
-                // 透视网格线
-                ctx.strokeStyle = 'rgba(100, 100, 100, 0.3)';
-                ctx.lineWidth = 1;
+                // 地板边缘深色装饰条（左右两侧）
+                const borderWidth = geo.frontWallWidth * 0.08;
 
-                // 横向网格线（平行于后墙）
-                for (let i = 1; i < CONFIG.floorGridSize; i++) {
-                    const t = i / CONFIG.floorGridSize;
-                    const y = VP_Y + (geo.floorY - VP_Y) * t;
-                    const leftX = geo.frontWallLeft + (geo.backWallLeft - geo.frontWallLeft) * t;
-                    const rightX = geo.frontWallRight + (geo.backWallRight - geo.frontWallRight) * t;
-
-                    ctx.beginPath();
-                    ctx.moveTo(leftX, y);
-                    ctx.lineTo(rightX, y);
-                    ctx.stroke();
-                }
-
-                // 纵向网格线（汇聚到消失点）
-                for (let i = 0; i <= 6; i++) {
-                    const ratio = (i - 3) / 3; // -1 到 1
-                    const xBack = geo.backWallLeft + (geo.backWallRight - geo.backWallLeft) * (i / 6);
-                    const xFront = geo.frontWallLeft + (geo.frontWallRight - geo.frontWallLeft) * (i / 6);
-
-                    ctx.beginPath();
-                    ctx.moveTo(xBack, geo.floorY);
-                    ctx.lineTo(xFront, VP_Y);
-                    ctx.stroke();
-                }
-
-                // 地板反光
-                const reflectGrad = ctx.createRadialGradient(VP_X, VP_Y + geo.cabinHeight * 0.4, 0,
-                                                            VP_X, VP_Y + geo.cabinHeight * 0.4, W * 0.25);
-                reflectGrad.addColorStop(0, 'rgba(255, 255, 255, 0.06)');
-                reflectGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-                ctx.fillStyle = reflectGrad;
+                // 左侧边条
+                ctx.fillStyle = '#1a1a1a';
                 ctx.beginPath();
-                ctx.moveTo(geo.backWallLeft, geo.floorY);
-                ctx.lineTo(geo.backWallRight, geo.floorY);
-                ctx.lineTo(geo.frontWallRight, VP_Y);
-                ctx.lineTo(geo.frontWallLeft, VP_Y);
+                ctx.moveTo(geo.viewerWallLeft, floorBottomY);
+                ctx.lineTo(geo.viewerWallLeft + borderWidth, floorBottomY);
+                ctx.lineTo(geo.frontWallLeft + borderWidth * 0.7, floorTopY);
+                ctx.lineTo(geo.frontWallLeft, floorTopY);
                 ctx.closePath();
                 ctx.fill();
+
+                // 右侧边条
+                ctx.beginPath();
+                ctx.moveTo(geo.viewerWallRight, floorBottomY);
+                ctx.lineTo(geo.viewerWallRight - borderWidth, floorBottomY);
+                ctx.lineTo(geo.frontWallRight - borderWidth * 0.7, floorTopY);
+                ctx.lineTo(geo.frontWallRight, floorTopY);
+                ctx.closePath();
+                ctx.fill();
+
+                // 地板抛光反光（门下方区域）
+                const shineGrad = ctx.createRadialGradient(
+                    VP_X, floorTopY + 30, 0,
+                    VP_X, floorTopY + 30, geo.frontWallWidth * 0.4
+                );
+                shineGrad.addColorStop(0, 'rgba(255, 255, 255, 0.12)');
+                shineGrad.addColorStop(0.7, 'rgba(255, 255, 255, 0.04)');
+                shineGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                ctx.fillStyle = shineGrad;
+                ctx.beginPath();
+                ctx.arc(VP_X, floorTopY + 30, geo.frontWallWidth * 0.4, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 地板细微纹理线（简单的几何分割）
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)';
+                ctx.lineWidth = 1;
+                // 中央纵向分割线
+                ctx.beginPath();
+                ctx.moveTo(VP_X, floorTopY);
+                ctx.lineTo(VP_X, floorBottomY);
+                ctx.stroke();
 
                 ctx.restore();
             }
 
-            // 绘制天花板和吊灯
+            // 绘制天花板（平面无大灯）
             drawCeiling() {
                 const geo = getCabinGeometry();
                 ctx.save();
                 ctx.translate(0, this.elevator.vibration);
 
-                // 天花板梯形：后方宽，前方窄
-                const ceilGrad = ctx.createLinearGradient(0, geo.ceilingY, 0, VP_Y);
-                ceilGrad.addColorStop(0, '#4a4a4a');
-                ceilGrad.addColorStop(1, '#3a3a3a');
+                // 天花板梯形 - 短浅透视
+                const ceilTopY = 0; // 屏幕顶部
+                const ceilBottomY = geo.ceilingY + geo.cabinHeight * 0.05; // 天花板前沿
+
+                // 天花板主体 - 深灰色，中央稍亮
+                const ceilGrad = ctx.createLinearGradient(0, ceilTopY, 0, ceilBottomY);
+                ceilGrad.addColorStop(0, '#2a2a2a');
+                ceilGrad.addColorStop(0.6, '#3a3a3a');
+                ceilGrad.addColorStop(1, '#2a2a2a');
 
                 ctx.fillStyle = ceilGrad;
                 ctx.beginPath();
-                // 后方（屏幕顶部边缘）
-                ctx.moveTo(geo.backWallLeft, geo.ceilingY);
-                ctx.lineTo(geo.backWallRight, geo.ceilingY);
-                // 前方（门顶部）
-                ctx.lineTo(geo.frontWallRight, VP_Y);
-                ctx.lineTo(geo.frontWallLeft, VP_Y);
+                ctx.moveTo(geo.viewerWallLeft, ceilTopY);
+                ctx.lineTo(geo.viewerWallRight, ceilTopY);
+                ctx.lineTo(geo.frontWallRight, ceilBottomY);
+                ctx.lineTo(geo.frontWallLeft, ceilBottomY);
                 ctx.closePath();
                 ctx.fill();
 
-                // 天花板灯具
-                for (let i = 0; i < CONFIG.ceilingLights; i++) {
-                    const t = (i + 0.5) / CONFIG.ceilingLights;
-                    const y = VP_Y + (geo.ceilingY - VP_Y) * t;
-                    const scale = 1 - t * 0.5; // 远处的灯小一些
-                    const lightSize = 50 * scale;
+                // 可选：两个小射灯（非大顶灯）
+                const spotPositions = [
+                    { x: geo.frontWallLeft + geo.frontWallWidth * 0.25, y: ceilBottomY - 20 },
+                    { x: geo.frontWallRight - geo.frontWallWidth * 0.25, y: ceilBottomY - 20 }
+                ];
 
-                    // 灯体
+                spotPositions.forEach(spot => {
+                    // 小射灯外壳
+                    ctx.fillStyle = '#1a1a1a';
+                    ctx.beginPath();
+                    ctx.arc(spot.x, spot.y, 8, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // 灯光中心
                     ctx.fillStyle = '#f5f5dc';
                     ctx.beginPath();
-                    ctx.arc(VP_X, y, lightSize * 0.35, 0, Math.PI * 2);
+                    ctx.arc(spot.x, spot.y, 4, 0, Math.PI * 2);
                     ctx.fill();
 
-                    // 光晕
-                    const glowGrad = ctx.createRadialGradient(VP_X, y, 0, VP_X, y, lightSize * 2);
-                    glowGrad.addColorStop(0, 'rgba(255, 248, 220, 0.4)');
-                    glowGrad.addColorStop(0.3, 'rgba(255, 248, 220, 0.2)');
-                    glowGrad.addColorStop(1, 'rgba(255, 248, 220, 0)');
-                    ctx.fillStyle = glowGrad;
+                    // 小光晕
+                    const haloGrad = ctx.createRadialGradient(spot.x, spot.y, 0, spot.x, spot.y, 30);
+                    haloGrad.addColorStop(0, 'rgba(255, 248, 220, 0.15)');
+                    haloGrad.addColorStop(0.5, 'rgba(255, 248, 220, 0.05)');
+                    haloGrad.addColorStop(1, 'rgba(255, 248, 220, 0)');
+                    ctx.fillStyle = haloGrad;
                     ctx.beginPath();
-                    ctx.arc(VP_X, y, lightSize * 2, 0, Math.PI * 2);
+                    ctx.arc(spot.x, spot.y, 30, 0, Math.PI * 2);
                     ctx.fill();
+                });
 
-                    // 照到天花板的光斑
-                    const spotGrad = ctx.createRadialGradient(VP_X, y, 0, VP_X, y, lightSize * 1.5);
-                    spotGrad.addColorStop(0, 'rgba(255, 255, 255, 0.15)');
-                    spotGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-                    ctx.fillStyle = spotGrad;
-                    ctx.fillRect(VP_X - lightSize * 1.5, y - lightSize * 1.5,
-                                lightSize * 3, lightSize * 3);
-                }
+                // 天花板边缘装饰条
+                ctx.strokeStyle = '#444';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(geo.frontWallLeft, ceilBottomY);
+                ctx.lineTo(geo.frontWallRight, ceilBottomY);
+                ctx.stroke();
 
                 ctx.restore();
             }
 
-            // 绘制左右墙壁
+            // 绘制左右墙壁（垂直封闭墙面）
             drawWalls() {
                 const geo = getCabinGeometry();
                 ctx.save();
                 ctx.translate(0, this.elevator.vibration);
 
-                // 左墙 - 完整的梯形面，从后墙左边到前墙左边
-                const leftGrad = ctx.createLinearGradient(0, VP_Y, geo.frontWallLeft, VP_Y);
-                leftGrad.addColorStop(0, '#1a1a1a');
-                leftGrad.addColorStop(0.4, '#2a2a2a');
-                leftGrad.addColorStop(1, '#1a1a1a');
+                const ceilTopY = 0;
+                const ceilBottomY = geo.ceilingY + geo.cabinHeight * 0.05;
+                const floorTopY = geo.floorY - geo.cabinHeight * 0.05;
+                const floorBottomY = H;
 
-                ctx.fillStyle = leftGrad;
+                // === 左墙 - 暗木纹饰面 ===
+                const leftWallGrad = ctx.createLinearGradient(0, VP_Y, geo.frontWallLeft, VP_Y);
+                leftWallGrad.addColorStop(0, '#1a1a1a');
+                leftWallGrad.addColorStop(0.35, '#2d2520'); // 暗木棕色
+                leftWallGrad.addColorStop(0.65, '#3a3028');
+                leftWallGrad.addColorStop(1, '#1a1a1a');
+
+                ctx.fillStyle = leftWallGrad;
                 ctx.beginPath();
-                // 后墙左上角
-                ctx.moveTo(geo.backWallLeft, geo.ceilingY);
-                // 前墙左上角
-                ctx.lineTo(geo.frontWallLeft, VP_Y);
-                // 前墙左下角
-                ctx.lineTo(geo.frontWallLeft, VP_Y);
-                // 后墙左下角
-                ctx.lineTo(geo.backWallLeft, geo.floorY);
+                ctx.moveTo(geo.viewerWallLeft, ceilTopY);
+                ctx.lineTo(geo.frontWallLeft, ceilBottomY);
+                ctx.lineTo(geo.frontWallLeft, floorTopY);
+                ctx.lineTo(geo.viewerWallLeft, floorBottomY);
                 ctx.closePath();
                 ctx.fill();
 
-                // 右墙 - 完整的梯形面，从前墙右边到后墙右边
-                const rightGrad = ctx.createLinearGradient(geo.frontWallRight, VP_Y, W, VP_Y);
-                rightGrad.addColorStop(0, '#1a1a1a');
-                rightGrad.addColorStop(0.6, '#2a2a2a');
-                rightGrad.addColorStop(1, '#1a1a1a');
-
-                ctx.fillStyle = rightGrad;
+                // 左墙中央高光（暗示反光材质）
+                const leftHighlight = ctx.createLinearGradient(
+                    geo.viewerWallLeft, VP_Y,
+                    geo.frontWallLeft, VP_Y
+                );
+                leftHighlight.addColorStop(0, 'rgba(255, 255, 255, 0)');
+                leftHighlight.addColorStop(0.5, 'rgba(255, 255, 255, 0.06)');
+                leftHighlight.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                ctx.fillStyle = leftHighlight;
                 ctx.beginPath();
-                // 前墙右上角
-                ctx.moveTo(geo.frontWallRight, VP_Y);
-                // 后墙右上角
-                ctx.lineTo(geo.backWallRight, geo.ceilingY);
-                // 后墙右下角
-                ctx.lineTo(geo.backWallRight, geo.floorY);
-                // 前墙右下角
-                ctx.lineTo(geo.frontWallRight, VP_Y);
+                ctx.moveTo(geo.viewerWallLeft, ceilTopY);
+                ctx.lineTo(geo.frontWallLeft, ceilBottomY);
+                ctx.lineTo(geo.frontWallLeft, floorTopY);
+                ctx.lineTo(geo.viewerWallLeft, floorBottomY);
                 ctx.closePath();
                 ctx.fill();
 
-                // 墙面横条装饰
-                ctx.strokeStyle = 'rgba(120, 120, 120, 0.25)';
-                ctx.lineWidth = 2;
+                // 左墙前沿金属装饰条
+                ctx.strokeStyle = '#555';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(geo.frontWallLeft, ceilBottomY);
+                ctx.lineTo(geo.frontWallLeft, floorTopY);
+                ctx.stroke();
 
-                for (let i = 1; i <= 4; i++) {
-                    const t = i / 5;
-                    const y = VP_Y + (geo.floorY - VP_Y) * t;
-                    const yTop = VP_Y + (geo.ceilingY - VP_Y) * t;
+                // === 右墙 - 对称设计 ===
+                const rightWallGrad = ctx.createLinearGradient(geo.frontWallRight, VP_Y, W, VP_Y);
+                rightWallGrad.addColorStop(0, '#1a1a1a');
+                rightWallGrad.addColorStop(0.35, '#2d2520');
+                rightWallGrad.addColorStop(0.65, '#3a3028');
+                rightWallGrad.addColorStop(1, '#1a1a1a');
 
-                    // 左墙横条
-                    ctx.beginPath();
-                    ctx.moveTo(geo.backWallLeft, y);
-                    ctx.lineTo(geo.frontWallLeft, VP_Y);
-                    ctx.stroke();
+                ctx.fillStyle = rightWallGrad;
+                ctx.beginPath();
+                ctx.moveTo(geo.frontWallRight, ceilBottomY);
+                ctx.lineTo(geo.viewerWallRight, ceilTopY);
+                ctx.lineTo(geo.viewerWallRight, floorBottomY);
+                ctx.lineTo(geo.frontWallRight, floorTopY);
+                ctx.closePath();
+                ctx.fill();
 
-                    // 右墙横条
-                    ctx.beginPath();
-                    ctx.moveTo(geo.frontWallRight, VP_Y);
-                    ctx.lineTo(geo.backWallRight, y);
-                    ctx.stroke();
-                }
+                // 右墙中央高光
+                const rightHighlight = ctx.createLinearGradient(
+                    geo.frontWallRight, VP_Y,
+                    W, VP_Y
+                );
+                rightHighlight.addColorStop(0, 'rgba(255, 255, 255, 0)');
+                rightHighlight.addColorStop(0.5, 'rgba(255, 255, 255, 0.06)');
+                rightHighlight.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                ctx.fillStyle = rightHighlight;
+                ctx.beginPath();
+                ctx.moveTo(geo.frontWallRight, ceilBottomY);
+                ctx.lineTo(geo.viewerWallRight, ceilTopY);
+                ctx.lineTo(geo.viewerWallRight, floorBottomY);
+                ctx.lineTo(geo.frontWallRight, floorTopY);
+                ctx.closePath();
+                ctx.fill();
+
+                // 右墙前沿金属装饰条
+                ctx.strokeStyle = '#555';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(geo.frontWallRight, ceilBottomY);
+                ctx.lineTo(geo.frontWallRight, floorTopY);
+                ctx.stroke();
+
+                // 右墙装饰面板（对称于左侧按钮面板）
+                this.drawRightWallDecoration(geo);
 
                 ctx.restore();
             }
 
-            // 绘制前墙（门所在的墙面）
+            // 右墙装饰元素（镜面或信息板）
+            drawRightWallDecoration(geo) {
+                const panelX = geo.viewerWallRight - (geo.viewerWallRight - geo.frontWallRight) * 0.25;
+                const panelY = VP_Y - geo.cabinHeight * 0.15;
+                const panelW = geo.frontWallWidth * 0.12;
+                const panelH = geo.cabinHeight * 0.25;
+
+                // 装饰面板阴影
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.fillRect(panelX + 3, panelY + 3, panelW, panelH);
+
+                // 金属装饰板
+                const decorGrad = ctx.createLinearGradient(panelX, panelY, panelX + panelW, panelY);
+                decorGrad.addColorStop(0, '#2a2a2a');
+                decorGrad.addColorStop(0.5, '#4a4a4a');
+                decorGrad.addColorStop(1, '#2a2a2a');
+
+                ctx.fillStyle = decorGrad;
+                ctx.fillRect(panelX, panelY, panelW, panelH);
+
+                // 边框
+                ctx.strokeStyle = '#555';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(panelX, panelY, panelW, panelH);
+
+                // 假装的装饰线条
+                ctx.strokeStyle = '#666';
+                ctx.lineWidth = 1;
+                for (let i = 1; i <= 3; i++) {
+                    const y = panelY + (panelH / 4) * i;
+                    ctx.beginPath();
+                    ctx.moveTo(panelX + panelW * 0.1, y);
+                    ctx.lineTo(panelX + panelW * 0.9, y);
+                    ctx.stroke();
+                }
+            }
+
+            // 绘制前墙背景（门所在的墙面）
             drawFrontWall() {
                 const geo = getCabinGeometry();
                 ctx.save();
                 ctx.translate(0, this.elevator.vibration);
 
-                // 前墙矩形 - 从天花板到地板
-                const wallGrad = ctx.createLinearGradient(0, geo.ceilingY, 0, geo.floorY);
-                wallGrad.addColorStop(0, '#3a3a3a');
-                wallGrad.addColorStop(0.5, '#2a2a2a');
+                const ceilBottomY = geo.ceilingY + geo.cabinHeight * 0.05;
+                const floorTopY = geo.floorY - geo.cabinHeight * 0.05;
+
+                // 前墙背景 - 暗灰金属质感
+                const wallGrad = ctx.createLinearGradient(0, ceilBottomY, 0, floorTopY);
+                wallGrad.addColorStop(0, '#2a2a2a');
+                wallGrad.addColorStop(0.5, '#3a3a3a');
                 wallGrad.addColorStop(1, '#2a2a2a');
 
                 ctx.fillStyle = wallGrad;
-                ctx.fillRect(geo.frontWallLeft, VP_Y, geo.frontWallWidth, 0);
+                ctx.fillRect(geo.frontWallLeft, ceilBottomY,
+                            geo.frontWallWidth, floorTopY - ceilBottomY);
 
-                // 实际上前墙就是门框，我们在drawDoors中绘制
+                // 前墙边缘暗线
+                ctx.strokeStyle = '#1a1a1a';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(geo.frontWallLeft, ceilBottomY,
+                              geo.frontWallWidth, floorTopY - ceilBottomY);
 
                 ctx.restore();
             }
@@ -649,7 +736,7 @@
                 ctx.translate(0, this.elevator.vibration);
 
                 // 面板位置 - 在左墙上，靠近观察者
-                const panelX = geo.backWallLeft + (geo.frontWallLeft - geo.backWallLeft) * 0.25;
+                const panelX = geo.viewerWallLeft + (geo.frontWallLeft - geo.viewerWallLeft) * 0.25;
                 const panelY = VP_Y - geo.cabinHeight * 0.25;
                 const panelW = geo.frontWallWidth * 0.18;
                 const panelH = geo.cabinHeight * 0.5;
@@ -766,18 +853,28 @@
                 ctx.restore();
             }
 
-            // 绘制大气雾效果
+            // 绘制环境光效（柔和照明）
             drawAtmosphere() {
                 const geo = getCabinGeometry();
 
-                // 柔和的环境光晕
-                const ambientGrad = ctx.createRadialGradient(VP_X, VP_Y, 0,
-                                                             VP_X, VP_Y, Math.max(W, H) * 0.6);
-                ambientGrad.addColorStop(0, 'rgba(255, 248, 220, 0.05)');
-                ambientGrad.addColorStop(0.6, 'rgba(0, 0, 0, 0.1)');
-                ambientGrad.addColorStop(1, 'rgba(0, 0, 0, 0.2)');
+                // 中央区域（门和指示器周围）稍亮
+                const centerLight = ctx.createRadialGradient(VP_X, VP_Y, 0,
+                                                             VP_X, VP_Y, Math.max(W, H) * 0.5);
+                centerLight.addColorStop(0, 'rgba(255, 248, 220, 0.03)');
+                centerLight.addColorStop(0.5, 'rgba(255, 248, 220, 0.01)');
+                centerLight.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
-                ctx.fillStyle = ambientGrad;
+                ctx.fillStyle = centerLight;
+                ctx.fillRect(0, 0, W, H);
+
+                // 四角暗角效果
+                const vignette = ctx.createRadialGradient(VP_X, VP_Y, Math.min(W, H) * 0.3,
+                                                          VP_X, VP_Y, Math.max(W, H) * 0.8);
+                vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
+                vignette.addColorStop(0.7, 'rgba(0, 0, 0, 0.1)');
+                vignette.addColorStop(1, 'rgba(0, 0, 0, 0.25)');
+
+                ctx.fillStyle = vignette;
                 ctx.fillRect(0, 0, W, H);
             }
 
@@ -802,15 +899,16 @@
                 ctx.fillStyle = '#0a0a0a';
                 ctx.fillRect(0, 0, W, H);
 
-                // 绘制顺序（从后到前，模拟3D深度）
-                this.drawCeiling();       // 天花板
-                this.drawFloor();         // 地板
-                this.drawWalls();         // 左右墙
-                this.drawDoors();         // 前墙和门
-                this.drawFloorIndicator(); // 楼层显示器（在门上方）
-                this.drawButtonPanel();   // 按钮面板（在左墙上）
-                this.drawAtmosphere();    // 环境光效
-                this.drawStatusText();    // UI文字
+                // 绘制顺序（从后到前，构建封闭电梯厢）
+                this.drawCeiling();        // 天花板
+                this.drawFloor();          // 地板
+                this.drawWalls();          // 左右侧墙
+                this.drawFrontWall();      // 前墙背景
+                this.drawDoors();          // 门和门框
+                this.drawFloorIndicator(); // 楼层显示器
+                this.drawButtonPanel();    // 按钮面板
+                this.drawAtmosphere();     // 环境光效
+                this.drawStatusText();     // 状态文字
             }
         }
 
