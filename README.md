@@ -2,6 +2,32 @@
 
 一个使用 p5.js 创建的第一人称视角电梯交互体验。
 
+## 🌐 在线访问
+
+### 方法 1：GitHub Pages（推荐）
+如果已启用 GitHub Pages，访问：
+```
+https://Hanyel-314.github.io/final-test/
+```
+
+### 方法 2：在线预览服务
+使用以下任一服务直接预览：
+
+**HTMLPreview：**
+```
+https://htmlpreview.github.io/?https://github.com/Hanyel-314/final-test/blob/claude/elevator-experience-01MKmEoFCuuVLDTWucLkXy6p/index.html
+```
+
+**RawGit：**
+```
+https://raw.githack.com/Hanyel-314/final-test/claude/elevator-experience-01MKmEoFCuuVLDTWucLkXy6p/index.html
+```
+
+### 方法 3：下载到本地
+1. 点击右上角 **Code** → **Download ZIP**
+2. 解压后双击 `index.html` 即可运行
+3. 或者右键点击 `index.html` → 选择浏览器打开
+
 ## 功能特性
 
 - **第一人称视角**：站在电梯内部，面向电梯门
@@ -116,6 +142,31 @@ index.html
         ├── touchStarted()
         └── handleClick()
 ```
+
+## 🚀 启用 GitHub Pages
+
+要在 GitHub 上直接访问此项目，请按以下步骤设置 GitHub Pages：
+
+1. 进入 GitHub 仓库页面
+2. 点击 **Settings**（设置）
+3. 在左侧菜单找到 **Pages**
+4. 在 **Source** 下选择分支：
+   - 选择 `claude/elevator-experience-01MKmEoFCuuVLDTWucLkXy6p` 分支
+   - 或者选择 `main` 分支（如果已合并）
+5. 点击 **Save**（保存）
+6. 等待几分钟后，访问显示的 URL
+
+## 🐛 故障排除
+
+如果页面显示黑屏：
+1. **检查浏览器控制台**（按 F12）
+   - 应该看到 "Script started", "Setup called", "Setup complete"
+   - 如果有红色错误，检查是否是网络问题
+2. **检查 p5.js CDN 是否可访问**
+   - 如果在国内，CDN 可能被墙
+   - 可以下载项目到本地运行
+3. **尝试不同浏览器**
+   - 推荐使用 Chrome 或 Firefox
 
 ## License
 
