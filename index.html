@@ -787,11 +787,11 @@
                 ctx.save();
                 ctx.translate(0, this.elevator.vibration);
 
-                // 面板位置 - 在左墙上
+                // 面板位置 - 在左墙上，扩大以容纳所有7个按钮
                 const panelX = W * 0.12;
-                const panelY = VP_Y - H * 0.25;
+                const panelY = VP_Y - H * 0.32;
                 const panelW = W * 0.08;
-                const panelH = H * 0.5; // 增加高度以容纳新按钮
+                const panelH = H * 0.64; // 增加高度以容纳7个按钮
 
                 // 面板阴影（给一点3D深度感）
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
@@ -817,124 +817,125 @@
                 ctx.lineWidth = 1;
                 ctx.strokeRect(panelX + 6, panelY + 6, panelW - 12, panelH - 12);
 
-                // 绘制5个楼层按钮（调整间距避免重叠）
-                const buttonRadius = Math.min(panelW * 0.22, panelH * 0.06);
-                const buttonGap = buttonRadius * 1.2; // 按钮间隙
-                const floorButtonsHeight = 5 * (2 * buttonRadius) + 4 * buttonGap;
-                const startY = panelY + panelH * 0.12;
+                // 统一按钮配置：7个按钮（5个楼层 + OPEN + CLOSE）
+                const buttonRadius = Math.min(panelW * 0.22, panelH * 0.055);
+                const panelInnerTop = panelY + panelH * 0.08;
+                const panelInnerBottom = panelY + panelH * 0.92;
+                const availableHeight = panelInnerBottom - panelInnerTop;
+                const buttonStep = availableHeight / 6; // 6 gaps for 7 buttons
 
-                this.elevator.buttons.forEach((btn, i) => {
+                // 按钮配置数组
+                const buttonConfigs = [
+                    { type: 'floor', floor: 5, index: 0 },
+                    { type: 'floor', floor: 4, index: 1 },
+                    { type: 'floor', floor: 3, index: 2 },
+                    { type: 'floor', floor: 2, index: 3 },
+                    { type: 'floor', floor: 1, index: 4 },
+                    { type: 'open', index: 5 },
+                    { type: 'close', index: 6 }
+                ];
+
+                buttonConfigs.forEach(config => {
                     const bx = panelX + panelW / 2;
-                    const by = startY + i * (2 * buttonRadius + buttonGap);
+                    const by = panelInnerTop + config.index * buttonStep;
 
-                    const isCurrent = btn.floor === this.elevator.currentFloor;
-                    const isActive = btn.active;
+                    if (config.type === 'floor') {
+                        // 绘制楼层按钮
+                        const btn = this.elevator.buttons.find(b => b.floor === config.floor);
+                        const isCurrent = config.floor === this.elevator.currentFloor;
+                        const isActive = btn.active;
 
-                    // 按钮凹槽
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-                    ctx.beginPath();
-                    ctx.arc(bx, by, buttonRadius * 1.15, 0, Math.PI * 2);
-                    ctx.fill();
-
-                    // 按钮阴影
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-                    ctx.beginPath();
-                    ctx.arc(bx + 1.5, by + 1.5, buttonRadius, 0, Math.PI * 2);
-                    ctx.fill();
-
-                    // 按钮本体
-                    const btnGrad = ctx.createRadialGradient(
-                        bx - buttonRadius * 0.35, by - buttonRadius * 0.35, buttonRadius * 0.1,
-                        bx, by, buttonRadius
-                    );
-
-                    if (isActive) {
-                        btnGrad.addColorStop(0, '#ffe44d');
-                        btnGrad.addColorStop(0.6, '#ffbb00');
-                        btnGrad.addColorStop(1, '#cc9900');
-                    } else {
-                        btnGrad.addColorStop(0, '#6a6a6a');
-                        btnGrad.addColorStop(0.6, '#4a4a4a');
-                        btnGrad.addColorStop(1, '#2a2a2a');
-                    }
-
-                    ctx.fillStyle = btnGrad;
-                    ctx.beginPath();
-                    ctx.arc(bx, by, buttonRadius, 0, Math.PI * 2);
-                    ctx.fill();
-
-                    // 当前楼层指示灯
-                    if (isCurrent) {
-                        ctx.strokeStyle = '#00ff00';
-                        ctx.lineWidth = 2.5;
+                        // 按钮凹槽
+                        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
                         ctx.beginPath();
-                        ctx.arc(bx, by, buttonRadius * 1.05, 0, Math.PI * 2);
-                        ctx.stroke();
-                    }
-
-                    // 按钮高光
-                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-                    ctx.lineWidth = 1.5;
-                    ctx.beginPath();
-                    ctx.arc(bx - buttonRadius * 0.25, by - buttonRadius * 0.25,
-                           buttonRadius * 0.4, 0, Math.PI);
-                    ctx.stroke();
-
-                    // 激活时的光晕
-                    if (isActive) {
-                        const glowGrad = ctx.createRadialGradient(bx, by, buttonRadius,
-                                                                 bx, by, buttonRadius * 2.2);
-                        glowGrad.addColorStop(0, 'rgba(255, 200, 50, 0.35)');
-                        glowGrad.addColorStop(1, 'rgba(255, 200, 50, 0)');
-                        ctx.fillStyle = glowGrad;
-                        ctx.beginPath();
-                        ctx.arc(bx, by, buttonRadius * 2.2, 0, Math.PI * 2);
+                        ctx.arc(bx, by, buttonRadius * 1.15, 0, Math.PI * 2);
                         ctx.fill();
+
+                        // 按钮阴影
+                        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+                        ctx.beginPath();
+                        ctx.arc(bx + 1.5, by + 1.5, buttonRadius, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        // 按钮本体
+                        const btnGrad = ctx.createRadialGradient(
+                            bx - buttonRadius * 0.35, by - buttonRadius * 0.35, buttonRadius * 0.1,
+                            bx, by, buttonRadius
+                        );
+
+                        if (isActive) {
+                            btnGrad.addColorStop(0, '#ffe44d');
+                            btnGrad.addColorStop(0.6, '#ffbb00');
+                            btnGrad.addColorStop(1, '#cc9900');
+                        } else {
+                            btnGrad.addColorStop(0, '#6a6a6a');
+                            btnGrad.addColorStop(0.6, '#4a4a4a');
+                            btnGrad.addColorStop(1, '#2a2a2a');
+                        }
+
+                        ctx.fillStyle = btnGrad;
+                        ctx.beginPath();
+                        ctx.arc(bx, by, buttonRadius, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        // 当前楼层指示灯
+                        if (isCurrent) {
+                            ctx.strokeStyle = '#00ff00';
+                            ctx.lineWidth = 2.5;
+                            ctx.beginPath();
+                            ctx.arc(bx, by, buttonRadius * 1.05, 0, Math.PI * 2);
+                            ctx.stroke();
+                        }
+
+                        // 激活时的光晕
+                        if (isActive) {
+                            const glowGrad = ctx.createRadialGradient(bx, by, buttonRadius,
+                                                                     bx, by, buttonRadius * 2.2);
+                            glowGrad.addColorStop(0, 'rgba(255, 200, 50, 0.35)');
+                            glowGrad.addColorStop(1, 'rgba(255, 200, 50, 0)');
+                            ctx.fillStyle = glowGrad;
+                            ctx.beginPath();
+                            ctx.arc(bx, by, buttonRadius * 2.2, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+
+                        // 楼层数字（无高光线）
+                        ctx.fillStyle = isActive ? '#000' : '#e0e0e0';
+                        ctx.font = `bold ${buttonRadius * 1.1}px Arial`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(config.floor, bx, by + 1);
+
+                        // 保存按钮位置用于点击检测
+                        btn.screenPos = { x: bx, y: by, radius: buttonRadius * 1.3 };
+
+                    } else if (config.type === 'open') {
+                        // 绘制开门按钮
+                        this.drawControlButton(bx, by, buttonRadius, 'open',
+                                              this.elevator.openButton.pressed);
+                        this.elevator.openButton.screenPos = {
+                            x: bx,
+                            y: by,
+                            radius: buttonRadius * 1.3
+                        };
+
+                    } else if (config.type === 'close') {
+                        // 绘制关门按钮
+                        this.drawControlButton(bx, by, buttonRadius, 'close',
+                                               this.elevator.closeButton.pressed);
+                        this.elevator.closeButton.screenPos = {
+                            x: bx,
+                            y: by,
+                            radius: buttonRadius * 1.3
+                        };
                     }
-
-                    // 楼层数字
-                    ctx.fillStyle = isActive ? '#000' : '#e0e0e0';
-                    ctx.font = `bold ${buttonRadius * 1.1}px Arial`;
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(btn.floor, bx, by + 1);
-
-                    // 保存按钮位置用于点击检测
-                    btn.screenPos = { x: bx, y: by, radius: buttonRadius * 1.3 };
                 });
-
-                // === 绘制开门/关门按钮 ===
-                const controlButtonY = startY + 5 * (2 * buttonRadius + buttonGap) + buttonGap * 2;
-                const controlButtonRadius = buttonRadius * 0.9;
-                const controlButtonSpacing = controlButtonRadius * 3;
-
-                // OPEN 按钮（左侧）
-                const openBtnX = panelX + panelW * 0.3;
-                const openBtnY = controlButtonY;
-                this.drawControlButton(openBtnX, openBtnY, controlButtonRadius, '«»',
-                                      this.elevator.openButton.pressed);
-                this.elevator.openButton.screenPos = {
-                    x: openBtnX,
-                    y: openBtnY,
-                    radius: controlButtonRadius * 1.2
-                };
-
-                // CLOSE 按钮（右侧）
-                const closeBtnX = panelX + panelW * 0.7;
-                const closeBtnY = controlButtonY;
-                this.drawControlButton(closeBtnX, closeBtnY, controlButtonRadius, '»«',
-                                       this.elevator.closeButton.pressed);
-                this.elevator.closeButton.screenPos = {
-                    x: closeBtnX,
-                    y: closeBtnY,
-                    radius: controlButtonRadius * 1.2
-                };
 
                 ctx.restore();
             }
 
             // 绘制开门/关门控制按钮
-            drawControlButton(x, y, radius, icon, isPressed) {
+            drawControlButton(x, y, radius, iconType, isPressed) {
                 // 按钮凹槽
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
                 ctx.beginPath();
@@ -970,21 +971,85 @@
                 ctx.arc(x, y, radius, 0, Math.PI * 2);
                 ctx.fill();
 
-                // 按钮高光
-                if (!isPressed) {
-                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-                    ctx.lineWidth = 1;
+                // 绘制电梯图标（无高光线）
+                ctx.save();
+                ctx.translate(x, y);
+
+                const iconColor = isPressed ? '#999' : '#e0e0e0';
+                const barWidth = radius * 0.12;
+                const barHeight = radius * 0.6;
+                const arrowSize = radius * 0.25;
+                const spacing = radius * 0.25;
+
+                if (iconType === 'open') {
+                    // OPEN 图标: ◀ | | ▶
+                    ctx.fillStyle = iconColor;
+                    ctx.strokeStyle = iconColor;
+                    ctx.lineWidth = barWidth;
+
+                    // 中央两条竖线
                     ctx.beginPath();
-                    ctx.arc(x - radius * 0.25, y - radius * 0.25, radius * 0.4, 0, Math.PI);
+                    ctx.moveTo(-spacing / 2, -barHeight / 2);
+                    ctx.lineTo(-spacing / 2, barHeight / 2);
                     ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.moveTo(spacing / 2, -barHeight / 2);
+                    ctx.lineTo(spacing / 2, barHeight / 2);
+                    ctx.stroke();
+
+                    // 左侧箭头（向左）
+                    ctx.beginPath();
+                    ctx.moveTo(-spacing / 2 - arrowSize * 0.3, 0);
+                    ctx.lineTo(-spacing / 2 - arrowSize * 1.2, -arrowSize * 0.7);
+                    ctx.lineTo(-spacing / 2 - arrowSize * 1.2, arrowSize * 0.7);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // 右侧箭头（向右）
+                    ctx.beginPath();
+                    ctx.moveTo(spacing / 2 + arrowSize * 0.3, 0);
+                    ctx.lineTo(spacing / 2 + arrowSize * 1.2, -arrowSize * 0.7);
+                    ctx.lineTo(spacing / 2 + arrowSize * 1.2, arrowSize * 0.7);
+                    ctx.closePath();
+                    ctx.fill();
+
+                } else if (iconType === 'close') {
+                    // CLOSE 图标: | ▶◀ |
+                    ctx.fillStyle = iconColor;
+                    ctx.strokeStyle = iconColor;
+                    ctx.lineWidth = barWidth;
+
+                    // 左侧竖线
+                    ctx.beginPath();
+                    ctx.moveTo(-spacing * 1.5, -barHeight / 2);
+                    ctx.lineTo(-spacing * 1.5, barHeight / 2);
+                    ctx.stroke();
+
+                    // 右侧竖线
+                    ctx.beginPath();
+                    ctx.moveTo(spacing * 1.5, -barHeight / 2);
+                    ctx.lineTo(spacing * 1.5, barHeight / 2);
+                    ctx.stroke();
+
+                    // 左箭头（向右指）
+                    ctx.beginPath();
+                    ctx.moveTo(-arrowSize * 0.2, 0);
+                    ctx.lineTo(-arrowSize * 0.9, -arrowSize * 0.7);
+                    ctx.lineTo(-arrowSize * 0.9, arrowSize * 0.7);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // 右箭头（向左指）
+                    ctx.beginPath();
+                    ctx.moveTo(arrowSize * 0.2, 0);
+                    ctx.lineTo(arrowSize * 0.9, -arrowSize * 0.7);
+                    ctx.lineTo(arrowSize * 0.9, arrowSize * 0.7);
+                    ctx.closePath();
+                    ctx.fill();
                 }
 
-                // 图标/文字
-                ctx.fillStyle = isPressed ? '#999' : '#e0e0e0';
-                ctx.font = `bold ${radius * 0.9}px monospace`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(icon, x, y + 1);
+                ctx.restore();
             }
 
             // 绘制环境光效（柔和照明）
