@@ -15,7 +15,6 @@
             min-height: 100vh;
             background: #0a0a0a;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            overflow: hidden;
         }
         main {
             display: flex;
@@ -176,12 +175,15 @@
             canvas.parent('main');
             elevator = new Elevator();
             textAlign(CENTER, CENTER);
+            lastTime = millis();
         }
 
         function draw() {
             const currentTime = millis();
             const deltaTime = currentTime - lastTime;
             lastTime = currentTime;
+
+            if (!elevator) return;
 
             elevator.update(deltaTime);
 
@@ -204,14 +206,14 @@
         function drawCabin() {
             background(20, 20, 25);
 
-            // 顶部光源
+            // 顶部光源 - 简化版本
             push();
             noStroke();
-            let gradient = drawingContext.createRadialGradient(300, 100, 50, 300, 100, 250);
-            gradient.addColorStop(0, 'rgba(255, 255, 220, 0.3)');
-            gradient.addColorStop(1, 'rgba(255, 255, 220, 0)');
-            drawingContext.fillStyle = gradient;
-            rect(0, 0, 600, 300);
+            for (let i = 0; i < 5; i++) {
+                let alpha = map(i, 0, 5, 80, 0);
+                fill(255, 255, 220, alpha);
+                ellipse(300, 100, 500 - i * 50, 400 - i * 50);
+            }
             pop();
 
             // 顶灯
@@ -223,26 +225,27 @@
             rect(210, 50, 180, 20, 3);
             pop();
 
-            // 侧墙（带金属质感）
+            // 左墙 - 使用渐变矩形
             push();
-            // 左墙
-            let leftGrad = drawingContext.createLinearGradient(0, 0, 150, 0);
-            leftGrad.addColorStop(0, '#1a1a1f');
-            leftGrad.addColorStop(0.3, '#2a2a35');
-            leftGrad.addColorStop(1, '#1a1a1f');
-            drawingContext.fillStyle = leftGrad;
-            rect(0, 100, 150, 700);
-
-            // 右墙
-            let rightGrad = drawingContext.createLinearGradient(450, 0, 600, 0);
-            rightGrad.addColorStop(0, '#1a1a1f');
-            rightGrad.addColorStop(0.7, '#2a2a35');
-            rightGrad.addColorStop(1, '#1a1a1f');
-            drawingContext.fillStyle = rightGrad;
-            rect(450, 100, 150, 700);
+            for (let x = 0; x < 150; x += 3) {
+                let c = map(x, 0, 150, 26, 42);
+                if (x < 45 || x > 105) c = map(x < 45 ? x : 150 - x, 0, 45, 26, 42);
+                stroke(c, c, c + 10);
+                line(x, 100, x, 800);
+            }
             pop();
 
-            // 地板（带透视网格）
+            // 右墙
+            push();
+            for (let x = 450; x < 600; x += 3) {
+                let c = map(x, 450, 600, 26, 42);
+                if (x < 495 || x > 555) c = map(x < 495 ? x - 450 : 600 - x, 0, 45, 26, 42);
+                stroke(c, c, c + 10);
+                line(x, 100, x, 800);
+            }
+            pop();
+
+            // 地板网格
             push();
             stroke(40, 40, 50);
             strokeWeight(1);
@@ -277,7 +280,7 @@
             // 如果门打开，先绘制外部场景
             if (elevator.doorProgress > 0) {
                 push();
-                // 裁剪区域
+                // 使用 clip 裁剪
                 drawingContext.save();
                 drawingContext.beginPath();
                 drawingContext.rect(centerX - slideOffset, doorY, slideOffset * 2, doorHeight);
@@ -289,21 +292,24 @@
                 pop();
             }
 
-            // 左门
+            // 左门 - 简化渐变
             push();
-            let doorGrad = drawingContext.createLinearGradient(
-                centerX - doorWidth - slideOffset, 0,
-                centerX - slideOffset, 0
-            );
-            doorGrad.addColorStop(0, '#3a3a45');
-            doorGrad.addColorStop(0.05, '#5a5a65');
-            doorGrad.addColorStop(0.5, '#4a4a55');
-            doorGrad.addColorStop(0.95, '#5a5a65');
-            doorGrad.addColorStop(1, '#3a3a45');
-            drawingContext.fillStyle = doorGrad;
-            noStroke();
-            rect(centerX - doorWidth - slideOffset, doorY, doorWidth, doorHeight);
-
+            for (let x = 0; x < doorWidth; x += 2) {
+                let progress = x / doorWidth;
+                let c;
+                if (progress < 0.05) {
+                    c = map(progress, 0, 0.05, 58, 90);
+                } else if (progress < 0.5) {
+                    c = map(progress, 0.05, 0.5, 90, 74);
+                } else if (progress < 0.95) {
+                    c = map(progress, 0.5, 0.95, 74, 90);
+                } else {
+                    c = map(progress, 0.95, 1, 90, 58);
+                }
+                stroke(c, c, c + 10);
+                line(centerX - doorWidth - slideOffset + x, doorY,
+                     centerX - doorWidth - slideOffset + x, doorY + doorHeight);
+            }
             // 左门高光
             stroke(100, 100, 110, 80);
             strokeWeight(2);
@@ -313,19 +319,22 @@
 
             // 右门
             push();
-            doorGrad = drawingContext.createLinearGradient(
-                centerX + slideOffset, 0,
-                centerX + doorWidth + slideOffset, 0
-            );
-            doorGrad.addColorStop(0, '#3a3a45');
-            doorGrad.addColorStop(0.05, '#5a5a65');
-            doorGrad.addColorStop(0.5, '#4a4a55');
-            doorGrad.addColorStop(0.95, '#5a5a65');
-            doorGrad.addColorStop(1, '#3a3a45');
-            drawingContext.fillStyle = doorGrad;
-            noStroke();
-            rect(centerX + slideOffset, doorY, doorWidth, doorHeight);
-
+            for (let x = 0; x < doorWidth; x += 2) {
+                let progress = x / doorWidth;
+                let c;
+                if (progress < 0.05) {
+                    c = map(progress, 0, 0.05, 58, 90);
+                } else if (progress < 0.5) {
+                    c = map(progress, 0.05, 0.5, 90, 74);
+                } else if (progress < 0.95) {
+                    c = map(progress, 0.5, 0.95, 74, 90);
+                } else {
+                    c = map(progress, 0.95, 1, 90, 58);
+                }
+                stroke(c, c, c + 10);
+                line(centerX + slideOffset + x, doorY,
+                     centerX + slideOffset + x, doorY + doorHeight);
+            }
             // 右门高光
             stroke(100, 100, 110, 80);
             strokeWeight(2);
@@ -364,11 +373,11 @@
 
             // 暖色灯光
             push();
-            let grad = drawingContext.createRadialGradient(300, 200, 50, 300, 200, 300);
-            grad.addColorStop(0, 'rgba(255, 220, 180, 0.3)');
-            grad.addColorStop(1, 'rgba(255, 220, 180, 0)');
-            drawingContext.fillStyle = grad;
-            rect(150, 100, 300, 500);
+            noStroke();
+            for (let i = 0; i < 8; i++) {
+                fill(255, 220, 180, map(i, 0, 8, 80, 0));
+                ellipse(300, 200, 600 - i * 50, 600 - i * 50);
+            }
             pop();
 
             // 左侧墙面和植物
@@ -401,15 +410,6 @@
         function drawOffice() {
             // 2层：办公层
             background(220, 225, 230);
-
-            // 冷白光
-            push();
-            let grad = drawingContext.createLinearGradient(300, 100, 300, 600);
-            grad.addColorStop(0, 'rgba(240, 245, 250, 0.8)');
-            grad.addColorStop(1, 'rgba(200, 210, 220, 0.5)');
-            drawingContext.fillStyle = grad;
-            rect(150, 100, 300, 500);
-            pop();
 
             // 左侧办公室门
             fill(180, 170, 160);
@@ -445,11 +445,11 @@
 
             // 柔和光
             push();
-            let grad = drawingContext.createRadialGradient(300, 300, 50, 300, 300, 250);
-            grad.addColorStop(0, 'rgba(200, 180, 200, 0.3)');
-            grad.addColorStop(1, 'rgba(100, 90, 110, 0.1)');
-            drawingContext.fillStyle = grad;
-            rect(150, 100, 300, 500);
+            noStroke();
+            for (let i = 0; i < 6; i++) {
+                fill(200, 180, 200, map(i, 0, 6, 80, 0));
+                ellipse(300, 300, 500 - i * 50, 500 - i * 50);
+            }
             pop();
 
             // 左侧画框
@@ -487,16 +487,6 @@
         function drawNeon() {
             // 4层：霓虹科技层
             background(10, 5, 20);
-
-            // 蓝紫霓虹背景
-            push();
-            let grad = drawingContext.createLinearGradient(300, 100, 300, 600);
-            grad.addColorStop(0, 'rgba(80, 50, 150, 0.3)');
-            grad.addColorStop(0.5, 'rgba(50, 100, 200, 0.2)');
-            grad.addColorStop(1, 'rgba(80, 50, 150, 0.3)');
-            drawingContext.fillStyle = grad;
-            rect(150, 100, 300, 500);
-            pop();
 
             // 发光线条
             push();
@@ -550,12 +540,13 @@
             // 5层：天台
             // 天空渐变
             push();
-            let grad = drawingContext.createLinearGradient(300, 100, 300, 600);
-            grad.addColorStop(0, '#1a1a3a');
-            grad.addColorStop(0.5, '#2a2a4a');
-            grad.addColorStop(1, '#3a3a5a');
-            drawingContext.fillStyle = grad;
-            rect(150, 100, 300, 500);
+            for (let y = 100; y < 600; y += 5) {
+                let c1 = map(y, 100, 600, 26, 58);
+                let c2 = map(y, 100, 600, 26, 58);
+                let c3 = map(y, 100, 600, 58, 90);
+                stroke(c1, c2, c3);
+                line(150, y, 450, y);
+            }
             pop();
 
             // 星星
@@ -722,7 +713,7 @@
             textAlign(LEFT, TOP);
             text(elevator.getStatusText(), 20, 20);
 
-            // 调试信息（可选）
+            // 队列信息
             if (elevator.targetQueue.length > 0) {
                 textSize(12);
                 fill(150, 150, 160);
@@ -739,20 +730,12 @@
             if (touches.length > 0) {
                 handleClick(touches[0].x, touches[0].y);
             }
-            return false; // 防止默认行为
+            return false;
         }
 
         function handleClick(x, y) {
             // 检查是否点击了按钮
-            if (elevator.state === STATE.IDLE || elevator.state === STATE.DOOR_OPEN) {
-                elevator.buttons.forEach(btn => {
-                    const d = dist(x, y, btn.x, btn.y);
-                    if (d < 25) { // 按钮半径
-                        elevator.addTarget(btn.floor);
-                    }
-                });
-            } else if (elevator.state === STATE.MOVING) {
-                // 移动中也可以添加到队列
+            if (elevator.state === STATE.IDLE || elevator.state === STATE.DOOR_OPEN || elevator.state === STATE.MOVING) {
                 elevator.buttons.forEach(btn => {
                     const d = dist(x, y, btn.x, btn.y);
                     if (d < 25) {
