@@ -885,12 +885,15 @@
                 // 垂直居中整个按钮组，确保上下padding相等
                 const groupStartY = panelY + (panelH - totalButtonsHeight) / 2;
 
+                // 楼层按钮组向下偏移量（正值向下移动）
+                const floorGroupOffsetY = 40;
+
                 // 绘制3个楼层按钮（垂直排列，紧凑间距）
                 const floorButtons = [3, 2, 1];
                 floorButtons.forEach((floorNum, i) => {
                     const btn = this.elevator.buttons.find(b => b.floor === floorNum);
                     const bx = panelCenterX;
-                    const by = groupStartY + i * (singleButtonHeight + floorButtonSpacing);
+                    const by = groupStartY + floorGroupOffsetY + i * (singleButtonHeight + floorButtonSpacing);
                     const isCurrent = floorNum === this.elevator.currentFloor;
                     const isActive = btn.active;
 
