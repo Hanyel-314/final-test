@@ -865,24 +865,32 @@
                 ctx.lineWidth = 1;
                 ctx.strokeRect(panelX + 6, panelY + 6, panelW - 12, panelH - 12);
 
-                // 统一按钮配置：5个楼层按钮 + 1行门控按钮
+                // 统一按钮配置：3个楼层按钮 + 1行门控按钮
                 const buttonRadius = Math.min(panelW * 0.22, panelH * 0.055);
                 const panelCenterX = panelX + panelW / 2;
 
-                // 面板内部边距 - 上下留白
-                const innerTop = panelY + buttonRadius * 1.6;
-                const innerBottom = panelY + panelH - buttonRadius * 1.8;
+                // 紧凑的楼层按钮间距（约0.7倍按钮直径）
+                const floorButtonSpacing = buttonRadius * 1.4; // 非常紧凑的间距
 
-                // 4行：3个楼层 + 1行开关门按钮
-                const rows = 4;
-                const buttonStep = (innerBottom - innerTop) / (rows - 1);
+                // 计算3个楼层按钮所占的总高度
+                const singleButtonHeight = buttonRadius * 2;
+                const floorButtonsHeight = 3 * singleButtonHeight + 2 * floorButtonSpacing;
 
-                // 绘制3个楼层按钮（垂直排列）
+                // 楼层按钮到门控按钮的中等间距
+                const floorToDoorGap = buttonRadius * 4.0;
+
+                // 计算所有按钮的总高度（包括门控按钮）
+                const totalButtonsHeight = floorButtonsHeight + floorToDoorGap + singleButtonHeight;
+
+                // 垂直居中整个按钮组，确保上下padding相等
+                const groupStartY = panelY + (panelH - totalButtonsHeight) / 2;
+
+                // 绘制3个楼层按钮（垂直排列，紧凑间距）
                 const floorButtons = [3, 2, 1];
                 floorButtons.forEach((floorNum, i) => {
                     const btn = this.elevator.buttons.find(b => b.floor === floorNum);
                     const bx = panelCenterX;
-                    const by = innerTop + i * buttonStep;
+                    const by = groupStartY + i * (singleButtonHeight + floorButtonSpacing);
                     const isCurrent = floorNum === this.elevator.currentFloor;
                     const isActive = btn.active;
 
@@ -951,8 +959,8 @@
                     btn.screenPos = { x: bx, y: by, radius: buttonRadius * 1.3 };
                 });
 
-                // 绘制开门/关门按钮（并排在最下方）
-                const doorControlY = innerTop + 3 * buttonStep;
+                // 绘制开门/关门按钮（并排在底部，保持舒适间距）
+                const doorControlY = groupStartY + floorButtonsHeight + floorToDoorGap;
                 const horizontalOffset = buttonRadius * 1.4;
 
                 // OPEN 按钮（左侧）
