@@ -787,18 +787,17 @@
                 ctx.save();
                 ctx.translate(0, this.elevator.vibration);
 
-                // 面板缩放因子 - 使面板更小更精致
-                const PANEL_SCALE = 0.75;
+                // 面板尺寸比例 - 更窄更紧凑的面板
+                const PANEL_WIDTH_RATIO  = 0.11;  // 更窄的面板
+                const PANEL_HEIGHT_RATIO = 0.52;  // 稍短的面板
 
-                // 基础尺寸
-                const basePanelW = W * 0.14;
-                const basePanelH = H * 0.64;
+                // 面板尺寸
+                const panelW = W * PANEL_WIDTH_RATIO;
+                const panelH = H * PANEL_HEIGHT_RATIO;
 
-                // 应用缩放后的面板尺寸
-                const panelW = basePanelW * PANEL_SCALE;
-                const panelH = basePanelH * PANEL_SCALE;
-                const panelX = W * 0.08;
-                const panelY = VP_Y - panelH / 2;
+                // 面板位置 - 靠左墙，垂直居中
+                const panelX = W * 0.06;
+                const panelY = (H - panelH) / 2;
 
                 // 面板阴影（给一点3D深度感）
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
@@ -825,19 +824,23 @@
                 ctx.strokeRect(panelX + 6, panelY + 6, panelW - 12, panelH - 12);
 
                 // 统一按钮配置：5个楼层按钮 + 1行门控按钮
-                const baseButtonRadius = Math.min(panelW * 0.22, panelH * 0.055);
-                const buttonRadius = baseButtonRadius * PANEL_SCALE;
-                const panelInnerTop = panelY + panelH * 0.08;
-                const panelInnerBottom = panelY + panelH * 0.92;
-                const availableHeight = panelInnerBottom - panelInnerTop;
-                const buttonStep = availableHeight / 5; // 5 gaps for 6 rows (5 floors + 1 door control row)
+                const buttonRadius = Math.min(panelW * 0.22, panelH * 0.055);
+                const panelCenterX = panelX + panelW / 2;
+
+                // 面板内部边距 - 上下留白
+                const innerTop = panelY + buttonRadius * 1.6;
+                const innerBottom = panelY + panelH - buttonRadius * 1.8;
+
+                // 6行：5个楼层 + 1行开关门按钮
+                const rows = 6;
+                const buttonStep = (innerBottom - innerTop) / (rows - 1);
 
                 // 绘制5个楼层按钮（垂直排列）
                 const floorButtons = [5, 4, 3, 2, 1];
                 floorButtons.forEach((floorNum, i) => {
                     const btn = this.elevator.buttons.find(b => b.floor === floorNum);
-                    const bx = panelX + panelW / 2;
-                    const by = panelInnerTop + i * buttonStep;
+                    const bx = panelCenterX;
+                    const by = innerTop + i * buttonStep;
                     const isCurrent = floorNum === this.elevator.currentFloor;
                     const isActive = btn.active;
 
