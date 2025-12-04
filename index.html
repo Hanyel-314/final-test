@@ -59,6 +59,17 @@
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
 
+        // ========== 相机变量 Camera Variables ==========
+        // 相机缩放和偏移 - 用于"走向电梯门"的效果
+        // Camera zoom and offset - for "walk toward elevator doors" effect
+        let cameraZoom = 1.0;
+        let targetCameraZoom = 1.0;
+        let cameraOffsetY = 0;
+        let targetCameraOffsetY = 0;
+
+        // 玩家是否已经向前走 Whether the player has walked forward
+        let hasWalkedForward = false;
+
         // ========== 全屏3D电梯厢几何定义 ==========
         // 定义填满整个屏幕的3D封闭电梯厢
         function getCabinGeometry() {
@@ -1153,6 +1164,18 @@
                 ctx.fillStyle = '#0a0a0a';
                 ctx.fillRect(0, 0, W, H);
 
+                // 相机缓动动画 Camera easing animation
+                // 平滑插值，使相机移动更自然 Smooth interpolation for natural camera movement
+                cameraZoom += (targetCameraZoom - cameraZoom) * 0.08;
+                cameraOffsetY += (targetCameraOffsetY - cameraOffsetY) * 0.08;
+
+                // 应用相机变换 Apply camera transform
+                ctx.save();
+                // 移动到中心，应用缩放和Y偏移，再移回 Translate to center, apply zoom & Y offset, then translate back
+                ctx.translate(W / 2, H / 2 + cameraOffsetY);
+                ctx.scale(cameraZoom, cameraZoom);
+                ctx.translate(-W / 2, -H / 2);
+
                 // 绘制顺序（从后到前，构建封闭电梯厢）
                 this.drawCeiling();        // 天花板
                 this.drawFloor();          // 地板
@@ -1164,6 +1187,8 @@
                 this.drawButtonPanel();    // 按钮面板
                 this.drawAtmosphere();     // 环境光效
                 this.drawStatusText();     // 状态文字
+
+                ctx.restore(); // 恢复相机变换 Restore camera transform
             }
         }
 
@@ -1325,6 +1350,36 @@
 
         canvas.addEventListener('touchcancel', () => {
             handlePointerCancel();
+        });
+
+        // === 键盘事件 - 相机移动 Keyboard Events - Camera Movement ===
+        // 按下 ArrowUp 或 W 键向前走（当门完全打开时）
+        // Press ArrowUp or W to walk forward (when doors are fully open)
+        // 按下 ArrowDown 或 S 键后退
+        // Press ArrowDown or S to walk backward
+        window.addEventListener('keydown', (e) => {
+            // 向前走 Walk forward
+            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+                // 检查门是否完全打开 Check if doors are fully open
+                const doorsFullyOpen = scene.elevator.doorProgress >= 0.99;
+
+                if (doorsFullyOpen && !hasWalkedForward) {
+                    targetCameraZoom = 1.25;      // 放大相机 Zoom in camera
+                    targetCameraOffsetY = 50;     // 向下偏移，使门看起来更近 Offset down to make doors appear closer
+                    hasWalkedForward = true;
+                    console.log('Walking forward toward doors');
+                }
+            }
+
+            // 向后走 Walk backward
+            if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+                if (hasWalkedForward) {
+                    targetCameraZoom = 1.0;       // 恢复原始缩放 Restore original zoom
+                    targetCameraOffsetY = 0;      // 恢复原始位置 Restore original position
+                    hasWalkedForward = false;
+                    console.log('Walking backward to original position');
+                }
+            }
         });
     </script>
 </body>
