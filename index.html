@@ -186,9 +186,11 @@
                 this.floorChangeTimer = 0;
                 this.vibration = 0;
 
-                // 门打开时间控制
-                this.baseOpenTime = 2000; // 基础开门时间 (ms)
-                this.extraOpenTime = 0;   // 额外开门时间 (可通过按钮调整)
+                // 门打开时间控制 Door open time control
+                // 增加基础开门时间，给玩家更多时间走向电梯门
+                // Increased base open time to give player more time to walk toward doors
+                this.baseOpenTime = 7000; // 基础开门时间 (ms) - Base door open time (7 seconds)
+                this.extraOpenTime = 0;   // 额外开门时间 (可通过按钮调整) - Extra time (adjustable via buttons)
 
                 // 按钮配置
                 this.buttons = [
