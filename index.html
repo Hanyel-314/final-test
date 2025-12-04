@@ -59,27 +59,42 @@
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
 
-        // ========== 相机变量 Camera Variables ==========
-        // 相机缩放和偏移 - 用于"走向电梯门"的效果
-        // Camera zoom and offset - for "walk toward elevator doors" effect
-        let cameraZoom = 1.0;
-        let targetCameraZoom = 1.0;
-        let cameraOffsetY = 0;
-        let targetCameraOffsetY = 0;
+        // ========== 走路进度变量 Walk Progress Variables ==========
+        // walkProgress 控制前进效果 - 0=远处视角, 1=靠近电梯门
+        // walkProgress controls forward walking - 0=far view, 1=near doors
+        let walkProgress = 0;           // 当前走路进度 Current walk progress
+        let isWalkingForward = false;   // 正在向前走 Walking forward flag
+        let isWalkingBackward = false;  // 正在向后走 Walking backward flag
 
-        // 玩家是否已经向前走 Whether the player has walked forward
-        let hasWalkedForward = false;
+        // 线性插值函数 Linear interpolation function
+        function lerp(a, b, t) {
+            return a + (b - a) * t;
+        }
 
         // ========== 全屏3D电梯厢几何定义 ==========
         // 定义填满整个屏幕的3D封闭电梯厢
+        // 使用 walkProgress 插值改变视角 - Use walkProgress to interpolate perspective
         function getCabinGeometry() {
-            // 门的位置和尺寸（前墙中央）
-            const doorWidth = W * CONFIG.doorWidthRatio;
-            const doorHeight = H * CONFIG.doorHeightRatio;
+            // 门的位置和尺寸（前墙中央）- 根据走路进度调整
+            // Door position and size - adjusted by walk progress
+
+            // 远近视角的门宽度比例 Far/near door width ratios
+            const farDoorWidthRatio = CONFIG.doorWidthRatio;       // 0.32 (原始)
+            const nearDoorWidthRatio = CONFIG.doorWidthRatio * 1.4; // 走近时门变大 Doors appear larger when close
+
+            const doorWidthRatio = lerp(farDoorWidthRatio, nearDoorWidthRatio, walkProgress);
+            const doorWidth = W * doorWidthRatio;
+            const doorHeight = H * CONFIG.doorHeightRatio * lerp(1.0, 1.35, walkProgress); // 高度也增加
+
+            // 门的垂直位置 - 走近时稍微下移 Door vertical position - moves down slightly when close
+            const farDoorCenterY = VP_Y;
+            const nearDoorCenterY = VP_Y + 40;
+            const doorCenterY = lerp(farDoorCenterY, nearDoorCenterY, walkProgress);
+
             const doorLeft = VP_X - doorWidth / 2;
             const doorRight = VP_X + doorWidth / 2;
-            const doorTop = VP_Y - doorHeight / 2;
-            const doorBottom = VP_Y + doorHeight / 2;
+            const doorTop = doorCenterY - doorHeight / 2;
+            const doorBottom = doorCenterY + doorHeight / 2;
 
             // 门框厚度
             const frameThick = 25;
@@ -88,12 +103,17 @@
             const floorLineY = doorBottom + frameThick;
 
             // 透视收束：前墙（门所在）比观察者位置窄
+            // 走近时墙壁角度更宽，门更占据画面 When walking closer, walls angle wider
             const frontWallShrink = 1 - CONFIG.perspectiveDepth;
+
+            // 墙壁后侧边缘的水平偏移 - 走近时墙壁向外推
+            // Wall back edge horizontal offset - walls push outward when walking close
+            const wallBackOffsetX = lerp(0, -60, walkProgress);
 
             // 左墙：从左边缘到门左侧
             const leftWall = {
-                back: { x: 0, y: 0 }, // 左上后（屏幕左上角）
-                backBottom: { x: 0, y: H }, // 左下后（屏幕左下角）
+                back: { x: 0 + wallBackOffsetX, y: 0 }, // 左上后（走近时向左推）
+                backBottom: { x: 0 + wallBackOffsetX, y: H }, // 左下后
                 frontTop: { x: doorLeft, y: doorTop }, // 左上前（门左上）
                 frontBottom: { x: doorLeft, y: floorLineY } // 左下前（地板线）
             };
@@ -102,22 +122,22 @@
             const rightWall = {
                 frontTop: { x: doorRight, y: doorTop }, // 右上前（门右上）
                 frontBottom: { x: doorRight, y: floorLineY }, // 右下前（地板线）
-                back: { x: W, y: 0 }, // 右上后（屏幕右上角）
-                backBottom: { x: W, y: H } // 右下后（屏幕右下角）
+                back: { x: W - wallBackOffsetX, y: 0 }, // 右上后（走近时向右推）
+                backBottom: { x: W - wallBackOffsetX, y: H } // 右下后
             };
 
             // 地板：从底部边缘到地板线
             const floor = {
-                backLeft: { x: 0, y: H }, // 左后（屏幕左下角）
-                backRight: { x: W, y: H }, // 右后（屏幕右下角）
+                backLeft: { x: 0 + wallBackOffsetX, y: H }, // 左后（与墙壁对齐）
+                backRight: { x: W - wallBackOffsetX, y: H }, // 右后（与墙壁对齐）
                 frontLeft: { x: doorLeft, y: floorLineY }, // 左前（地板线）
                 frontRight: { x: doorRight, y: floorLineY } // 右前（地板线）
             };
 
             // 天花板：从顶部边缘到门顶部
             const ceiling = {
-                backLeft: { x: 0, y: 0 }, // 左后（屏幕左上角）
-                backRight: { x: W, y: 0 }, // 右后（屏幕右上角）
+                backLeft: { x: 0 + wallBackOffsetX, y: 0 }, // 左后（与墙壁对齐）
+                backRight: { x: W - wallBackOffsetX, y: 0 }, // 右后（与墙壁对齐）
                 frontLeft: { x: doorLeft, y: doorTop }, // 左前（门左上）
                 frontRight: { x: doorRight, y: doorTop } // 右前（门右上）
             };
@@ -849,8 +869,14 @@
                 const panelH = H * PANEL_HEIGHT_RATIO;
 
                 // 面板位置 - 靠左墙，垂直居中
-                const panelX = W * 0.06;
-                const panelY = (H - panelH) / 2;
+                // 走近时面板向左移动，并稍微下移 Panel shifts left and down when walking close
+                const farPanelX = W * 0.06;
+                const nearPanelX = W * 0.02;  // 更靠近左边缘 Closer to left edge
+                const panelX = lerp(farPanelX, nearPanelX, walkProgress);
+
+                const farPanelY = (H - panelH) / 2;
+                const nearPanelY = (H - panelH) / 2 + 30;  // 稍微下移 Slightly lower
+                const panelY = lerp(farPanelY, nearPanelY, walkProgress);
 
                 // 面板阴影（给一点3D深度感）
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
@@ -1164,19 +1190,9 @@
                 ctx.fillStyle = '#0a0a0a';
                 ctx.fillRect(0, 0, W, H);
 
-                // 相机缓动动画 Camera easing animation
-                // 平滑插值，使相机移动更自然 Smooth interpolation for natural camera movement
-                cameraZoom += (targetCameraZoom - cameraZoom) * 0.08;
-                cameraOffsetY += (targetCameraOffsetY - cameraOffsetY) * 0.08;
-
-                // 应用相机变换 Apply camera transform
-                ctx.save();
-                // 移动到中心，应用缩放和Y偏移，再移回 Translate to center, apply zoom & Y offset, then translate back
-                ctx.translate(W / 2, H / 2 + cameraOffsetY);
-                ctx.scale(cameraZoom, cameraZoom);
-                ctx.translate(-W / 2, -H / 2);
-
                 // 绘制顺序（从后到前，构建封闭电梯厢）
+                // 所有元素现在使用 walkProgress 插值调整位置和尺寸
+                // All elements now use walkProgress interpolation to adjust position and size
                 this.drawCeiling();        // 天花板
                 this.drawFloor();          // 地板
                 this.drawWalls();          // 左右侧墙
@@ -1187,8 +1203,6 @@
                 this.drawButtonPanel();    // 按钮面板
                 this.drawAtmosphere();     // 环境光效
                 this.drawStatusText();     // 状态文字
-
-                ctx.restore(); // 恢复相机变换 Restore camera transform
             }
         }
 
@@ -1199,6 +1213,23 @@
         function animate(currentTime) {
             const deltaTime = currentTime - lastTime;
             lastTime = currentTime;
+
+            // 更新走路进度 Update walk progress
+            // 使用插值改变位置，而不是单纯放大 Use interpolation to change positions, not just zoom
+            if (isWalkingForward) {
+                walkProgress += 0.015;  // 前进速度 Forward walking speed
+                if (walkProgress >= 1) {
+                    walkProgress = 1;
+                    isWalkingForward = false;  // 停止前进 Stop walking forward
+                }
+            }
+            if (isWalkingBackward) {
+                walkProgress -= 0.015;  // 后退速度 Backward walking speed
+                if (walkProgress <= 0) {
+                    walkProgress = 0;
+                    isWalkingBackward = false;  // 停止后退 Stop walking backward
+                }
+            }
 
             scene.elevator.update(deltaTime);
             scene.render();
@@ -1352,7 +1383,7 @@
             handlePointerCancel();
         });
 
-        // === 键盘事件 - 相机移动 Keyboard Events - Camera Movement ===
+        // === 键盘事件 - 走路移动 Keyboard Events - Walk Movement ===
         // 按下 ArrowUp 或 W 键向前走（当门完全打开时）
         // Press ArrowUp or W to walk forward (when doors are fully open)
         // 按下 ArrowDown 或 S 键后退
@@ -1363,20 +1394,18 @@
                 // 检查门是否完全打开 Check if doors are fully open
                 const doorsFullyOpen = scene.elevator.doorProgress >= 0.99;
 
-                if (doorsFullyOpen && !hasWalkedForward) {
-                    targetCameraZoom = 1.25;      // 放大相机 Zoom in camera
-                    targetCameraOffsetY = 50;     // 向下偏移，使门看起来更近 Offset down to make doors appear closer
-                    hasWalkedForward = true;
+                if (doorsFullyOpen && walkProgress < 1) {
+                    isWalkingForward = true;
+                    isWalkingBackward = false;
                     console.log('Walking forward toward doors');
                 }
             }
 
             // 向后走 Walk backward
             if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
-                if (hasWalkedForward) {
-                    targetCameraZoom = 1.0;       // 恢复原始缩放 Restore original zoom
-                    targetCameraOffsetY = 0;      // 恢复原始位置 Restore original position
-                    hasWalkedForward = false;
+                if (walkProgress > 0) {
+                    isWalkingBackward = true;
+                    isWalkingForward = false;
                     console.log('Walking backward to original position');
                 }
             }
