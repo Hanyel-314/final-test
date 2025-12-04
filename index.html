@@ -155,8 +155,6 @@
 
                 // 按钮配置
                 this.buttons = [
-                    { floor: 5, active: false },
-                    { floor: 4, active: false },
                     { floor: 3, active: false },
                     { floor: 2, active: false },
                     { floor: 1, active: false }
@@ -596,70 +594,67 @@
 
                 const singleDoorWidth = geo.doorWidth * 0.5; // 单扇门宽度（各占一半）
                 const maxSlide = singleDoorWidth * 1.0; // 最大滑动距离（限制在框内）
-                const slideOffset = maxSlide * this.elevator.doorProgress;
 
-                // 门板垂直渐变 - 拉丝金属效果
+                // 使用缓动函数使门运动更平滑
+                const easeInOutCubic = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+                const easedProgress = easeInOutCubic(this.elevator.doorProgress);
+                const slideOffset = maxSlide * easedProgress;
+
+                // 门板垂直渐变 - 高级拉丝金属效果
                 const doorGrad = ctx.createLinearGradient(0, geo.doorTop, 0, geo.doorBottom);
-                doorGrad.addColorStop(0, '#4a4a4a');
-                doorGrad.addColorStop(0.1, '#6a6a6a');
-                doorGrad.addColorStop(0.5, '#5a5a5a');
-                doorGrad.addColorStop(0.9, '#6a6a6a');
-                doorGrad.addColorStop(1, '#4a4a4a');
+                doorGrad.addColorStop(0, '#5a5a5a');
+                doorGrad.addColorStop(0.2, '#6a6a6a');
+                doorGrad.addColorStop(0.5, '#5f5f5f');
+                doorGrad.addColorStop(0.8, '#6a6a6a');
+                doorGrad.addColorStop(1, '#5a5a5a');
 
                 // === 左门板 - 向左滑动到墙内 ===
-                // 确保左门起始位置在框内
                 const leftDoorX = frameInnerX - slideOffset;
 
                 ctx.fillStyle = doorGrad;
                 ctx.fillRect(leftDoorX, frameInnerY, singleDoorWidth, frameInnerHeight);
 
-                // 左门垂直高光
-                ctx.strokeStyle = 'rgba(180, 180, 180, 0.3)';
-                ctx.lineWidth = 2;
+                // 左门垂直设计线（两条细线）
+                ctx.strokeStyle = 'rgba(150, 150, 150, 0.2)';
+                ctx.lineWidth = 1;
                 ctx.beginPath();
-                ctx.moveTo(leftDoorX + singleDoorWidth * 0.5, frameInnerY + 40);
-                ctx.lineTo(leftDoorX + singleDoorWidth * 0.5, frameInnerY + frameInnerHeight - 40);
+                ctx.moveTo(leftDoorX + singleDoorWidth * 0.3, frameInnerY + 30);
+                ctx.lineTo(leftDoorX + singleDoorWidth * 0.3, frameInnerY + frameInnerHeight - 30);
                 ctx.stroke();
 
-                // 左门把手
-                const handleWidth = singleDoorWidth * 0.15;
-                const handleHeight = frameInnerHeight * 0.04;
-                const handleY = VP_Y - handleHeight / 2;
-                ctx.fillStyle = '#2a2a2a';
-                ctx.fillRect(leftDoorX + singleDoorWidth * 0.8, handleY, handleWidth, handleHeight);
-                ctx.strokeStyle = '#555';
-                ctx.lineWidth = 1;
-                ctx.strokeRect(leftDoorX + singleDoorWidth * 0.8, handleY, handleWidth, handleHeight);
+                ctx.strokeStyle = 'rgba(100, 100, 100, 0.15)';
+                ctx.beginPath();
+                ctx.moveTo(leftDoorX + singleDoorWidth * 0.7, frameInnerY + 30);
+                ctx.lineTo(leftDoorX + singleDoorWidth * 0.7, frameInnerY + frameInnerHeight - 30);
+                ctx.stroke();
 
                 // === 右门板 - 向右滑动到墙内 ===
-                // 确保右门起始位置在框内
                 const rightDoorX = frameInnerX + singleDoorWidth + slideOffset;
 
                 ctx.fillStyle = doorGrad;
                 ctx.fillRect(rightDoorX, frameInnerY, singleDoorWidth, frameInnerHeight);
 
-                // 右门垂直高光
-                ctx.strokeStyle = 'rgba(180, 180, 180, 0.3)';
-                ctx.lineWidth = 2;
+                // 右门垂直设计线（两条细线）
+                ctx.strokeStyle = 'rgba(150, 150, 150, 0.2)';
+                ctx.lineWidth = 1;
                 ctx.beginPath();
-                ctx.moveTo(rightDoorX + singleDoorWidth * 0.5, frameInnerY + 40);
-                ctx.lineTo(rightDoorX + singleDoorWidth * 0.5, frameInnerY + frameInnerHeight - 40);
+                ctx.moveTo(rightDoorX + singleDoorWidth * 0.3, frameInnerY + 30);
+                ctx.lineTo(rightDoorX + singleDoorWidth * 0.3, frameInnerY + frameInnerHeight - 30);
                 ctx.stroke();
 
-                // 右门把手
-                ctx.fillStyle = '#2a2a2a';
-                ctx.fillRect(rightDoorX + singleDoorWidth * 0.05, handleY, handleWidth, handleHeight);
-                ctx.strokeStyle = '#555';
-                ctx.lineWidth = 1;
-                ctx.strokeRect(rightDoorX + singleDoorWidth * 0.05, handleY, handleWidth, handleHeight);
+                ctx.strokeStyle = 'rgba(100, 100, 100, 0.15)';
+                ctx.beginPath();
+                ctx.moveTo(rightDoorX + singleDoorWidth * 0.7, frameInnerY + 30);
+                ctx.lineTo(rightDoorX + singleDoorWidth * 0.7, frameInnerY + frameInnerHeight - 30);
+                ctx.stroke();
 
-                // 中间门缝（仅在门未完全打开时显示）
+                // 中间门缝（非常细的分割线，仅在门未完全打开时显示）
                 if (this.elevator.doorProgress < 0.99) {
-                    ctx.strokeStyle = '#000';
-                    ctx.lineWidth = 4;
+                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+                    ctx.lineWidth = 1;
                     ctx.beginPath();
-                    ctx.moveTo(VP_X, frameInnerY);
-                    ctx.lineTo(VP_X, frameInnerY + frameInnerHeight);
+                    ctx.moveTo(VP_X, frameInnerY + 20);
+                    ctx.lineTo(VP_X, frameInnerY + frameInnerHeight - 20);
                     ctx.stroke();
                 }
 
@@ -718,10 +713,32 @@
                 ctx.strokeRect(geo.doorLeft - frameThick, geo.doorBottom,
                               geo.doorWidth + frameThick * 2, frameThick);
 
-                // 添加1px覆盖条，防止地板网格线透出
-                ctx.fillStyle = '#666';
-                ctx.fillRect(geo.doorLeft - frameThick, geo.floorLineY - 1,
-                            geo.doorWidth + frameThick * 2, 2);
+                // 门框深度阴影 - 左侧
+                const shadowGrad1 = ctx.createLinearGradient(geo.doorLeft - frameThick, 0, geo.doorLeft, 0);
+                shadowGrad1.addColorStop(0, 'rgba(0, 0, 0, 0)');
+                shadowGrad1.addColorStop(1, 'rgba(0, 0, 0, 0.3)');
+                ctx.fillStyle = shadowGrad1;
+                ctx.fillRect(geo.doorLeft - frameThick, geo.doorTop, frameThick, sideColumnHeight);
+
+                // 门框深度阴影 - 右侧
+                const shadowGrad2 = ctx.createLinearGradient(geo.doorRight + frameThick, 0, geo.doorRight, 0);
+                shadowGrad2.addColorStop(0, 'rgba(0, 0, 0, 0)');
+                shadowGrad2.addColorStop(1, 'rgba(0, 0, 0, 0.3)');
+                ctx.fillStyle = shadowGrad2;
+                ctx.fillRect(geo.doorRight, geo.doorTop, frameThick, sideColumnHeight);
+
+                // 门槛线 - 门框底部与地板交接处的深色线条
+                ctx.fillStyle = 'rgba(30, 30, 30, 0.8)';
+                ctx.fillRect(geo.doorLeft - frameThick, geo.floorLineY - 2,
+                            geo.doorWidth + frameThick * 2, 3);
+
+                // 门框底部阴影 - 投射到地板上
+                const floorShadowGrad = ctx.createLinearGradient(0, geo.floorLineY, 0, geo.floorLineY + 15);
+                floorShadowGrad.addColorStop(0, 'rgba(0, 0, 0, 0.4)');
+                floorShadowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                ctx.fillStyle = floorShadowGrad;
+                ctx.fillRect(geo.doorLeft - frameThick - 5, geo.floorLineY,
+                            geo.doorWidth + frameThick * 2 + 10, 15);
 
                 ctx.restore();
             }
@@ -741,12 +758,6 @@
                         ctx.fillText('OFFICE', VP_X, doorY + doorHeight * 0.3);
                         break;
                     case 3:
-                        ctx.fillText('GALLERY', VP_X, doorY + doorHeight * 0.3);
-                        break;
-                    case 4:
-                        ctx.fillText('NEON', VP_X, doorY + doorHeight * 0.3);
-                        break;
-                    case 5:
                         ctx.fillText('ROOFTOP', VP_X, doorY + doorHeight * 0.3);
                         break;
                 }
@@ -763,14 +774,19 @@
                 const indX = VP_X - indW / 2;
                 const indY = geo.doorTop - indH - 20; // 门上方
 
-                // 显示器外壳
-                ctx.fillStyle = '#2a2a2a';
-                ctx.strokeStyle = '#555';
-                ctx.lineWidth = 2;
+                // 显示器外壳 - 更有质感
+                const shellGrad = ctx.createLinearGradient(indX, indY, indX, indY + indH);
+                shellGrad.addColorStop(0, '#3a3a3a');
+                shellGrad.addColorStop(0.5, '#2a2a2a');
+                shellGrad.addColorStop(1, '#3a3a3a');
+                ctx.fillStyle = shellGrad;
                 ctx.fillRect(indX, indY, indW, indH);
+
+                ctx.strokeStyle = '#666';
+                ctx.lineWidth = 2;
                 ctx.strokeRect(indX, indY, indW, indH);
 
-                // 显示屏
+                // 显示屏 - 深黑背景
                 ctx.fillStyle = '#0a0a0a';
                 ctx.fillRect(indX + 5, indY + 5, indW - 10, indH - 10);
 
@@ -780,18 +796,28 @@
                     glowAlpha = 1 - (this.elevator.floorChangeTimer / 200) * 0.4;
                 }
 
-                ctx.fillStyle = `rgba(255, 200, 50, ${glowAlpha})`;
-                ctx.font = `bold ${indH * 0.5}px monospace`;
+                // 暖黄橙色LED数字
+                ctx.fillStyle = `rgba(255, 180, 50, ${glowAlpha})`;
+                ctx.font = `bold ${indH * 0.55}px monospace`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(this.elevator.displayFloor, VP_X, indY + indH / 2);
 
-                // LED光晕
-                const glowGrad = ctx.createRadialGradient(VP_X, indY + indH / 2, 0,
-                                                         VP_X, indY + indH / 2, indH * 1.2);
-                glowGrad.addColorStop(0, `rgba(255, 200, 50, ${glowAlpha * 0.25})`);
-                glowGrad.addColorStop(1, 'rgba(255, 200, 50, 0)');
-                ctx.fillStyle = glowGrad;
+                // 增强型LED光晕 - 更柔和的扩散
+                const innerGlow = ctx.createRadialGradient(VP_X, indY + indH / 2, 0,
+                                                           VP_X, indY + indH / 2, indH * 0.6);
+                innerGlow.addColorStop(0, `rgba(255, 180, 50, ${glowAlpha * 0.4})`);
+                innerGlow.addColorStop(0.5, `rgba(255, 180, 50, ${glowAlpha * 0.2})`);
+                innerGlow.addColorStop(1, 'rgba(255, 180, 50, 0)');
+                ctx.fillStyle = innerGlow;
+                ctx.fillRect(indX, indY, indW, indH);
+
+                // 外部光晕
+                const outerGlow = ctx.createRadialGradient(VP_X, indY + indH / 2, indH * 0.3,
+                                                           VP_X, indY + indH / 2, indH * 1.5);
+                outerGlow.addColorStop(0, `rgba(255, 180, 50, ${glowAlpha * 0.15})`);
+                outerGlow.addColorStop(1, 'rgba(255, 180, 50, 0)');
+                ctx.fillStyle = outerGlow;
                 ctx.fillRect(indX - indH, indY - indH / 2, indW + indH * 2, indH * 2);
 
                 ctx.restore();
@@ -847,12 +873,12 @@
                 const innerTop = panelY + buttonRadius * 1.6;
                 const innerBottom = panelY + panelH - buttonRadius * 1.8;
 
-                // 6行：5个楼层 + 1行开关门按钮
-                const rows = 6;
+                // 4行：3个楼层 + 1行开关门按钮
+                const rows = 4;
                 const buttonStep = (innerBottom - innerTop) / (rows - 1);
 
-                // 绘制5个楼层按钮（垂直排列）
-                const floorButtons = [5, 4, 3, 2, 1];
+                // 绘制3个楼层按钮（垂直排列）
+                const floorButtons = [3, 2, 1];
                 floorButtons.forEach((floorNum, i) => {
                     const btn = this.elevator.buttons.find(b => b.floor === floorNum);
                     const bx = panelCenterX;
@@ -926,7 +952,7 @@
                 });
 
                 // 绘制开门/关门按钮（并排在最下方）
-                const doorControlY = innerTop + 5 * buttonStep;
+                const doorControlY = innerTop + 3 * buttonStep;
                 const horizontalOffset = buttonRadius * 1.4;
 
                 // OPEN 按钮（左侧）
@@ -991,80 +1017,80 @@
                 ctx.arc(x, y, radius, 0, Math.PI * 2);
                 ctx.fill();
 
-                // 绘制电梯图标（无高光线）
+                // 绘制电梯图标 - 清晰简洁的设计
                 ctx.save();
                 ctx.translate(x, y);
 
-                const iconColor = isPressed ? 'rgba(200, 200, 200, 0.8)' : 'rgba(255, 255, 255, 0.9)';
-                const s = radius * 0.45; // 图标缩放比例
+                const iconColor = isPressed ? 'rgba(200, 200, 200, 0.9)' : 'rgba(255, 255, 255, 0.95)';
+                const s = radius * 0.5; // 图标缩放比例
 
                 if (iconType === 'open') {
-                    // OPEN 图标: < | | >
-                    ctx.fillStyle = iconColor;
+                    // OPEN 图标: ◀ ○││○ ▶ (展开状态)
                     ctx.strokeStyle = iconColor;
+                    ctx.fillStyle = iconColor;
+                    ctx.lineWidth = 2.5;
+
+                    // 中央两条竖线
+                    ctx.beginPath();
+                    ctx.moveTo(-s * 0.12, -s * 0.75);
+                    ctx.lineTo(-s * 0.12, s * 0.75);
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.moveTo(s * 0.12, -s * 0.75);
+                    ctx.lineTo(s * 0.12, s * 0.75);
+                    ctx.stroke();
+
+                    // 左侧箭头（向外）
                     ctx.lineWidth = 2;
-
-                    // 左箭头（向左指）
                     ctx.beginPath();
-                    ctx.moveTo(-s, 0);
-                    ctx.lineTo(-s * 0.4, -s * 0.6);
-                    ctx.lineTo(-s * 0.4, s * 0.6);
+                    ctx.moveTo(-s * 0.75, 0);
+                    ctx.lineTo(-s * 0.45, -s * 0.35);
+                    ctx.lineTo(-s * 0.45, s * 0.35);
                     ctx.closePath();
                     ctx.fill();
 
-                    // 右箭头（向右指）
+                    // 右侧箭头（向外）
                     ctx.beginPath();
-                    ctx.moveTo(s, 0);
-                    ctx.lineTo(s * 0.4, -s * 0.6);
-                    ctx.lineTo(s * 0.4, s * 0.6);
+                    ctx.moveTo(s * 0.75, 0);
+                    ctx.lineTo(s * 0.45, -s * 0.35);
+                    ctx.lineTo(s * 0.45, s * 0.35);
                     ctx.closePath();
                     ctx.fill();
-
-                    // 中央左竖线
-                    ctx.beginPath();
-                    ctx.moveTo(-s * 0.15, -s * 0.7);
-                    ctx.lineTo(-s * 0.15, s * 0.7);
-                    ctx.stroke();
-
-                    // 中央右竖线
-                    ctx.beginPath();
-                    ctx.moveTo(s * 0.15, -s * 0.7);
-                    ctx.lineTo(s * 0.15, s * 0.7);
-                    ctx.stroke();
 
                 } else if (iconType === 'close') {
-                    // CLOSE 图标: > | | <
-                    ctx.fillStyle = iconColor;
+                    // CLOSE 图标: ▶ ○││○ ◀ (合拢状态)
                     ctx.strokeStyle = iconColor;
-                    ctx.lineWidth = 2;
+                    ctx.fillStyle = iconColor;
+                    ctx.lineWidth = 2.5;
 
-                    // 左箭头（向右指，指向中心）
+                    // 中央两条竖线
+                    ctx.beginPath();
+                    ctx.moveTo(-s * 0.12, -s * 0.75);
+                    ctx.lineTo(-s * 0.12, s * 0.75);
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.moveTo(s * 0.12, -s * 0.75);
+                    ctx.lineTo(s * 0.12, s * 0.75);
+                    ctx.stroke();
+
+                    // 左侧箭头（向内）
+                    ctx.lineWidth = 2;
                     ctx.beginPath();
                     ctx.moveTo(-s * 0.3, 0);
-                    ctx.lineTo(-s * 0.7, -s * 0.6);
-                    ctx.lineTo(-s * 0.7, s * 0.6);
+                    ctx.lineTo(-s * 0.6, -s * 0.35);
+                    ctx.lineTo(-s * 0.6, s * 0.35);
                     ctx.closePath();
                     ctx.fill();
 
-                    // 右箭头（向左指，指向中心）
+                    // 右侧箭头（向内）
                     ctx.beginPath();
                     ctx.moveTo(s * 0.3, 0);
-                    ctx.lineTo(s * 0.7, -s * 0.6);
-                    ctx.lineTo(s * 0.7, s * 0.6);
+                    ctx.lineTo(s * 0.6, -s * 0.35);
+                    ctx.lineTo(s * 0.6, s * 0.35);
                     ctx.closePath();
                     ctx.fill();
-
-                    // 外侧左竖线
-                    ctx.beginPath();
-                    ctx.moveTo(-s * 0.95, -s * 0.7);
-                    ctx.lineTo(-s * 0.95, s * 0.7);
-                    ctx.stroke();
-
-                    // 外侧右竖线
-                    ctx.beginPath();
-                    ctx.moveTo(s * 0.95, -s * 0.7);
-                    ctx.lineTo(s * 0.95, s * 0.7);
-                    ctx.stroke();
                 }
 
                 ctx.restore();
