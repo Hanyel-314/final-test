@@ -60,11 +60,17 @@
         window.addEventListener('resize', resizeCanvas);
 
         // ========== 走路进度变量 Walk Progress Variables ==========
-        // walkProgress 控制前进效果 - 0=远处视角, 1=靠近电梯门
-        // walkProgress controls forward walking - 0=far view, 1=near doors
+        // walkProgress: 走到电梯门的进度（0~1）How many steps we have walked (0~1)
+        // targetWalkProgress: 目标位置 Target position we want to reach
         let walkProgress = 0;           // 当前走路进度 Current walk progress
-        let isWalkingForward = false;   // 正在向前走 Walking forward flag
-        let isWalkingBackward = false;  // 正在向后走 Walking backward flag
+        let targetWalkProgress = 0;     // 目标走路进度 Target walk progress
+        const walkStepSize = 0.2;       // 每次按键=一步（5步从0到1）Each key press = one step (5 steps from 0 to 1)
+
+        // 走路时的左右摇摆 Left-right sway while walking
+        // swayOffsetX: 走路时左右轻微晃动 Small left-right head movement when walking
+        let swayPhase = 0;              // 摇摆相位累加 Sway phase accumulator
+        let swayOffsetX = 0;            // 当前水平摇摆偏移（像素）Current horizontal sway offset in pixels
+        const swayMaxOffset = 6;        // 最大左右摇摆距离 Maximum sway distance left/right
 
         // 线性插值函数 Linear interpolation function
         function lerp(a, b, t) {
@@ -1190,6 +1196,11 @@
                 ctx.fillStyle = '#0a0a0a';
                 ctx.fillRect(0, 0, W, H);
 
+                // 应用左右摇摆到整个场景 Apply left-right sway to entire scene
+                // 走路时模拟人头的自然晃动 Mimics natural head movement while walking
+                ctx.save();
+                ctx.translate(swayOffsetX, 0);
+
                 // 绘制顺序（从后到前，构建封闭电梯厢）
                 // 所有元素现在使用 walkProgress 插值调整位置和尺寸
                 // All elements now use walkProgress interpolation to adjust position and size
@@ -1203,6 +1214,8 @@
                 this.drawButtonPanel();    // 按钮面板
                 this.drawAtmosphere();     // 环境光效
                 this.drawStatusText();     // 状态文字
+
+                ctx.restore();  // 恢复摇摆变换 Restore sway transform
             }
         }
 
@@ -1214,20 +1227,25 @@
             const deltaTime = currentTime - lastTime;
             lastTime = currentTime;
 
-            // 更新走路进度 Update walk progress
+            // 更新走路进度 - 平滑插值到目标位置 Update walk progress - smooth interpolation to target
             // 使用插值改变位置，而不是单纯放大 Use interpolation to change positions, not just zoom
-            if (isWalkingForward) {
-                walkProgress += 0.015;  // 前进速度 Forward walking speed
-                if (walkProgress >= 1) {
-                    walkProgress = 1;
-                    isWalkingForward = false;  // 停止前进 Stop walking forward
-                }
-            }
-            if (isWalkingBackward) {
-                walkProgress -= 0.015;  // 后退速度 Backward walking speed
-                if (walkProgress <= 0) {
-                    walkProgress = 0;
-                    isWalkingBackward = false;  // 停止后退 Stop walking backward
+            const walkLerpSpeed = 0.08;  // 调整每步完成的速度 Adjust how fast each step finishes
+            walkProgress += (targetWalkProgress - walkProgress) * walkLerpSpeed;
+            walkProgress = Math.max(0, Math.min(1, walkProgress));  // 限制在0-1之间 Clamp between 0-1
+
+            // 计算左右摇摆 Calculate left-right sway
+            // 只有在移动中才摇摆 Only sway when actually moving
+            const walkingNow = Math.abs(targetWalkProgress - walkProgress) > 0.001;
+
+            if (walkingNow) {
+                // 移动时增加摇摆相位 Increase sway phase while moving
+                swayPhase += 0.18;  // 摇摆速度 Sway speed
+                swayOffsetX = Math.sin(swayPhase) * swayMaxOffset;
+            } else {
+                // 静止时逐渐回到中心 Gently settle back to center when stopped
+                swayOffsetX *= 0.85;
+                if (Math.abs(swayOffsetX) < 0.01) {
+                    swayOffsetX = 0;
                 }
             }
 
@@ -1384,30 +1402,27 @@
         });
 
         // === 键盘事件 - 走路移动 Keyboard Events - Walk Movement ===
-        // 按下 ArrowUp 或 W 键向前走（当门完全打开时）
-        // Press ArrowUp or W to walk forward (when doors are fully open)
-        // 按下 ArrowDown 或 S 键后退
-        // Press ArrowDown or S to walk backward
+        // 每次按键=向前或向后走一步 Each key press = one step forward or backward
+        // 使用目标位置系统，每步0.2距离 Using target-based system, 0.2 distance per step
         window.addEventListener('keydown', (e) => {
-            // 向前走 Walk forward
-            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
-                // 检查门是否完全打开 Check if doors are fully open
-                const doorsFullyOpen = scene.elevator.doorProgress >= 0.99;
+            const key = e.key;
 
-                if (doorsFullyOpen && walkProgress < 1) {
-                    isWalkingForward = true;
-                    isWalkingBackward = false;
-                    console.log('Walking forward toward doors');
+            // 检查门是否完全打开 Check if doors are fully open
+            const doorsFullyOpen = scene.elevator.doorProgress >= 0.99;
+
+            // 向前走一步 Walk one step forward
+            if (key === 'ArrowUp' || key === 'w' || key === 'W') {
+                // 只有门完全打开时才能走 Only allow walking when doors are fully open
+                if (doorsFullyOpen) {
+                    targetWalkProgress = Math.min(1, targetWalkProgress + walkStepSize);
+                    console.log('Step forward - target:', targetWalkProgress.toFixed(1));
                 }
             }
 
-            // 向后走 Walk backward
-            if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
-                if (walkProgress > 0) {
-                    isWalkingBackward = true;
-                    isWalkingForward = false;
-                    console.log('Walking backward to original position');
-                }
+            // 向后走一步 Walk one step backward
+            if (key === 'ArrowDown' || key === 's' || key === 'S') {
+                targetWalkProgress = Math.max(0, targetWalkProgress - walkStepSize);
+                console.log('Step backward - target:', targetWalkProgress.toFixed(1));
             }
         });
     </script>
