@@ -66,11 +66,13 @@
         let targetWalkProgress = 0;     // 目标走路进度 Target walk progress
         const walkStepSize = 0.2;       // 每次按键=一步（5步从0到1）Each key press = one step (5 steps from 0 to 1)
 
-        // 走路时的左右摇摆 Left-right sway while walking
-        // swayOffsetX: 走路时左右轻微晃动 Small left-right head movement when walking
-        let swayPhase = 0;              // 摇摆相位累加 Sway phase accumulator
-        let swayOffsetX = 0;            // 当前水平摇摆偏移（像素）Current horizontal sway offset in pixels
-        const swayMaxOffset = 6;        // 最大左右摇摆距离 Maximum sway distance left/right
+        // FPS-style head bob 走路时的第一视角晃动
+        // 非常轻微的头部移动，模拟自然走路 Very subtle head movement mimicking natural walking
+        let headBobPhase = 0;           // 头部晃动相位 Head-bob phase
+        let headBobOffsetX = 0;         // 水平偏移 Horizontal offset
+        let headBobOffsetY = 0;         // 垂直偏移 Vertical offset
+        const HEAD_BOB_MAX_X = 3;       // 最大水平晃动 2-3px Max horizontal bob
+        const HEAD_BOB_MAX_Y = 2;       // 最大垂直晃动 1-2px Max vertical bob
 
         // 线性插值函数 Linear interpolation function
         function lerp(a, b, t) {
@@ -1198,10 +1200,10 @@
                 ctx.fillStyle = '#0a0a0a';
                 ctx.fillRect(0, 0, W, H);
 
-                // 应用左右摇摆到整个场景 Apply left-right sway to entire scene
-                // 走路时模拟人头的自然晃动 Mimics natural head movement while walking
+                // 应用FPS头部晃动到整个场景 Apply FPS head-bob to entire scene
+                // 先用walkProgress做视角，再加上轻微的头部偏移 Perspective from walkProgress, plus subtle head movement
                 ctx.save();
-                ctx.translate(swayOffsetX, 0);
+                ctx.translate(headBobOffsetX, headBobOffsetY);
 
                 // 绘制顺序（从后到前，构建封闭电梯厢）
                 // 所有元素现在使用 walkProgress 插值调整位置和尺寸
@@ -1217,7 +1219,7 @@
                 this.drawAtmosphere();     // 环境光效
                 this.drawStatusText();     // 状态文字
 
-                ctx.restore();  // 恢复摇摆变换 Restore sway transform
+                ctx.restore();  // 恢复头部晃动变换 Restore head-bob transform
             }
         }
 
@@ -1235,20 +1237,23 @@
             walkProgress += (targetWalkProgress - walkProgress) * walkLerpSpeed;
             walkProgress = Math.max(0, Math.min(1, walkProgress));  // 限制在0-1之间 Clamp between 0-1
 
-            // 计算左右摇摆 Calculate left-right sway
-            // 只有在移动中才摇摆 Only sway when actually moving
+            // 计算FPS头部晃动 Calculate FPS-style head bob
+            // 只有在移动中才晃动 Only bob when actually moving
             const walkingNow = Math.abs(targetWalkProgress - walkProgress) > 0.001;
 
             if (walkingNow) {
-                // 移动时增加摇摆相位 Increase sway phase while moving
-                swayPhase += 0.18;  // 摇摆速度 Sway speed
-                swayOffsetX = Math.sin(swayPhase) * swayMaxOffset;
+                // 缓慢推进相位，实现平滑的第一视角晃动 Advance phase slowly for smooth FPS-style walk
+                headBobPhase += 0.12;  // 较小的值=更慢的晃动 Smaller = slower bob
+                // 轻微的正弦晃动 Soft sinusoidal offsets
+                headBobOffsetX = Math.sin(headBobPhase) * HEAD_BOB_MAX_X;
+                // Y轴使用不同频率避免抖动 Use different frequency for Y to avoid jitter
+                headBobOffsetY = Math.cos(headBobPhase * 2.0) * HEAD_BOB_MAX_Y;
             } else {
-                // 静止时逐渐回到中心 Gently settle back to center when stopped
-                swayOffsetX *= 0.85;
-                if (Math.abs(swayOffsetX) < 0.01) {
-                    swayOffsetX = 0;
-                }
+                // 停下后慢慢回正 When not moving, smoothly return to center
+                headBobOffsetX *= 0.85;
+                headBobOffsetY *= 0.85;
+                if (Math.abs(headBobOffsetX) < 0.01) headBobOffsetX = 0;
+                if (Math.abs(headBobOffsetY) < 0.01) headBobOffsetY = 0;
             }
 
             scene.elevator.update(deltaTime);
