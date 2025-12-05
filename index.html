@@ -86,6 +86,18 @@
         let enterHintPhase = 0;         // 提示文字淡入淡出相位 Fade in/out phase for hint text
         let readyToEnter = false;       // 玩家是否可以进入 Whether player can enter
 
+        // ========== 场景状态 Scene State ==========
+        // 'elevator' = 电梯内部场景 Elevator interior scene
+        // 'corridor1' = 一层电梯外的长廊场景 Corridor on floor 1
+        let sceneState = 'elevator';    // 当前场景 Current scene
+
+        // 走廊场景的墙面和天花板滚动 Corridor wall and ceiling scrolling
+        // 与地板滚动类似，但速度不同以增加深度感 Similar to floor scroll but different speeds for depth
+        let wallScroll = 0;             // 墙面格子已移动距离 How much wall grid has moved
+        let ceilingScroll = 0;          // 天花板格子已移动距离 How much ceiling grid has moved
+        const WALL_SCROLL_SPEED = 100;  // 墙面滚动速度（略慢于地板）Wall scroll speed (slightly slower than floor)
+        const CEILING_SCROLL_SPEED = 80; // 天花板滚动速度（最慢）Ceiling scroll speed (slowest)
+
         // 线性插值函数 Linear interpolation function
         function lerp(a, b, t) {
             return a + (b - a) * t;
@@ -1211,17 +1223,8 @@
                 }
             }
 
-            // 主渲染函数
-            render() {
-                // 清屏
-                ctx.fillStyle = '#0a0a0a';
-                ctx.fillRect(0, 0, W, H);
-
-                // 应用FPS头部晃动到整个场景 Apply FPS head-bob to entire scene
-                // 先用walkProgress做视角，再加上轻微的头部偏移 Perspective from walkProgress, plus subtle head movement
-                ctx.save();
-                ctx.translate(headBobOffsetX, headBobOffsetY);
-
+            // 绘制电梯场景 Draw elevator scene
+            drawElevatorScene() {
                 // 绘制顺序（从后到前，构建封闭电梯厢）
                 // 所有元素现在使用 walkProgress 插值调整位置和尺寸
                 // All elements now use walkProgress interpolation to adjust position and size
@@ -1235,8 +1238,6 @@
                 this.drawButtonPanel();    // 按钮面板
                 this.drawAtmosphere();     // 环境光效
                 this.drawStatusText();     // 状态文字
-
-                ctx.restore();  // 恢复头部晃动变换 Restore head-bob transform
 
                 // 绘制进入提示 Draw enter hint
                 // 只在玩家走到门前且门完全打开时显示淡入淡出的"点击进入"提示
@@ -1264,6 +1265,279 @@
                     ctx.restore();
                 }
             }
+
+            // 主渲染函数 Main render function
+            render() {
+                // 清屏 Clear screen
+                ctx.fillStyle = '#0a0a0a';
+                ctx.fillRect(0, 0, W, H);
+
+                // 应用FPS头部晃动到整个场景 Apply FPS head-bob to entire scene
+                // 先用walkProgress做视角，再加上轻微的头部偏移 Perspective from walkProgress, plus subtle head movement
+                ctx.save();
+                ctx.translate(headBobOffsetX, headBobOffsetY);
+
+                // 根据场景状态绘制不同场景 Branch rendering by scene state
+                if (sceneState === 'elevator') {
+                    this.drawElevatorScene();
+                } else if (sceneState === 'corridor1') {
+                    drawCorridor1Scene();
+                }
+
+                ctx.restore();  // 恢复头部晃动变换 Restore head-bob transform
+            }
+        }
+
+        // ========== 走廊场景绘制 Corridor Scene Drawing ==========
+        // Corridor1: long hallway on floor 1
+        // 一层电梯外的长廊场景，走路效果与电梯一致
+        function drawCorridor1Scene() {
+            // 走廊坐标定义 Corridor coordinates
+            // 地平线（后墙与地面交界）Horizon (back wall meets floor)
+            const corridorFloorY_far = H * 0.70;   // 远处地平线 Far horizon
+            const corridorFloorY_near = H * 0.75;  // 靠近时地平线稍微移动 Slight shift when close
+            const floorHorizonY = lerp(corridorFloorY_far, corridorFloorY_near, walkProgress);
+
+            // 天花板线 Ceiling line
+            const corridorCeilingY_far = H * 0.18;   // 远处天花板 Far ceiling
+            const corridorCeilingY_near = H * 0.16;  // 靠近时天花板 Near ceiling
+            const ceilingY = lerp(corridorCeilingY_far, corridorCeilingY_near, walkProgress);
+
+            // 墙面收束 - 后墙（桌子所在位置）Wall convergence - back wall (where table is)
+            const backLeftX = W * 0.3;   // 后墙左边 Back wall left
+            const backRightX = W * 0.7;  // 后墙右边 Back wall right
+
+            // 前景墙面（靠近镜头）Foreground walls (near camera)
+            const frontLeftX_far = W * 0.1;    // 远离时左墙 Left wall when far
+            const frontRightX_far = W * 0.9;   // 远离时右墙 Right wall when far
+
+            // 随走路进度收束 Converge as we walk closer
+            const frontLeftX = lerp(frontLeftX_far, backLeftX + 40, walkProgress);
+            const frontRightX = lerp(frontRightX_far, backRightX - 40, walkProgress);
+
+            // === 绘制后墙 Draw back wall ===
+            ctx.fillStyle = '#1a1a1a';  // 深色后墙 Dark back wall
+            ctx.fillRect(backLeftX, ceilingY, backRightX - backLeftX, floorHorizonY - ceilingY);
+
+            // 后墙渐变 Back wall gradient
+            const backWallGrad = ctx.createLinearGradient(backLeftX, ceilingY, backRightX, ceilingY);
+            backWallGrad.addColorStop(0, 'rgba(40, 40, 50, 0.3)');
+            backWallGrad.addColorStop(0.5, 'rgba(50, 50, 60, 0.4)');
+            backWallGrad.addColorStop(1, 'rgba(40, 40, 50, 0.3)');
+            ctx.fillStyle = backWallGrad;
+            ctx.fillRect(backLeftX, ceilingY, backRightX - backLeftX, floorHorizonY - ceilingY);
+
+            // === 绘制地板 Draw floor ===
+            // 地板梯形 Floor trapezoid
+            ctx.fillStyle = '#0d0d0d';
+            ctx.beginPath();
+            ctx.moveTo(frontLeftX, H);           // 前左 Front left
+            ctx.lineTo(frontRightX, H);          // 前右 Front right
+            ctx.lineTo(backRightX, floorHorizonY); // 后右 Back right
+            ctx.lineTo(backLeftX, floorHorizonY);  // 后左 Back left
+            ctx.closePath();
+            ctx.fill();
+
+            // 地板网格滚动 Floor grid scrolling
+            // 使用与电梯相同的 TILE_SIZE 和 floorScroll 逻辑
+            const tileSize = TILE_SIZE;
+            const offset = floorScroll % tileSize;  // 循环偏移 Wrapped offset for seamless repeat
+
+            ctx.save();
+            ctx.strokeStyle = 'rgba(80, 80, 90, 0.15)';
+            ctx.lineWidth = 1;
+
+            // 横向线（沿深度方向）- 随floorScroll滚动 Horizontal lines - scroll with floorScroll
+            const numHLines = Math.ceil((H - floorHorizonY) / tileSize) + 2;
+            for (let i = 0; i < numHLines; i++) {
+                const y = floorHorizonY + (i * tileSize) + offset;
+                if (y < floorHorizonY || y > H) continue;
+
+                const t = (y - floorHorizonY) / (H - floorHorizonY);
+                const leftX = lerp(backLeftX, frontLeftX, t);
+                const rightX = lerp(backRightX, frontRightX, t);
+
+                ctx.beginPath();
+                ctx.moveTo(leftX, y);
+                ctx.lineTo(rightX, y);
+                ctx.stroke();
+            }
+
+            // 纵向线（汇聚到中心）- 固定间距不滚动 Vertical lines - fixed spacing, no scroll
+            const numVLines = 8;
+            for (let i = 0; i <= numVLines; i++) {
+                const t = i / numVLines;
+                const frontX = lerp(frontLeftX, frontRightX, t);
+                const backX = lerp(backLeftX, backRightX, t);
+
+                ctx.beginPath();
+                ctx.moveTo(frontX, H);
+                ctx.lineTo(backX, floorHorizonY);
+                ctx.stroke();
+            }
+
+            ctx.restore();
+
+            // === 绘制左墙 Draw left wall ===
+            const leftWallGrad = ctx.createLinearGradient(frontLeftX, 0, backLeftX, 0);
+            leftWallGrad.addColorStop(0, '#2a2520');
+            leftWallGrad.addColorStop(0.5, '#3a3028');
+            leftWallGrad.addColorStop(1, '#2d2520');
+
+            ctx.fillStyle = leftWallGrad;
+            ctx.beginPath();
+            ctx.moveTo(frontLeftX, 0);          // 前顶 Front top
+            ctx.lineTo(frontLeftX, H);          // 前底 Front bottom
+            ctx.lineTo(backLeftX, floorHorizonY); // 后底 Back bottom
+            ctx.lineTo(backLeftX, ceilingY);    // 后顶 Back top
+            ctx.closePath();
+            ctx.fill();
+
+            // 左墙装饰线（可选滚动效果）Left wall decoration lines (optional scrolling)
+            ctx.save();
+            ctx.strokeStyle = 'rgba(100, 100, 110, 0.1)';
+            ctx.lineWidth = 1;
+            const wallOffset = wallScroll % 100;
+            const numWallLines = 8;
+            for (let i = 0; i < numWallLines; i++) {
+                const y = (i * 100) + wallOffset - 100;
+                if (y < 0 || y > H) continue;
+
+                const tWall = y / H;
+                const xLeft = lerp(backLeftX, frontLeftX, tWall);
+
+                ctx.beginPath();
+                ctx.moveTo(xLeft, y);
+                ctx.lineTo(xLeft + 40, y);
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            // === 绘制右墙 Draw right wall ===
+            const rightWallGrad = ctx.createLinearGradient(backRightX, 0, frontRightX, 0);
+            rightWallGrad.addColorStop(0, '#2d2520');
+            rightWallGrad.addColorStop(0.5, '#3a3028');
+            rightWallGrad.addColorStop(1, '#2a2520');
+
+            ctx.fillStyle = rightWallGrad;
+            ctx.beginPath();
+            ctx.moveTo(frontRightX, 0);           // 前顶 Front top
+            ctx.lineTo(frontRightX, H);           // 前底 Front bottom
+            ctx.lineTo(backRightX, floorHorizonY); // 后底 Back bottom
+            ctx.lineTo(backRightX, ceilingY);     // 后顶 Back top
+            ctx.closePath();
+            ctx.fill();
+
+            // 右墙装饰线 Right wall decoration lines
+            ctx.save();
+            ctx.strokeStyle = 'rgba(100, 100, 110, 0.1)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < numWallLines; i++) {
+                const y = (i * 100) + wallOffset - 100;
+                if (y < 0 || y > H) continue;
+
+                const tWall = y / H;
+                const xRight = lerp(backRightX, frontRightX, tWall);
+
+                ctx.beginPath();
+                ctx.moveTo(xRight - 40, y);
+                ctx.lineTo(xRight, y);
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            // === 绘制天花板 Draw ceiling ===
+            ctx.fillStyle = '#0a0a0a';
+            ctx.beginPath();
+            ctx.moveTo(frontLeftX, 0);       // 前左 Front left
+            ctx.lineTo(frontRightX, 0);      // 前右 Front right
+            ctx.lineTo(backRightX, ceilingY); // 后右 Back right
+            ctx.lineTo(backLeftX, ceilingY);  // 后左 Back left
+            ctx.closePath();
+            ctx.fill();
+
+            // 天花板网格（轻微滚动）Ceiling grid (subtle scrolling)
+            ctx.save();
+            ctx.strokeStyle = 'rgba(60, 60, 70, 0.1)';
+            ctx.lineWidth = 1;
+            const ceilingOffset = ceilingScroll % 80;
+            const numCLines = Math.ceil(ceilingY / 80) + 2;
+            for (let i = 0; i < numCLines; i++) {
+                const y = (i * 80) + ceilingOffset - 80;
+                if (y < 0 || y > ceilingY) continue;
+
+                const t = y / ceilingY;
+                const leftX = lerp(backLeftX, frontLeftX, t);
+                const rightX = lerp(backRightX, frontRightX, t);
+
+                ctx.beginPath();
+                ctx.moveTo(leftX, y);
+                ctx.lineTo(rightX, y);
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            // === 绘制桌子和电脑 Draw table and computer at the far end ===
+            const backCenterX = (backLeftX + backRightX) / 2;
+            const tableY = floorHorizonY - 20;  // 稍微高于地平线 Slightly above horizon
+
+            // 桌子 Table
+            const tableWidth = 160;
+            const tableHeight = 20;
+
+            ctx.fillStyle = 'rgba(80, 80, 90, 1)';
+            ctx.fillRect(backCenterX - tableWidth / 2, tableY - tableHeight, tableWidth, tableHeight);
+
+            // 桌腿 Table legs
+            ctx.fillStyle = 'rgba(60, 60, 70, 1)';
+            const legWidth = tableWidth / 8;
+            const legHeight = 60;
+            // 左腿 Left leg
+            ctx.fillRect(backCenterX - tableWidth / 2 + 20, tableY, legWidth, legHeight);
+            // 右腿 Right leg
+            ctx.fillRect(backCenterX + tableWidth / 2 - 20 - legWidth, tableY, legWidth, legHeight);
+
+            // 显示器 Monitor
+            const monitorWidth = 90;
+            const monitorHeight = 60;
+            const monitorY = tableY - tableHeight - monitorHeight;
+
+            // 显示器外壳 Monitor casing
+            ctx.fillStyle = 'rgba(20, 20, 25, 1)';
+            ctx.fillRect(backCenterX - monitorWidth / 2, monitorY, monitorWidth, monitorHeight);
+
+            // 显示器边框 Monitor frame
+            ctx.strokeStyle = 'rgba(180, 180, 200, 0.8)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(backCenterX - monitorWidth / 2, monitorY, monitorWidth, monitorHeight);
+
+            // 显示器屏幕发光 Monitor screen glow
+            ctx.save();
+            ctx.shadowColor = 'rgba(120, 180, 255, 0.7)';
+            ctx.shadowBlur = 25;
+            ctx.fillStyle = 'rgba(40, 90, 160, 0.6)';
+            ctx.fillRect(backCenterX - monitorWidth / 2 + 6, monitorY + 6, monitorWidth - 12, monitorHeight - 12);
+            ctx.restore();
+
+            // 显示器底座 Monitor base
+            ctx.fillStyle = 'rgba(50, 50, 60, 1)';
+            ctx.fillRect(backCenterX - 20, tableY - tableHeight, 40, 8);
+
+            // 环境光效 Atmosphere lighting
+            // 从显示器发出的柔和蓝光 Soft blue glow from monitor
+            const glowGrad = ctx.createRadialGradient(backCenterX, monitorY + monitorHeight / 2, 20,
+                                                      backCenterX, monitorY + monitorHeight / 2, 200);
+            glowGrad.addColorStop(0, 'rgba(80, 140, 220, 0.05)');
+            glowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = glowGrad;
+            ctx.fillRect(0, 0, W, H);
+
+            // 调试文本（显示walkProgress）Debug text (show walkProgress)
+            ctx.fillStyle = 'rgba(200, 200, 200, 0.8)';
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.fillText(`Corridor 1 - Walk Progress: ${walkProgress.toFixed(2)}`, 20, 20);
         }
 
         // ========== 主循环 ==========
@@ -1283,6 +1557,11 @@
             // 更新地板滚动 - 地面网格向后流动 Update floor scroll - ground grid flows backward
             // 地板格子随走路向后流动，而不是被放大压缩 Floor tiles slide backwards when walking, not scaled
             floorScroll += walkVelocity * FLOOR_SCROLL_SPEED * dt;
+
+            // 更新墙面和天花板滚动（走廊场景使用）Update wall and ceiling scroll (for corridor scene)
+            // 不同的速度创造深度感 Different speeds create depth perception
+            wallScroll += walkVelocity * WALL_SCROLL_SPEED * dt;
+            ceilingScroll += walkVelocity * CEILING_SCROLL_SPEED * dt;
 
             // 更新进入提示动画 Update enter hint animation
             // 只在走到门前时显示淡入淡出的提示 Only show breathing hint when at door
@@ -1467,13 +1746,42 @@
             handlePointerCancel();
         });
 
+        // === 进入走廊函数 Enter Corridor Function ===
+        // Corridor1: long hallway on floor 1
+        // 一层电梯外的长廊场景，走路效果与电梯一致
+        function enterCorridor1() {
+            sceneState = 'corridor1';
+
+            // 重置走路状态 Reset walking for corridor
+            walkProgress = 0;
+            walkVelocity = 0;
+            floorScroll = 0;
+            wallScroll = 0;
+            ceilingScroll = 0;
+
+            // 重置头部晃动 Reset head-bob
+            headBobPhase = 0;
+            headBobOffsetX = 0;
+            headBobOffsetY = 0;
+
+            readyToEnter = false;
+            enterHintPhase = 0;
+
+            console.log('Entered Corridor 1 scene');
+        }
+
         // === 点击进入事件 Click to Enter Event ===
         // 当玩家走到门前并点击时，触发进入下一场景的动画
         // When player is at door and clicks, trigger entering next scene animation
         canvas.addEventListener('click', (e) => {
-            if (readyToEnter) {
-                // TODO: trigger entering next area animation
-                console.log('Player clicked to enter - ready for next scene transition');
+            if (sceneState === 'elevator') {
+                // 只有在1层才能进入走廊 Only enter corridor on floor 1
+                if (readyToEnter && scene.elevator.currentFloor === 1) {
+                    enterCorridor1();
+                }
+            } else if (sceneState === 'corridor1') {
+                // 走廊场景的交互（未来可以添加电脑交互）Corridor interactions (future: computer interaction)
+                // TODO: add computer interaction when player is at the end
             }
         });
 
@@ -1483,20 +1791,23 @@
         window.addEventListener('keydown', (e) => {
             const key = e.key;
 
-            // 检查门是否完全打开 Check if doors are fully open
-            const doorsFullyOpen = scene.elevator.doorProgress >= 0.99;
-
             // 向前走 Walk forward (hold to walk)
             if (key === 'ArrowUp' || key === 'w' || key === 'W') {
-                // 只有门完全打开时才能走 Only allow walking when doors are fully open
-                if (doorsFullyOpen) {
-                    walkVelocity = 1;  // 持续向前 Continuous forward
+                if (sceneState === 'elevator') {
+                    // 电梯内：只有门完全打开时才能走 Elevator: only allow walking when doors are fully open
+                    const doorsFullyOpen = scene.elevator.doorProgress >= 0.99;
+                    if (doorsFullyOpen) {
+                        walkVelocity = 1;  // 持续向前 Continuous forward
+                    }
+                } else if (sceneState === 'corridor1') {
+                    // 走廊内：始终可以走 Corridor: always allow walking
+                    walkVelocity = 1;
                 }
             }
 
             // 向后走 Walk backward (hold to walk back)
             if (key === 'ArrowDown' || key === 's' || key === 'S') {
-                walkVelocity = -1;  // 持续向后 Continuous backward
+                walkVelocity = -1;  // 持续向后 Continuous backward (works in all scenes)
             }
         });
 
