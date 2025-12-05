@@ -716,16 +716,6 @@
                 ctx.lineTo(rightDoorX + singleDoorWidth * 0.7, frameInnerY + frameInnerHeight - 30);
                 ctx.stroke();
 
-                // 中间门缝（非常细的分割线，仅在门未完全打开时显示）
-                if (this.elevator.doorProgress < 0.99) {
-                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
-                    ctx.lineWidth = 1;
-                    ctx.beginPath();
-                    ctx.moveTo(VP_X, frameInnerY + 20);
-                    ctx.lineTo(VP_X, frameInnerY + frameInnerHeight - 20);
-                    ctx.stroke();
-                }
-
                 ctx.restore(); // 恢复裁剪区域
                 ctx.restore();
             }
