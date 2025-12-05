@@ -1292,32 +1292,38 @@
         // Corridor1: long hallway on floor 1
         // 一层电梯外的长廊场景，走路效果与电梯一致
         function drawCorridor1Scene() {
-            // 走廊坐标定义 Corridor coordinates
-            // 地平线（后墙与地面交界）Horizon (back wall meets floor)
-            const corridorFloorY_far = H * 0.70;   // 远处地平线 Far horizon
-            const corridorFloorY_near = H * 0.75;  // 靠近时地平线稍微移动 Slight shift when close
-            const floorHorizonY = lerp(corridorFloorY_far, corridorFloorY_near, walkProgress);
+            // ========== 走廊坐标定义 Corridor coordinates ==========
 
-            // 天花板线 Ceiling line
-            const corridorCeilingY_far = H * 0.18;   // 远处天花板 Far ceiling
-            const corridorCeilingY_near = H * 0.16;  // 靠近时天花板 Near ceiling
+            // FRONT (near camera) – keep almost fixed 前景（靠近相机）- 保持几乎固定
+            // 前墙宽度不变，避免挤压感 Keep front width constant to avoid squeezing feeling
+            const frontLeftX  = W * 0.10;
+            const frontRightX = W * 0.90;
+
+            // BACK (near the computer) – widen with walkProgress 后墙（电脑附近）- 随走路进度变宽
+            // 走近尽头时，远端墙面变宽，透视减弱 Widen back wall as we approach, perspective flattens
+            const backLeftX_far  = W * 0.38;   // 远离时后墙较窄 Narrow back wall when far
+            const backRightX_far = W * 0.62;
+
+            const backLeftX_near  = W * 0.24;  // 靠近时后墙变宽 Wider back wall when close
+            const backRightX_near = W * 0.76;
+
+            const backLeftX  = lerp(backLeftX_far,  backLeftX_near,  walkProgress);
+            const backRightX = lerp(backRightX_far, backRightX_near, walkProgress);
+
+            // 后墙Y位置（地平线）- 随接近而下移 Back wall Y (horizon) - lowers as we approach
+            // 后墙下移营造接近感 Lower back wall creates sense of approaching
+            const farBackWallY  = H * 0.62;    // 远离时后墙较高 Back wall higher when far
+            const nearBackWallY = H * 0.68;    // 靠近时后墙较低 Back wall lower when close
+            const backWallY = lerp(farBackWallY, nearBackWallY, walkProgress);
+
+            // 天花板线 Ceiling line at back wall
+            const corridorCeilingY_far  = H * 0.18;   // 远处天花板 Far ceiling
+            const corridorCeilingY_near = H * 0.16;   // 靠近时天花板 Near ceiling
             const ceilingY = lerp(corridorCeilingY_far, corridorCeilingY_near, walkProgress);
-
-            // 墙面收束 - 后墙（桌子所在位置）Wall convergence - back wall (where table is)
-            const backLeftX = W * 0.3;   // 后墙左边 Back wall left
-            const backRightX = W * 0.7;  // 后墙右边 Back wall right
-
-            // 前景墙面（靠近镜头）Foreground walls (near camera)
-            const frontLeftX_far = W * 0.1;    // 远离时左墙 Left wall when far
-            const frontRightX_far = W * 0.9;   // 远离时右墙 Right wall when far
-
-            // 随走路进度收束 Converge as we walk closer
-            const frontLeftX = lerp(frontLeftX_far, backLeftX + 40, walkProgress);
-            const frontRightX = lerp(frontRightX_far, backRightX - 40, walkProgress);
 
             // === 绘制后墙 Draw back wall ===
             ctx.fillStyle = '#1a1a1a';  // 深色后墙 Dark back wall
-            ctx.fillRect(backLeftX, ceilingY, backRightX - backLeftX, floorHorizonY - ceilingY);
+            ctx.fillRect(backLeftX, ceilingY, backRightX - backLeftX, backWallY - ceilingY);
 
             // 后墙渐变 Back wall gradient
             const backWallGrad = ctx.createLinearGradient(backLeftX, ceilingY, backRightX, ceilingY);
@@ -1325,16 +1331,16 @@
             backWallGrad.addColorStop(0.5, 'rgba(50, 50, 60, 0.4)');
             backWallGrad.addColorStop(1, 'rgba(40, 40, 50, 0.3)');
             ctx.fillStyle = backWallGrad;
-            ctx.fillRect(backLeftX, ceilingY, backRightX - backLeftX, floorHorizonY - ceilingY);
+            ctx.fillRect(backLeftX, ceilingY, backRightX - backLeftX, backWallY - ceilingY);
 
             // === 绘制地板 Draw floor ===
             // 地板梯形 Floor trapezoid
             ctx.fillStyle = '#0d0d0d';
             ctx.beginPath();
-            ctx.moveTo(frontLeftX, H);           // 前左 Front left
-            ctx.lineTo(frontRightX, H);          // 前右 Front right
-            ctx.lineTo(backRightX, floorHorizonY); // 后右 Back right
-            ctx.lineTo(backLeftX, floorHorizonY);  // 后左 Back left
+            ctx.moveTo(frontLeftX, H);        // 前左 Front left
+            ctx.lineTo(frontRightX, H);       // 前右 Front right
+            ctx.lineTo(backRightX, backWallY); // 后右 Back right
+            ctx.lineTo(backLeftX, backWallY);  // 后左 Back left
             ctx.closePath();
             ctx.fill();
 
@@ -1348,12 +1354,12 @@
             ctx.lineWidth = 1;
 
             // 横向线（沿深度方向）- 随floorScroll滚动 Horizontal lines - scroll with floorScroll
-            const numHLines = Math.ceil((H - floorHorizonY) / tileSize) + 2;
+            const numHLines = Math.ceil((H - backWallY) / tileSize) + 2;
             for (let i = 0; i < numHLines; i++) {
-                const y = floorHorizonY + (i * tileSize) + offset;
-                if (y < floorHorizonY || y > H) continue;
+                const y = backWallY + (i * tileSize) + offset;
+                if (y < backWallY || y > H) continue;
 
-                const t = (y - floorHorizonY) / (H - floorHorizonY);
+                const t = (y - backWallY) / (H - backWallY);
                 const leftX = lerp(backLeftX, frontLeftX, t);
                 const rightX = lerp(backRightX, frontRightX, t);
 
@@ -1372,7 +1378,7 @@
 
                 ctx.beginPath();
                 ctx.moveTo(frontX, H);
-                ctx.lineTo(backX, floorHorizonY);
+                ctx.lineTo(backX, backWallY);
                 ctx.stroke();
             }
 
@@ -1386,10 +1392,10 @@
 
             ctx.fillStyle = leftWallGrad;
             ctx.beginPath();
-            ctx.moveTo(frontLeftX, 0);          // 前顶 Front top
-            ctx.lineTo(frontLeftX, H);          // 前底 Front bottom
-            ctx.lineTo(backLeftX, floorHorizonY); // 后底 Back bottom
-            ctx.lineTo(backLeftX, ceilingY);    // 后顶 Back top
+            ctx.moveTo(frontLeftX, 0);       // 前顶 Front top
+            ctx.lineTo(frontLeftX, H);       // 前底 Front bottom
+            ctx.lineTo(backLeftX, backWallY); // 后底 Back bottom
+            ctx.lineTo(backLeftX, ceilingY); // 后顶 Back top
             ctx.closePath();
             ctx.fill();
 
@@ -1421,10 +1427,10 @@
 
             ctx.fillStyle = rightWallGrad;
             ctx.beginPath();
-            ctx.moveTo(frontRightX, 0);           // 前顶 Front top
-            ctx.lineTo(frontRightX, H);           // 前底 Front bottom
-            ctx.lineTo(backRightX, floorHorizonY); // 后底 Back bottom
-            ctx.lineTo(backRightX, ceilingY);     // 后顶 Back top
+            ctx.moveTo(frontRightX, 0);        // 前顶 Front top
+            ctx.lineTo(frontRightX, H);        // 前底 Front bottom
+            ctx.lineTo(backRightX, backWallY); // 后底 Back bottom
+            ctx.lineTo(backRightX, ceilingY);  // 后顶 Back top
             ctx.closePath();
             ctx.fill();
 
@@ -1478,55 +1484,76 @@
             ctx.restore();
 
             // === 绘制桌子和电脑 Draw table and computer at the far end ===
+            // 将电脑放大并稍微下移，营造靠近屏幕的感觉
+            // Scale and lower the computer to feel closer
+
+            // 电脑水平居中位置 Computer horizontal center (between back walls)
             const backCenterX = (backLeftX + backRightX) / 2;
-            const tableY = floorHorizonY - 20;  // 稍微高于地平线 Slightly above horizon
 
-            // 桌子 Table
-            const tableWidth = 160;
-            const tableHeight = 20;
+            // 电脑缩放 - 走近时变大 Computer scale - grows larger when approaching
+            const baseComputerScale = 1.0;
+            const maxComputerScale  = 1.25;  // 最多放大25% at most 25% bigger when close
+            const computerScale = lerp(baseComputerScale, maxComputerScale, walkProgress);
 
+            // 桌子基础尺寸（应用缩放）Base table dimensions (with scale)
+            const tableWidth  = 160 * computerScale;
+            const tableHeight = 20  * computerScale;
+
+            // 显示器基础尺寸（应用缩放）Base monitor dimensions (with scale)
+            const monitorWidth  = 90 * computerScale;
+            const monitorHeight = 60 * computerScale;
+
+            // 桌子顶部Y位置 - 紧贴后墙底部 Table top Y - right at back wall bottom
+            const tableTopY = backWallY - 10 * computerScale;
+
+            // === 绘制桌子 Draw table ===
             ctx.fillStyle = 'rgba(80, 80, 90, 1)';
-            ctx.fillRect(backCenterX - tableWidth / 2, tableY - tableHeight, tableWidth, tableHeight);
+            ctx.fillRect(backCenterX - tableWidth / 2, tableTopY - tableHeight, tableWidth, tableHeight);
 
             // 桌腿 Table legs
             ctx.fillStyle = 'rgba(60, 60, 70, 1)';
             const legWidth = tableWidth / 8;
-            const legHeight = 60;
+            const legHeight = 60 * computerScale;
             // 左腿 Left leg
-            ctx.fillRect(backCenterX - tableWidth / 2 + 20, tableY, legWidth, legHeight);
+            ctx.fillRect(backCenterX - tableWidth / 2 + 20 * computerScale, tableTopY, legWidth, legHeight);
             // 右腿 Right leg
-            ctx.fillRect(backCenterX + tableWidth / 2 - 20 - legWidth, tableY, legWidth, legHeight);
+            ctx.fillRect(backCenterX + tableWidth / 2 - 20 * computerScale - legWidth, tableTopY, legWidth, legHeight);
 
-            // 显示器 Monitor
-            const monitorWidth = 90;
-            const monitorHeight = 60;
-            const monitorY = tableY - tableHeight - monitorHeight;
+            // === 绘制显示器 Draw monitor ===
+            const monitorBottomY = tableTopY - tableHeight;
+            const monitorTopY    = monitorBottomY - monitorHeight;
+            const monitorX = backCenterX - monitorWidth / 2;
 
             // 显示器外壳 Monitor casing
             ctx.fillStyle = 'rgba(20, 20, 25, 1)';
-            ctx.fillRect(backCenterX - monitorWidth / 2, monitorY, monitorWidth, monitorHeight);
+            ctx.fillRect(monitorX, monitorTopY, monitorWidth, monitorHeight);
 
             // 显示器边框 Monitor frame
             ctx.strokeStyle = 'rgba(180, 180, 200, 0.8)';
             ctx.lineWidth = 2;
-            ctx.strokeRect(backCenterX - monitorWidth / 2, monitorY, monitorWidth, monitorHeight);
+            ctx.strokeRect(monitorX, monitorTopY, monitorWidth, monitorHeight);
 
             // 显示器屏幕发光 Monitor screen glow
             ctx.save();
             ctx.shadowColor = 'rgba(120, 180, 255, 0.7)';
-            ctx.shadowBlur = 25;
+            ctx.shadowBlur = 25 * computerScale;
             ctx.fillStyle = 'rgba(40, 90, 160, 0.6)';
-            ctx.fillRect(backCenterX - monitorWidth / 2 + 6, monitorY + 6, monitorWidth - 12, monitorHeight - 12);
+            const screenPadding = 6 * computerScale;
+            ctx.fillRect(monitorX + screenPadding, monitorTopY + screenPadding,
+                        monitorWidth - screenPadding * 2, monitorHeight - screenPadding * 2);
             ctx.restore();
 
             // 显示器底座 Monitor base
             ctx.fillStyle = 'rgba(50, 50, 60, 1)';
-            ctx.fillRect(backCenterX - 20, tableY - tableHeight, 40, 8);
+            const baseWidth = 40 * computerScale;
+            const baseHeight = 8 * computerScale;
+            ctx.fillRect(backCenterX - baseWidth / 2, monitorBottomY, baseWidth, baseHeight);
 
             // 环境光效 Atmosphere lighting
             // 从显示器发出的柔和蓝光 Soft blue glow from monitor
-            const glowGrad = ctx.createRadialGradient(backCenterX, monitorY + monitorHeight / 2, 20,
-                                                      backCenterX, monitorY + monitorHeight / 2, 200);
+            const glowCenterY = monitorTopY + monitorHeight / 2;
+            const glowGrad = ctx.createRadialGradient(backCenterX, glowCenterY, 20 * computerScale,
+                                                      backCenterX, glowCenterY, 200 * computerScale);
             glowGrad.addColorStop(0, 'rgba(80, 140, 220, 0.05)');
             glowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
             ctx.fillStyle = glowGrad;
