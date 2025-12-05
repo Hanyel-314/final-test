@@ -1249,19 +1249,21 @@
                 ctx.restore();  // 恢复头部晃动变换 Restore head-bob transform
 
                 // 绘制进入提示 Draw enter hint
-                // 只在玩家走到门前时显示淡入淡出的"点击进入"提示
-                // Only show "click to enter" hint with breathing effect when player is at door
-                if (walkProgress >= 1) {
+                // 只在玩家走到门前且门完全打开时显示淡入淡出的"点击进入"提示
+                // Only show "click to enter" hint with breathing effect when player is at door AND doors are open
+                const doorsFullyOpen = this.elevator.doorProgress >= 0.99;
+
+                if (walkProgress >= 1 && doorsFullyOpen) {
                     const geo = getCabinGeometry();
 
-                    // 计算呼吸不透明度 0.2 - 0.6 Breathing opacity 0.2 - 0.6
-                    const enterHintOpacity = 0.4 + Math.sin(enterHintPhase) * 0.2;
+                    // 计算呼吸不透明度 0.6 - 0.9（更明显）Breathing opacity 0.6 - 0.9 (more visible)
+                    const enterHintOpacity = 0.75 + Math.sin(enterHintPhase) * 0.15;
 
                     ctx.save();
                     ctx.globalAlpha = enterHintOpacity;
 
-                    ctx.fillStyle = 'rgba(200, 200, 200, 0.9)';
-                    ctx.font = '28px sans-serif';
+                    ctx.fillStyle = 'rgba(255, 255, 255, 1.0)';  // 更亮的白色 Brighter white
+                    ctx.font = 'bold 32px sans-serif';  // 更粗更大的字体 Bolder and larger font
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
 
