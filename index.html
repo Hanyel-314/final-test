@@ -1293,33 +1293,26 @@
         // 一层电梯外的长廊场景，走路效果与电梯一致
         function drawCorridor1Scene() {
             // ========== 走廊坐标定义 Corridor coordinates ==========
+            // 走廊几何保持稳定，不随walkProgress大幅变化
+            // Corridor geometry stays stable, minimal change with walkProgress
 
-            // FRONT (near camera) – keep almost fixed 前景（靠近相机）- 保持几乎固定
-            // 前墙宽度不变，避免挤压感 Keep front width constant to avoid squeezing feeling
+            // FRONT (near camera) – keep fixed 前景（靠近相机）- 保持固定
             const frontLeftX  = W * 0.10;
             const frontRightX = W * 0.90;
 
-            // BACK (near the computer) – widen with walkProgress 后墙（电脑附近）- 随走路进度变宽
-            // 走近尽头时，远端墙面变宽，透视减弱 Widen back wall as we approach, perspective flattens
-            const backLeftX_far  = W * 0.38;   // 远离时后墙较窄 Narrow back wall when far
-            const backRightX_far = W * 0.62;
+            // BACK (near the computer) – keep fixed 后墙（电脑附近）- 保持固定
+            // 后墙宽度固定，避免整体缩放感 Keep back wall width fixed to avoid scaling feeling
+            const backLeftX  = W * 0.30;
+            const backRightX = W * 0.70;
 
-            const backLeftX_near  = W * 0.24;  // 靠近时后墙变宽 Wider back wall when close
-            const backRightX_near = W * 0.76;
-
-            const backLeftX  = lerp(backLeftX_far,  backLeftX_near,  walkProgress);
-            const backRightX = lerp(backRightX_far, backRightX_near, walkProgress);
-
-            // 后墙Y位置（地平线）- 随接近而下移 Back wall Y (horizon) - lowers as we approach
-            // 后墙下移营造接近感 Lower back wall creates sense of approaching
-            const farBackWallY  = H * 0.62;    // 远离时后墙较高 Back wall higher when far
-            const nearBackWallY = H * 0.68;    // 靠近时后墙较低 Back wall lower when close
+            // 后墙Y位置（地平线）- 轻微下移 Back wall Y (horizon) - slight lowering
+            // 只有轻微的地平线变化 Only subtle horizon shift
+            const farBackWallY  = H * 0.60;    // 远离时后墙位置 Back wall when far
+            const nearBackWallY = H * 0.66;    // 靠近时后墙位置 Back wall when close
             const backWallY = lerp(farBackWallY, nearBackWallY, walkProgress);
 
-            // 天花板线 Ceiling line at back wall
-            const corridorCeilingY_far  = H * 0.18;   // 远处天花板 Far ceiling
-            const corridorCeilingY_near = H * 0.16;   // 靠近时天花板 Near ceiling
-            const ceilingY = lerp(corridorCeilingY_far, corridorCeilingY_near, walkProgress);
+            // 天花板线 - 保持固定 Ceiling line - keep fixed
+            const ceilingY = H * 0.18;  // 天花板不变 Ceiling stays constant
 
             // === 绘制后墙 Draw back wall ===
             ctx.fillStyle = '#1a1a1a';  // 深色后墙 Dark back wall
@@ -1484,40 +1477,44 @@
             ctx.restore();
 
             // === 绘制桌子和电脑 Draw table and computer at the far end ===
-            // 将电脑放大并稍微下移，营造靠近屏幕的感觉
-            // Scale and lower the computer to feel closer
+            // Computer scales with walkProgress to simulate depth
+            // 电脑大小随 walkProgress 变化，模拟远小近大的透视效果
 
             // 电脑水平居中位置 Computer horizontal center (between back walls)
             const backCenterX = (backLeftX + backRightX) / 2;
 
-            // 电脑缩放 - 走近时变大 Computer scale - grows larger when approaching
-            const baseComputerScale = 1.0;
-            const maxComputerScale  = 1.25;  // 最多放大25% at most 25% bigger when close
-            const computerScale = lerp(baseComputerScale, maxComputerScale, walkProgress);
+            // 电脑缩放 - 远小近大 Computer scale - small when far, big when near
+            // 从0.6到1.4，差异明显 From 0.6 to 1.4, very noticeable difference
+            const computerScaleFar  = 0.6;   // 远处时缩小到60% Scale down to 60% when far
+            const computerScaleNear = 1.4;   // 靠近时放大到140% Scale up to 140% when near
+            const computerScale = lerp(computerScaleFar, computerScaleNear, walkProgress);
 
-            // 桌子基础尺寸（应用缩放）Base table dimensions (with scale)
+            // 电脑垂直位置 - 远高近低 Computer vertical position - high when far, low when near
+            // 远处时在屏幕较高位置，靠近时下移 Higher on screen when far, lowers when close
+            const computerYFar  = H * 0.30;  // 远处位置（较高）Position when far (higher)
+            const computerYNear = H * 0.45;  // 靠近位置（较低）Position when near (lower)
+            const computerCenterY = lerp(computerYFar, computerYNear, walkProgress);
+
+            // 桌子尺寸（应用缩放）Table dimensions (with scale)
             const tableWidth  = 160 * computerScale;
             const tableHeight = 20  * computerScale;
 
-            // 显示器基础尺寸（应用缩放）Base monitor dimensions (with scale)
+            // 显示器尺寸（应用缩放）Monitor dimensions (with scale)
             const monitorWidth  = 90 * computerScale;
             const monitorHeight = 60 * computerScale;
 
-            // 桌子顶部Y位置 - 紧贴后墙底部 Table top Y - right at back wall bottom
-            const tableTopY = backWallY - 10 * computerScale;
+            // 桌子顶部Y位置 - 使用电脑中心点 Table top Y - use computer center point
+            const tableTopY = computerCenterY;
 
             // === 绘制桌子 Draw table ===
             ctx.fillStyle = 'rgba(80, 80, 90, 1)';
             ctx.fillRect(backCenterX - tableWidth / 2, tableTopY - tableHeight, tableWidth, tableHeight);
 
-            // 桌腿 Table legs
+            // 桌腿 Table leg (single center leg for simplicity)
             ctx.fillStyle = 'rgba(60, 60, 70, 1)';
-            const legWidth = tableWidth / 8;
-            const legHeight = 60 * computerScale;
-            // 左腿 Left leg
-            ctx.fillRect(backCenterX - tableWidth / 2 + 20 * computerScale, tableTopY, legWidth, legHeight);
-            // 右腿 Right leg
-            ctx.fillRect(backCenterX + tableWidth / 2 - 20 * computerScale - legWidth, tableTopY, legWidth, legHeight);
+            const legWidth = tableWidth * 0.2;
+            const legHeight = 50 * computerScale;
+            ctx.fillRect(backCenterX - legWidth / 2, tableTopY, legWidth, legHeight);
 
             // === 绘制显示器 Draw monitor ===
             const monitorBottomY = tableTopY - tableHeight;
@@ -1525,19 +1522,19 @@
             const monitorX = backCenterX - monitorWidth / 2;
 
             // 显示器外壳 Monitor casing
-            ctx.fillStyle = 'rgba(20, 20, 25, 1)';
+            ctx.fillStyle = 'rgba(10, 10, 15, 1)';
             ctx.fillRect(monitorX, monitorTopY, monitorWidth, monitorHeight);
 
             // 显示器边框 Monitor frame
-            ctx.strokeStyle = 'rgba(180, 180, 200, 0.8)';
+            ctx.strokeStyle = 'rgba(180, 180, 200, 0.9)';
             ctx.lineWidth = 2;
             ctx.strokeRect(monitorX, monitorTopY, monitorWidth, monitorHeight);
 
-            // 显示器屏幕发光 Monitor screen glow
+            // 显示器屏幕发光 Screen glow
             ctx.save();
             ctx.shadowColor = 'rgba(120, 180, 255, 0.7)';
             ctx.shadowBlur = 25 * computerScale;
-            ctx.fillStyle = 'rgba(40, 90, 160, 0.6)';
+            ctx.fillStyle = 'rgba(40, 90, 160, 0.8)';
             const screenPadding = 6 * computerScale;
             ctx.fillRect(monitorX + screenPadding, monitorTopY + screenPadding,
                         monitorWidth - screenPadding * 2, monitorHeight - screenPadding * 2);
