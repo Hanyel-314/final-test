@@ -81,6 +81,11 @@
         const HEAD_BOB_MAX_X = 2;       // 最大水平晃动 2px Max horizontal bob
         const HEAD_BOB_MAX_Y = 1;       // 最大垂直晃动 1px Max vertical bob
 
+        // 进入提示 Enter hint
+        // 当玩家走到门前时显示"点击进入"提示 Show "click to enter" hint when player reaches door
+        let enterHintPhase = 0;         // 提示文字淡入淡出相位 Fade in/out phase for hint text
+        let readyToEnter = false;       // 玩家是否可以进入 Whether player can enter
+
         // 线性插值函数 Linear interpolation function
         function lerp(a, b, t) {
             return a + (b - a) * t;
@@ -1242,6 +1247,30 @@
                 this.drawStatusText();     // 状态文字
 
                 ctx.restore();  // 恢复头部晃动变换 Restore head-bob transform
+
+                // 绘制进入提示 Draw enter hint
+                // 只在玩家走到门前时显示淡入淡出的"点击进入"提示
+                // Only show "click to enter" hint with breathing effect when player is at door
+                if (walkProgress >= 1) {
+                    const geo = getCabinGeometry();
+
+                    // 计算呼吸不透明度 0.2 - 0.6 Breathing opacity 0.2 - 0.6
+                    const enterHintOpacity = 0.4 + Math.sin(enterHintPhase) * 0.2;
+
+                    ctx.save();
+                    ctx.globalAlpha = enterHintOpacity;
+
+                    ctx.fillStyle = 'rgba(200, 200, 200, 0.9)';
+                    ctx.font = '28px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+
+                    // 在门的中央偏下位置显示提示 Show hint in center-lower area of door
+                    const hintY = geo.doorTop + geo.doorHeight * 0.6;
+                    ctx.fillText('点击进入', VP_X, hintY);
+
+                    ctx.restore();
+                }
             }
         }
 
@@ -1262,6 +1291,18 @@
             // 更新地板滚动 - 地面网格向后流动 Update floor scroll - ground grid flows backward
             // 地板格子随走路向后流动，而不是被放大压缩 Floor tiles slide backwards when walking, not scaled
             floorScroll += walkVelocity * FLOOR_SCROLL_SPEED * dt;
+
+            // 更新进入提示动画 Update enter hint animation
+            // 只在走到门前时显示淡入淡出的提示 Only show breathing hint when at door
+            if (walkProgress >= 1) {
+                enterHintPhase += dt * 2.0;  // 控制呼吸速度 Control breathing speed
+                if (!readyToEnter) {
+                    readyToEnter = true;  // 标记玩家可以进入 Mark player ready to enter
+                }
+            } else {
+                enterHintPhase = 0;  // 离开时重置 Reset when walking away
+                readyToEnter = false;
+            }
 
             // 计算FPS头部晃动 Calculate FPS-style head bob
             // 只有在移动中才晃动 Only bob when actually moving
@@ -1432,6 +1473,16 @@
 
         canvas.addEventListener('touchcancel', () => {
             handlePointerCancel();
+        });
+
+        // === 点击进入事件 Click to Enter Event ===
+        // 当玩家走到门前并点击时，触发进入下一场景的动画
+        // When player is at door and clicks, trigger entering next scene animation
+        canvas.addEventListener('click', (e) => {
+            if (readyToEnter) {
+                // TODO: trigger entering next area animation
+                console.log('Player clicked to enter - ready for next scene transition');
+            }
         });
 
         // === 键盘事件 - 走路移动 Keyboard Events - Walk Movement ===
