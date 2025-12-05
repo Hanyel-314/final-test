@@ -1476,190 +1476,120 @@
             }
             ctx.restore();
 
-            // === 绘制桌子和电脑 Draw table and computer at the far end ===
-            // Draw a pseudo-3D table and computer standing on the floor
-            // 绘制立在地板上的3D桌子和电脑，而不是贴在墙上的平面图
+            // === 绘制电脑 Draw computer at the far end ===
+            // Simple front-facing computer standing on the floor (no fake 3D)
+            // 一个正面朝向、立在地板上的电脑，不使用伪3D效果
 
-            // 基础位置和缩放 Basic position & scale
+            // 基础位置 Basic position
             const backCenterX = (backLeftX + backRightX) / 2;
-            const floorY = backWallY;  // 地板线 Floor line
+            const floorY = backWallY;  // 地板线 Floor line where computer stands
 
-            // 电脑缩放 - 远小近大 Computer scale - small when far, big when near
-            const computerScaleFar  = 0.7;   // 远处时缩小 Scale down when far
-            const computerScaleNear = 1.4;   // 靠近时放大 Scale up when near
+            // 电脑缩放和垂直偏移 Computer scale and vertical offset
+            const computerScaleFar  = 0.7;   // 远处时缩小 Size when far
+            const computerScaleNear = 1.4;   // 靠近时放大 Size when close
+
+            const computerYOffsetFar  = -80;  // 远处时屏幕较高 Screen appears higher when far
+            const computerYOffsetNear = -40;  // 靠近时屏幕较低 Screen slightly lower when near
+
             const t = walkProgress;
             const computerScale = lerp(computerScaleFar, computerScaleNear, t);
+            const computerYOffset = lerp(computerYOffsetFar, computerYOffsetNear, t);
 
-            // 3D深度投影向量 Depth direction for 3D projection (toward the viewer)
-            const depthX = 30 * computerScale;
-            const depthY = 18 * computerScale;  // 向下投影到屏幕 Projected downward on screen
+            const cx = backCenterX;
+            const baseY = floorY + computerYOffset;
 
-            // ========== 绘制3D桌子 Draw 3D Table ==========
+            // 尺寸（缩放后）Dimensions (scaled)
+            const standWidth       = 36  * computerScale;
+            const standHeight      = 26  * computerScale;
+            const basePlateWidth   = 80  * computerScale;
+            const basePlateHeight  = 10  * computerScale;
+            const monitorWidth     = 130 * computerScale;
+            const monitorHeight    = 80  * computerScale;
+            const monitorBorder    = 4   * computerScale;
 
-            // 桌子尺寸 Table dimensions
-            const tableWidth     = 180 * computerScale;
-            const tableDepth     = 70  * computerScale;
-            const tableThickness = 12  * computerScale;
-            const legHeight      = 80  * computerScale;
+            // === 底座板（贴着地板）Base plate touching the floor ===
+            const basePlateBottomY = floorY;
+            const basePlateTopY    = basePlateBottomY - basePlateHeight;
 
-            // 桌子前边缘位置（靠近镜头的边）Table front edge position (near camera)
-            const tableFrontCenterX = backCenterX;
-            const tableFrontCenterY = floorY - 4 * computerScale;
-
-            // 桌子前边缘角点 Table front edge corners
-            const tableFrontLeftX  = tableFrontCenterX - tableWidth / 2;
-            const tableFrontRightX = tableFrontCenterX + tableWidth / 2;
-            const tableFrontY      = tableFrontCenterY;
-
-            // 桌子后边缘角点（使用深度投影）Table back edge corners (using depth projection)
-            const tableBackLeftX  = tableFrontLeftX  - depthX;
-            const tableBackRightX = tableFrontRightX - depthX;
-            const tableBackY      = tableFrontY      - depthY;
-
-            // 绘制桌面顶部 Draw table top plane
-            ctx.fillStyle = 'rgba(80, 80, 90, 1)';
-            ctx.beginPath();
-            ctx.moveTo(tableBackLeftX,  tableBackY);
-            ctx.lineTo(tableBackRightX, tableBackY);
-            ctx.lineTo(tableFrontRightX, tableFrontY);
-            ctx.lineTo(tableFrontLeftX,  tableFrontY);
-            ctx.closePath();
-            ctx.fill();
-
-            // 绘制桌面前边缘厚度 Draw table front thickness
-            const tableFrontBottomY = tableFrontY + tableThickness;
-            ctx.fillStyle = 'rgba(70, 70, 80, 1)';
-            ctx.beginPath();
-            ctx.moveTo(tableFrontLeftX,  tableFrontY);
-            ctx.lineTo(tableFrontRightX, tableFrontY);
-            ctx.lineTo(tableFrontRightX, tableFrontBottomY);
-            ctx.lineTo(tableFrontLeftX,  tableFrontBottomY);
-            ctx.closePath();
-            ctx.fill();
-
-            // 绘制桌腿 Draw table legs
-            ctx.fillStyle = 'rgba(65, 65, 75, 1)';
-            const legWidth = 14 * computerScale;
-
-            // 左桌腿 Left leg
-            const legLeftX = tableFrontLeftX + tableWidth * 0.2;
-            const legTopY  = tableFrontBottomY;
-            const legBottomY = legTopY + legHeight;
-            ctx.fillRect(legLeftX, legTopY, legWidth, legHeight);
-
-            // 右桌腿 Right leg
-            const legRightX = tableFrontRightX - tableWidth * 0.2 - legWidth;
-            ctx.fillRect(legRightX, legTopY, legWidth, legHeight);
-
-            // ========== 绘制3D显示器 Draw 3D Monitor ==========
-
-            // 显示器尺寸 Monitor dimensions
-            const monitorWidth     = 110 * computerScale;
-            const monitorHeight    = 70  * computerScale;
-            const monitorThickness = 10  * computerScale;
-
-            // 显示器基座位置（在桌面后半部）Monitor base position (on back half of table)
-            const monitorBaseX = backCenterX;
-            const monitorBaseY = tableBackY - 4 * computerScale;
-
-            // 显示器前后面中心点 Monitor front and back face centers
-            const monitorFrontCenterX = monitorBaseX;
-            const monitorFrontCenterY = monitorBaseY;
-            const monitorBackCenterX  = monitorBaseX - depthX * 0.35;
-            const monitorBackCenterY  = monitorBaseY - depthY * 0.35;
-
-            // 显示器前面角点 Monitor front face corners
-            const mfHalfW = monitorWidth / 2;
-            const mfTopY    = monitorFrontCenterY - monitorHeight;
-            const mfBottomY = monitorFrontCenterY;
-
-            const monitorFrontLeftX  = monitorFrontCenterX - mfHalfW;
-            const monitorFrontRightX = monitorFrontCenterX + mfHalfW;
-
-            // 显示器后面角点 Monitor back face corners
-            const monitorBackLeftX  = monitorBackCenterX - mfHalfW;
-            const monitorBackRightX = monitorBackCenterX + mfHalfW;
-            const mbTopY    = monitorBackCenterY - monitorHeight;
-            const mbBottomY = monitorBackCenterY;
-
-            // 绘制显示器顶面（3D效果）Draw monitor top face (3D effect)
-            ctx.fillStyle = 'rgba(35, 35, 50, 1)';
-            ctx.beginPath();
-            ctx.moveTo(monitorBackLeftX,  mbTopY);
-            ctx.lineTo(monitorBackRightX, mbTopY);
-            ctx.lineTo(monitorFrontRightX, mfTopY);
-            ctx.lineTo(monitorFrontLeftX,  mfTopY);
-            ctx.closePath();
-            ctx.fill();
-
-            // 绘制显示器右侧面（3D效果）Draw monitor right side face (3D effect)
-            ctx.fillStyle = 'rgba(25, 25, 40, 1)';
-            ctx.beginPath();
-            ctx.moveTo(monitorFrontRightX, mfTopY);
-            ctx.lineTo(monitorBackRightX,  mbTopY);
-            ctx.lineTo(monitorBackRightX,  mbBottomY);
-            ctx.lineTo(monitorFrontRightX, mfBottomY);
-            ctx.closePath();
-            ctx.fill();
-
-            // 绘制显示器前面（屏幕）Draw monitor front face (screen)
-            ctx.fillStyle = 'rgba(10, 10, 15, 1)';
-            ctx.beginPath();
-            ctx.moveTo(monitorFrontLeftX,  mfTopY);
-            ctx.lineTo(monitorFrontRightX, mfTopY);
-            ctx.lineTo(monitorFrontRightX, mfBottomY);
-            ctx.lineTo(monitorFrontLeftX,  mfBottomY);
-            ctx.closePath();
-            ctx.fill();
-
-            // 显示器边框 Monitor frame
-            ctx.strokeStyle = 'rgba(180, 180, 200, 0.9)';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(monitorFrontLeftX, mfTopY, monitorWidth, monitorHeight);
-
-            // 屏幕发光效果 Screen glow
-            ctx.save();
-            ctx.shadowColor = 'rgba(120, 180, 255, 0.7)';
-            ctx.shadowBlur = 25 * computerScale;
-            ctx.fillStyle = 'rgba(40, 90, 160, 0.85)';
-            const padding = 8 * computerScale;
+            ctx.fillStyle = 'rgba(70, 70, 85, 1)';
             ctx.fillRect(
-                monitorFrontLeftX + padding,
-                mfTopY + padding,
-                monitorWidth  - padding * 2,
-                monitorHeight - padding * 2
+                cx - basePlateWidth / 2,
+                basePlateTopY,
+                basePlateWidth,
+                basePlateHeight
             );
-            ctx.restore();
 
-            // 显示器支架 Monitor stand
-            const standWidth  = 30 * computerScale;
-            const standHeight = 22 * computerScale;
-            const standTopY = monitorFrontCenterY + 4 * computerScale;
+            // === 支架（从底座向上）Stand rising from base plate ===
+            const standBottomY = basePlateTopY;
+            const standTopY    = standBottomY - standHeight;
 
-            ctx.fillStyle = 'rgba(55, 55, 70, 1)';
+            ctx.fillStyle = 'rgba(80, 80, 95, 1)';
             ctx.fillRect(
-                monitorFrontCenterX - standWidth / 2,
+                cx - standWidth / 2,
                 standTopY,
                 standWidth,
                 standHeight
             );
 
-            // 显示器底座板 Monitor base plate on table
-            const basePlateWidth  = 60 * computerScale;
-            const basePlateHeight = 10 * computerScale;
+            // === 显示器（坐在支架顶部）Monitor sitting on top of stand ===
+            const monitorBottomY = standTopY - 4 * computerScale;
+            const monitorTopY    = monitorBottomY - monitorHeight;
+            const monitorLeftX   = cx - monitorWidth / 2;
 
+            // 显示器外框 Monitor frame
+            ctx.fillStyle = 'rgba(10, 10, 18, 1)';
             ctx.fillRect(
-                monitorFrontCenterX - basePlateWidth / 2,
-                tableFrontY - basePlateHeight,
-                basePlateWidth,
-                basePlateHeight
+                monitorLeftX,
+                monitorTopY,
+                monitorWidth,
+                monitorHeight
             );
+
+            ctx.strokeStyle = 'rgba(190, 190, 210, 0.9)';
+            ctx.lineWidth = monitorBorder;
+            ctx.strokeRect(
+                monitorLeftX,
+                monitorTopY,
+                monitorWidth,
+                monitorHeight
+            );
+
+            // 屏幕发光效果 Inner glowing screen
+            ctx.save();
+            ctx.shadowColor = 'rgba(120, 180, 255, 0.7)';
+            ctx.shadowBlur = 20 * computerScale;
+            ctx.fillStyle = 'rgba(40, 90, 160, 0.85)';
+
+            const padding = 8 * computerScale;
+            ctx.fillRect(
+                monitorLeftX + padding,
+                monitorTopY + padding,
+                monitorWidth  - padding * 2,
+                monitorHeight - padding * 2
+            );
+            ctx.restore();
+
+            // === 地板阴影（可选）Soft shadow on floor ===
+            ctx.save();
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+            ctx.beginPath();
+            ctx.ellipse(
+                cx,
+                floorY + 4 * computerScale,
+                basePlateWidth * 0.45,
+                10 * computerScale,
+                0,
+                0,
+                Math.PI * 2
+            );
+            ctx.fill();
+            ctx.restore();
 
             // 环境光效 Atmosphere lighting
             // 从显示器发出的柔和蓝光 Soft blue glow from monitor
-            const glowCenterY = mfTopY + monitorHeight / 2;
-            const glowGrad = ctx.createRadialGradient(monitorFrontCenterX, glowCenterY, 20 * computerScale,
-                                                      monitorFrontCenterX, glowCenterY, 200 * computerScale);
+            const glowCenterY = monitorTopY + monitorHeight / 2;
+            const glowGrad = ctx.createRadialGradient(cx, glowCenterY, 20 * computerScale,
+                                                      cx, glowCenterY, 200 * computerScale);
             glowGrad.addColorStop(0, 'rgba(80, 140, 220, 0.05)');
             glowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
             ctx.fillStyle = glowGrad;
