@@ -1293,8 +1293,8 @@
         // 一层电梯外的长廊场景，走路效果与电梯一致
         function drawCorridor1Scene() {
             // ========== 走廊坐标定义 Corridor coordinates ==========
-            // 走廊几何保持稳定，不随walkProgress大幅变化
-            // Corridor geometry stays stable, minimal change with walkProgress
+            // ⚠️ IMPORTANT: In corridor1, geometry stays FIXED. Walk feeling comes from scrolling textures + head-bob only.
+            // 走廊场景里，墙/地板/桌子/电脑都不缩放不变形，靠纹理滑动和轻微晃动来表达走路
 
             // FRONT (near camera) – keep fixed 前景（靠近相机）- 保持固定
             const frontLeftX  = W * 0.10;
@@ -1305,11 +1305,9 @@
             const backLeftX  = W * 0.30;
             const backRightX = W * 0.70;
 
-            // 后墙Y位置（地平线）- 轻微下移 Back wall Y (horizon) - slight lowering
-            // 只有轻微的地平线变化 Only subtle horizon shift
-            const farBackWallY  = H * 0.60;    // 远离时后墙位置 Back wall when far
-            const nearBackWallY = H * 0.66;    // 靠近时后墙位置 Back wall when close
-            const backWallY = lerp(farBackWallY, nearBackWallY, walkProgress);
+            // 后墙Y位置（地平线）- 固定位置 Back wall Y (horizon) - FIXED position
+            // NO lerp with walkProgress - geometry stays static
+            const backWallY = H * 0.62;  // 固定值 Fixed value
 
             // 天花板线 - 保持固定 Ceiling line - keep fixed
             const ceilingY = H * 0.18;  // 天花板不变 Ceiling stays constant
@@ -1504,27 +1502,15 @@
             ctx.fillRect(rightPanelX + 4, panelY + 44, panelW - 8, panelH - 8);
             ctx.restore();
 
-            // LED灯条 - 沿后墙底部 LED strip along bottom of back wall
+            // LED灯条 - 沿后墙底部 Single LED strip at base of back wall (where floor meets wall)
             ctx.save();
             ctx.shadowColor = 'rgba(70, 120, 255, 0.9)';
-            ctx.shadowBlur = 25;
+            ctx.shadowBlur = 20;
             ctx.strokeStyle = '#4f7aff';
             ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.moveTo(W * 0.18, backWallY + 2);
-            ctx.lineTo(W * 0.82, backWallY + 2);
-            ctx.stroke();
-            ctx.restore();
-
-            // LED灯条 - 桌子下方 LED strip under desk front
-            ctx.save();
-            ctx.shadowColor = 'rgba(70, 150, 255, 0.9)';
-            ctx.shadowBlur = 30;
-            ctx.strokeStyle = '#4e8bff';
-            ctx.lineWidth = 4;
-            ctx.beginPath();
-            ctx.moveTo(W * 0.30, backWallY - 40);
-            ctx.lineTo(W * 0.70, backWallY - 40);
+            ctx.moveTo(backLeftX, backWallY + 1);
+            ctx.lineTo(backRightX, backWallY + 1);
             ctx.stroke();
             ctx.restore();
         }
@@ -1532,13 +1518,10 @@
         // ========== 桌子和电脑绘制 Desk and Computer Drawing ==========
         // Clean, symmetric desk with large monitor
         // 干净对称的桌子和大显示器
+        // ⚠️ STATIC: No scaling with walkProgress - fixed size
         function drawDeskAndComputer(backLeftX, backRightX, backWallY) {
-            const t = walkProgress;
-
-            // 增大缩放范围 Increased scale range for more dominant presence
-            const computerScaleFar  = 1.0;  // 远处时的大小 Size when far
-            const computerScaleNear = 1.8;  // 靠近时的大小 Size when close
-            const computerScale = lerp(computerScaleFar, computerScaleNear, t);
+            // 固定大小 - 不随walkProgress缩放 Fixed size - no scaling with walkProgress
+            const computerScale = 1.4;  // constant size
 
             const floorY = backWallY;
             const cx = (backLeftX + backRightX) / 2;
@@ -1711,6 +1694,8 @@
 
                 // 更新墙面和天花板滚动（走廊场景使用）Update wall and ceiling scroll (for corridor scene)
                 // 不同的速度创造深度感 Different speeds create depth perception
+                // ⚠️ In corridor1, geometry stays fixed. Walk feeling comes from scrolling textures + head-bob only.
+                // 走廊场景里，墙/地板/桌子/电脑都不缩放不变形，靠纹理滑动和轻微晃动来表达走路
                 wallScroll += walkVelocity * WALL_SCROLL_SPEED * dt;
                 ceilingScroll += walkVelocity * CEILING_SCROLL_SPEED * dt;
             }
