@@ -1351,8 +1351,8 @@
 
 
             // === 绘制地板 Draw floor ===
-            // 地板梯形 Floor trapezoid
-            ctx.fillStyle = '#0d0d0d';
+            // 地板梯形 Floor trapezoid - gaming room dark blue
+            ctx.fillStyle = '#050716';
             ctx.beginPath();
             ctx.moveTo(frontLeftX, frontFloorY);  // 前左 Front left
             ctx.lineTo(frontRightX, frontFloorY); // 前右 Front right
@@ -1367,7 +1367,7 @@
             const offset = floorScroll % tileSize;  // 循环偏移 Wrapped offset for seamless repeat
 
             ctx.save();
-            ctx.strokeStyle = 'rgba(80, 80, 90, 0.15)';
+            ctx.strokeStyle = 'rgba(79, 212, 255, 0.12)';  // Cyan grid lines for gaming feel
             ctx.lineWidth = 1;
 
             // 横向线（沿深度方向）- 随floorScroll滚动 Horizontal lines - scroll with floorScroll
@@ -1403,11 +1403,11 @@
 
             // === 绘制左墙 Draw left wall ===
             // Side wall polygon shares same top/bottom Y as back wall
-            // 侧墙多边形与后墙共用相同的顶部/底部Y坐标
+            // 侧墙多边形与后墙共用相同的顶部/底部Y坐标 - Gaming room blue-violet
             const leftWallGrad = ctx.createLinearGradient(frontLeftX, 0, backLeftX, 0);
-            leftWallGrad.addColorStop(0, '#10121b');
-            leftWallGrad.addColorStop(0.5, '#1a1c28');
-            leftWallGrad.addColorStop(1, '#10121b');
+            leftWallGrad.addColorStop(0, '#101427');
+            leftWallGrad.addColorStop(0.5, '#1a1e3a');
+            leftWallGrad.addColorStop(1, '#101427');
 
             ctx.fillStyle = leftWallGrad;
             ctx.beginPath();
@@ -1440,11 +1440,11 @@
 
             // === 绘制右墙 Draw right wall ===
             // Side wall polygon shares same top/bottom Y as back wall
-            // 侧墙多边形与后墙共用相同的顶部/底部Y坐标
+            // 侧墙多边形与后墙共用相同的顶部/底部Y坐标 - Gaming room blue-violet
             const rightWallGrad = ctx.createLinearGradient(backRightX, 0, frontRightX, 0);
-            rightWallGrad.addColorStop(0, '#10121b');
-            rightWallGrad.addColorStop(0.5, '#1a1c28');
-            rightWallGrad.addColorStop(1, '#10121b');
+            rightWallGrad.addColorStop(0, '#101427');
+            rightWallGrad.addColorStop(0.5, '#1a1e3a');
+            rightWallGrad.addColorStop(1, '#101427');
 
             ctx.fillStyle = rightWallGrad;
             ctx.beginPath();
@@ -1474,7 +1474,7 @@
             ctx.restore();
 
             // === 绘制天花板 Draw ceiling ===
-            ctx.fillStyle = '#0a0a0a';
+            ctx.fillStyle = '#050716';  // Gaming room dark blue ceiling
             ctx.beginPath();
             ctx.moveTo(frontLeftX, frontCeilingY);   // 前左 Front left
             ctx.lineTo(frontRightX, frontCeilingY);  // 前右 Front right
@@ -1483,9 +1483,9 @@
             ctx.closePath();
             ctx.fill();
 
-            // 天花板网格（轻微滚动）Ceiling grid (subtle scrolling)
+            // 天花板网格（轻微滚动）Ceiling grid (subtle scrolling) - purple accent
             ctx.save();
-            ctx.strokeStyle = 'rgba(60, 60, 70, 0.1)';
+            ctx.strokeStyle = 'rgba(197, 84, 255, 0.08)';  // Subtle purple grid
             ctx.lineWidth = 1;
             const ceilingOffset = ceilingScroll % 80;
             const numCLines = Math.ceil((backCeilingY - frontCeilingY) / 80) + 2;
@@ -1508,6 +1508,21 @@
             // 绘制霓虹环境（后墙、光板、LED灯条）Draw neon environment (back wall, panels, LED strips)
             drawCorridorEnvironment(backLeftX, backRightX, backCeilingY, backFloorY);
 
+            // 绘制游戏室霓虹灯条 Draw gaming room neon strips (ceiling + wall edges)
+            drawGamingRoomNeon(
+                frontLeftX, frontRightX, backLeftX, backRightX,
+                frontCeilingY, backCeilingY, frontFloorY, backFloorY
+            );
+
+            // 绘制侧墙装饰 Draw side wall decorations (shelves, posters)
+            drawSideWallDecor(
+                frontLeftX, frontRightX, backLeftX, backRightX,
+                frontCeilingY, backCeilingY, frontFloorY, backFloorY
+            );
+
+            // 绘制地板地毯 Draw floor rug for depth
+            drawFloorRug(frontLeftX, frontRightX, backLeftX, backRightX, frontFloorY, backFloorY);
+
             // 绘制桌子和电脑 Draw desk and computer
             drawDeskAndComputer(backLeftX, backRightX, backFloorY, t);
 
@@ -1520,10 +1535,10 @@
         // Gaming room inspired neon environment
         // 游戏室风格的霓虹环境
         function drawCorridorEnvironment(backLeftX, backRightX, backCeilingY, backFloorY) {
-            // 后墙 Back wall - dark blue/purple gradient
+            // 后墙 Back wall - gaming room blue-violet gradient
             const wallGrad = ctx.createLinearGradient(0, backCeilingY, 0, backFloorY);
-            wallGrad.addColorStop(0, '#141722');
-            wallGrad.addColorStop(1, '#0a0c14');
+            wallGrad.addColorStop(0, '#101427');  // Brighter blue-violet
+            wallGrad.addColorStop(1, '#050716');  // Dark blue base
             ctx.fillStyle = wallGrad;
             ctx.fillRect(backLeftX, backCeilingY, backRightX - backLeftX, backFloorY - backCeilingY);
 
@@ -1540,6 +1555,200 @@
             ctx.moveTo(backLeftX, backFloorY + 1);
             ctx.lineTo(backRightX, backFloorY + 1);
             ctx.stroke();
+            ctx.restore();
+        }
+
+        // ========== 游戏室霓虹灯条 Gaming Room Neon Strips ==========
+        // Cyan and purple neon strips on ceiling and wall edges
+        // 天花板和墙边的青色和紫色霓虹灯条
+        function drawGamingRoomNeon(frontLeftX, frontRightX, backLeftX, backRightX,
+                                     frontCeilingY, backCeilingY, frontFloorY, backFloorY) {
+            ctx.save();
+
+            // 1) Ceiling neon strip (center, cyan glow) - 天花板中央霓虹灯条（青色发光）
+            const ceilingCenterY = (frontCeilingY + backCeilingY) / 2;
+            ctx.shadowColor = 'rgba(79, 212, 255, 0.9)';  // Cyan glow
+            ctx.shadowBlur = 25;
+            ctx.strokeStyle = '#4fd4ff';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            const ceilLeft = lerp(frontLeftX, backLeftX, 0.5);
+            const ceilRight = lerp(frontRightX, backRightX, 0.5);
+            ctx.moveTo(ceilLeft, ceilingCenterY);
+            ctx.lineTo(ceilRight, ceilingCenterY);
+            ctx.stroke();
+
+            // 2) Left wall edge neon (purple glow) - 左墙边缘霓虹（紫色发光）
+            ctx.shadowColor = 'rgba(197, 84, 255, 0.8)';  // Purple glow
+            ctx.shadowBlur = 20;
+            ctx.strokeStyle = '#c554ff';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            const leftMidY = (frontCeilingY + frontFloorY) / 2;
+            ctx.moveTo(frontLeftX + 15, leftMidY);
+            ctx.lineTo(backLeftX + 10, (backCeilingY + backFloorY) / 2);
+            ctx.stroke();
+
+            // 3) Right wall edge neon (purple glow) - 右墙边缘霓虹（紫色发光）
+            ctx.shadowColor = 'rgba(197, 84, 255, 0.8)';
+            ctx.shadowBlur = 20;
+            ctx.strokeStyle = '#c554ff';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            const rightMidY = (frontCeilingY + frontFloorY) / 2;
+            ctx.moveTo(frontRightX - 15, rightMidY);
+            ctx.lineTo(backRightX - 10, (backCeilingY + backFloorY) / 2);
+            ctx.stroke();
+
+            // 4) Corner accents (small cyan dots at ceiling corners) - 天花板角落小青色光点
+            ctx.shadowColor = 'rgba(79, 212, 255, 1.0)';
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = '#4fd4ff';
+            // Left corner
+            ctx.beginPath();
+            ctx.arc(backLeftX + 8, backCeilingY + 8, 3, 0, Math.PI * 2);
+            ctx.fill();
+            // Right corner
+            ctx.beginPath();
+            ctx.arc(backRightX - 8, backCeilingY + 8, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // ========== 侧墙装饰 Side Wall Decorations ==========
+        // Shelves, posters, and light panels on left and right walls
+        // 左右墙上的架子、海报和灯板
+        function drawSideWallDecor(frontLeftX, frontRightX, backLeftX, backRightX,
+                                    frontCeilingY, backCeilingY, frontFloorY, backFloorY) {
+            ctx.save();
+
+            // LEFT WALL: Two floating shelves with small objects - 左墙：两个浮动架子和小物件
+            // Shelf 1 (upper)
+            const shelf1Y = lerp(backCeilingY, backFloorY, 0.3);
+            const shelf1X = lerp(backLeftX, frontLeftX, 0.7);
+            ctx.fillStyle = '#1a1e3a';
+            ctx.fillRect(shelf1X, shelf1Y, 60, 6);
+            // Objects on shelf 1 (small rectangles)
+            ctx.fillStyle = '#4fd4ff';
+            ctx.fillRect(shelf1X + 5, shelf1Y - 12, 8, 12);
+            ctx.fillStyle = '#c554ff';
+            ctx.fillRect(shelf1X + 20, shelf1Y - 15, 10, 15);
+            ctx.fillStyle = '#4fd4ff';
+            ctx.fillRect(shelf1X + 40, shelf1Y - 10, 12, 10);
+
+            // Shelf 2 (lower)
+            const shelf2Y = lerp(backCeilingY, backFloorY, 0.6);
+            const shelf2X = lerp(backLeftX, frontLeftX, 0.65);
+            ctx.fillStyle = '#1a1e3a';
+            ctx.fillRect(shelf2X, shelf2Y, 70, 6);
+            // Objects on shelf 2
+            ctx.fillStyle = '#c554ff';
+            ctx.fillRect(shelf2X + 8, shelf2Y - 14, 12, 14);
+            ctx.fillStyle = '#4fd4ff';
+            ctx.fillRect(shelf2X + 30, shelf2Y - 18, 15, 18);
+            ctx.fillStyle = '#c554ff';
+            ctx.fillRect(shelf2X + 52, shelf2Y - 12, 10, 12);
+
+            // LEFT WALL: Poster (glowing rectangle) - 左墙：发光海报
+            const posterY = lerp(backCeilingY, backFloorY, 0.45);
+            const posterX = lerp(backLeftX, frontLeftX, 0.5);
+            ctx.shadowColor = 'rgba(79, 212, 255, 0.5)';
+            ctx.shadowBlur = 12;
+            ctx.fillStyle = 'rgba(79, 212, 255, 0.2)';
+            ctx.fillRect(posterX, posterY, 40, 55);
+            ctx.strokeStyle = '#4fd4ff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(posterX, posterY, 40, 55);
+
+            // RIGHT WALL: Two floating shelves - 右墙：两个浮动架子
+            // Shelf 1 (upper)
+            const rshelf1Y = lerp(backCeilingY, backFloorY, 0.35);
+            const rshelf1X = lerp(backRightX, frontRightX, 0.7) - 60;
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#1a1e3a';
+            ctx.fillRect(rshelf1X, rshelf1Y, 60, 6);
+            // Objects
+            ctx.fillStyle = '#c554ff';
+            ctx.fillRect(rshelf1X + 10, rshelf1Y - 10, 10, 10);
+            ctx.fillStyle = '#4fd4ff';
+            ctx.fillRect(rshelf1X + 28, rshelf1Y - 14, 12, 14);
+            ctx.fillStyle = '#c554ff';
+            ctx.fillRect(rshelf1X + 45, rshelf1Y - 12, 8, 12);
+
+            // Shelf 2 (lower)
+            const rshelf2Y = lerp(backCeilingY, backFloorY, 0.65);
+            const rshelf2X = lerp(backRightX, frontRightX, 0.65) - 70;
+            ctx.fillStyle = '#1a1e3a';
+            ctx.fillRect(rshelf2X, rshelf2Y, 70, 6);
+            // Objects
+            ctx.fillStyle = '#4fd4ff';
+            ctx.fillRect(rshelf2X + 12, rshelf2Y - 16, 14, 16);
+            ctx.fillStyle = '#c554ff';
+            ctx.fillRect(rshelf2X + 35, rshelf2Y - 12, 10, 12);
+            ctx.fillStyle = '#4fd4ff';
+            ctx.fillRect(rshelf2X + 52, rshelf2Y - 18, 12, 18);
+
+            // RIGHT WALL: Light panel (purple glow) - 右墙：紫色发光面板
+            const panelY = lerp(backCeilingY, backFloorY, 0.5);
+            const panelX = lerp(backRightX, frontRightX, 0.5) - 45;
+            ctx.shadowColor = 'rgba(197, 84, 255, 0.6)';
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = 'rgba(197, 84, 255, 0.25)';
+            ctx.fillRect(panelX, panelY, 45, 60);
+            ctx.strokeStyle = '#c554ff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(panelX, panelY, 45, 60);
+
+            ctx.restore();
+        }
+
+        // ========== 地板地毯 Floor Rug ==========
+        // Bright rectangular rug pattern for depth perception
+        // 地板上的明亮矩形地毯图案，增强深度感
+        function drawFloorRug(frontLeftX, frontRightX, backLeftX, backRightX, frontFloorY, backFloorY) {
+            ctx.save();
+
+            // Rug polygon (trapezoid centered on floor)
+            // 地毯多边形（地板中央的梯形）
+            const rugWidthFront = (frontRightX - frontLeftX) * 0.5;  // 50% of front width
+            const rugWidthBack = (backRightX - backLeftX) * 0.6;     // 60% of back width
+            const rugDepthFront = frontFloorY * 0.92;  // Start near front
+            const rugDepthBack = backFloorY + (frontFloorY - backFloorY) * 0.1;  // End near back
+
+            const rugFrontLeft = frontLeftX + (frontRightX - frontLeftX - rugWidthFront) / 2;
+            const rugFrontRight = rugFrontLeft + rugWidthFront;
+            const rugBackLeft = backLeftX + (backRightX - backLeftX - rugWidthBack) / 2;
+            const rugBackRight = rugBackLeft + rugWidthBack;
+
+            // Rug fill with gradient (brighter center) - 地毯填充，中央更亮
+            const rugGrad = ctx.createLinearGradient(0, rugDepthBack, 0, rugDepthFront);
+            rugGrad.addColorStop(0, 'rgba(79, 212, 255, 0.08)');   // Cyan tint at back
+            rugGrad.addColorStop(0.5, 'rgba(197, 84, 255, 0.12)'); // Purple tint in center
+            rugGrad.addColorStop(1, 'rgba(79, 212, 255, 0.06)');   // Fade at front
+            ctx.fillStyle = rugGrad;
+            ctx.beginPath();
+            ctx.moveTo(rugFrontLeft, rugDepthFront);
+            ctx.lineTo(rugFrontRight, rugDepthFront);
+            ctx.lineTo(rugBackRight, rugDepthBack);
+            ctx.lineTo(rugBackLeft, rugDepthBack);
+            ctx.closePath();
+            ctx.fill();
+
+            // Rug border (subtle glow) - 地毯边框（轻微发光）
+            ctx.shadowColor = 'rgba(79, 212, 255, 0.4)';
+            ctx.shadowBlur = 8;
+            ctx.strokeStyle = 'rgba(79, 212, 255, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(rugFrontLeft, rugDepthFront);
+            ctx.lineTo(rugFrontRight, rugDepthFront);
+            ctx.lineTo(rugBackRight, rugDepthBack);
+            ctx.lineTo(rugBackLeft, rugDepthBack);
+            ctx.closePath();
+            ctx.stroke();
+
             ctx.restore();
         }
 
