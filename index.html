@@ -98,6 +98,10 @@
         const WALL_SCROLL_SPEED = 100;  // 墙面滚动速度（略慢于地板）Wall scroll speed (slightly slower than floor)
         const CEILING_SCROLL_SPEED = 80; // 天花板滚动速度（最慢）Ceiling scroll speed (slowest)
 
+        // "Back to Elevator" button in corridor scene (bottom-left corner)
+        // 走廊场景中返回电梯的按钮（左下角）
+        let backButton = { x: 20, y: 0, w: 140, h: 44 };
+
         // ========== 走廊几何常量 Corridor Geometry Constants ==========
         // 统一的走廊坐标框架，让左右墙和后墙的高度对齐
         // Unified corridor coordinate frame - side walls and back wall heights align
@@ -1507,6 +1511,11 @@
             // 绘制桌子和电脑 Draw desk and computer
             drawDeskAndComputer(backLeftX, backRightX, backFloorY, t);
 
+            // Update and draw "Back to Elevator" button (bottom-left corner)
+            // 更新并绘制"返回电梯"按钮（左下角）
+            backButton.y = H - backButton.h - 20;
+            drawBackToElevatorButton(ctx);
+
         // ========== 走廊环境绘制 Corridor Environment Drawing ==========
         // Gaming room inspired neon environment
         // 游戏室风格的霓虹环境
@@ -1684,6 +1693,40 @@
                 Math.PI * 2
             );
             ctx.fill();
+            ctx.restore();
+        }
+
+        // ========== "Back to Elevator" 按钮绘制 Button Drawing ==========
+        // Appears only in corridor scene, bottom-left corner
+        // 仅在走廊场景中出现，位于左下角
+        function drawBackToElevatorButton(ctx) {
+            const w = backButton.w;
+            const h = backButton.h;
+            const x = backButton.x;
+            const y = backButton.y;
+
+            ctx.save();
+
+            // Background - dark rounded rectangle with subtle glow
+            ctx.fillStyle = "#222832";
+            ctx.strokeStyle = "rgba(120, 160, 255, 0.7)";
+            ctx.lineWidth = 2;
+            ctx.shadowColor = "rgba(120, 160, 255, 0.4)";
+            ctx.shadowBlur = 8;
+
+            ctx.beginPath();
+            ctx.roundRect(x, y, w, h, 10);
+            ctx.fill();
+            ctx.stroke();
+
+            // Text - white, centered
+            ctx.shadowBlur = 0;  // Reset shadow for text
+            ctx.fillStyle = "white";
+            ctx.font = "16px sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("Back to Elevator", x + w / 2, y + h / 2);
+
             ctx.restore();
         }
 
@@ -1935,14 +1978,37 @@
         // 当玩家走到门前并点击时，触发进入下一场景的动画
         // When player is at door and clicks, trigger entering next scene animation
         canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+
             if (sceneState === 'elevator') {
                 // 只有在1层才能进入走廊 Only enter corridor on floor 1
                 if (readyToEnter && scene.elevator.currentFloor === 1) {
                     enterCorridor1();
                 }
             } else if (sceneState === 'corridor1') {
-                // 走廊场景的交互（未来可以添加电脑交互）Corridor interactions (future: computer interaction)
-                // TODO: add computer interaction when player is at the end
+                // Check if "Back to Elevator" button was clicked
+                // 检查是否点击了"返回电梯"按钮
+                if (
+                    mx >= backButton.x &&
+                    mx <= backButton.x + backButton.w &&
+                    my >= backButton.y &&
+                    my <= backButton.y + backButton.h
+                ) {
+                    // Return to elevator scene
+                    // 返回电梯场景
+                    sceneState = 'elevator';
+                    walkProgress = 0;
+                    walkVelocity = 0;
+                    floorScroll = 0;
+                    wallScroll = 0;
+                    ceilingScroll = 0;
+                    readyToEnter = false;
+                    enterHintPhase = 0;
+                }
+                // Future: add computer interaction when player is at the end
+                // 未来：当玩家到达尽头时添加电脑交互
             }
         });
 
