@@ -1537,8 +1537,8 @@
                 frontCeilingY, backCeilingY, frontFloorY, backFloorY
             );
 
-            // 绘制地板地毯 Draw floor rug for depth
-            drawFloorRug(frontLeftX, frontRightX, backLeftX, backRightX, frontFloorY, backFloorY);
+            // 绘制地板覆盖层 Draw floor overlay for depth
+            drawFloorOverlay(frontLeftX, frontRightX, backLeftX, backRightX, frontFloorY, backFloorY);
 
             // 绘制桌子和电脑 Draw desk and computer
             drawDeskAndComputer(backLeftX, backRightX, backFloorY, t);
@@ -1580,55 +1580,81 @@
         // 天花板和墙边的青色和紫色霓虹灯条
         function drawGamingRoomNeon(frontLeftX, frontRightX, backLeftX, backRightX,
                                      frontCeilingY, backCeilingY, frontFloorY, backFloorY) {
+            // --- CEILING NEON following the inner top edges of the corridor ---
             ctx.save();
+            ctx.shadowColor = "rgba(120, 120, 255, 0.9)";
+            ctx.shadowBlur  = 26;
+            ctx.strokeStyle = "#7fddff";
+            ctx.lineWidth   = 3;
 
-            // 1) Ceiling neon strip (center, cyan glow) - 天花板中央霓虹灯条（青色发光）
-            const ceilingCenterY = (frontCeilingY + backCeilingY) / 2;
-            ctx.shadowColor = 'rgba(79, 212, 255, 0.9)';  // Cyan glow
-            ctx.shadowBlur = 25;
-            ctx.strokeStyle = '#4fd4ff';
-            ctx.lineWidth = 3;
+            const offset = 6; // small offset away from exact wall edges
+
+            // left ceiling edge: from front-left top to back-left top
             ctx.beginPath();
-            const ceilLeft = lerp(frontLeftX, backLeftX, 0.5);
-            const ceilRight = lerp(frontRightX, backRightX, 0.5);
-            ctx.moveTo(ceilLeft, ceilingCenterY);
-            ctx.lineTo(ceilRight, ceilingCenterY);
+            ctx.moveTo(frontLeftX + offset,  frontCeilingY + offset);
+            ctx.lineTo(backLeftX  + offset,  backCeilingY  + offset);
             ctx.stroke();
 
-            // 2) Left wall edge neon (purple glow) - 左墙边缘霓虹（紫色发光）
-            ctx.shadowColor = 'rgba(197, 84, 255, 0.8)';  // Purple glow
-            ctx.shadowBlur = 20;
-            ctx.strokeStyle = '#c554ff';
-            ctx.lineWidth = 2.5;
+            // right ceiling edge: from front-right top to back-right top
             ctx.beginPath();
-            const leftMidY = (frontCeilingY + frontFloorY) / 2;
-            ctx.moveTo(frontLeftX + 15, leftMidY);
-            ctx.lineTo(backLeftX + 10, (backCeilingY + backFloorY) / 2);
+            ctx.moveTo(frontRightX - offset, frontCeilingY + offset);
+            ctx.lineTo(backRightX - offset,  backCeilingY  + offset);
             ctx.stroke();
 
-            // 3) Right wall edge neon (purple glow) - 右墙边缘霓虹（紫色发光）
-            ctx.shadowColor = 'rgba(197, 84, 255, 0.8)';
-            ctx.shadowBlur = 20;
-            ctx.strokeStyle = '#c554ff';
-            ctx.lineWidth = 2.5;
+            ctx.restore();
+
+            // keep the base neon along the back floor as before
+            ctx.save();
+            ctx.shadowColor = "rgba(80, 140, 255, 0.9)";
+            ctx.shadowBlur  = 22;
+            ctx.strokeStyle = "#4f8dff";
+            ctx.lineWidth   = 3;
             ctx.beginPath();
-            const rightMidY = (frontCeilingY + frontFloorY) / 2;
-            ctx.moveTo(frontRightX - 15, rightMidY);
-            ctx.lineTo(backRightX - 10, (backCeilingY + backFloorY) / 2);
+            ctx.moveTo(backLeftX,  backFloorY + 1);
+            ctx.lineTo(backRightX, backFloorY + 1);
+            ctx.stroke();
+            ctx.restore();
+
+            // --- DIAGONAL PURPLE STRIPS on side walls, in perspective ---
+            ctx.save();
+            ctx.shadowColor = "rgba(200, 80, 255, 0.9)";
+            ctx.shadowBlur  = 26;
+            ctx.strokeStyle = "#c554ff";
+            ctx.lineWidth   = 3;
+
+            // helper: a point along the left wall edge (front->back)
+            function lerpWallLeft(t) {
+                const x = frontLeftX + (backLeftX - frontLeftX) * t;
+                const y = frontCeilingY + (backFloorY - frontCeilingY) * t;
+                return { x, y };
+            }
+
+            // helper: a point along the right wall edge (front->back)
+            function lerpWallRight(t) {
+                const x = frontRightX + (backRightX - frontRightX) * t;
+                const y = frontCeilingY + (backFloorY - frontCeilingY) * t;
+                return { x, y };
+            }
+
+            // choose two depth positions on each wall: tStart (closer to camera), tEnd (closer to back)
+            const tStart = 0.20;
+            const tEnd   = 0.85;
+
+            // LEFT wall diagonal
+            const L0 = lerpWallLeft(tStart);
+            const L1 = lerpWallLeft(tEnd);
+            ctx.beginPath();
+            ctx.moveTo(L0.x + 4, L0.y);   // small X offset so it sits inside the wall
+            ctx.lineTo(L1.x + 4, L1.y);
             ctx.stroke();
 
-            // 4) Corner accents (small cyan dots at ceiling corners) - 天花板角落小青色光点
-            ctx.shadowColor = 'rgba(79, 212, 255, 1.0)';
-            ctx.shadowBlur = 15;
-            ctx.fillStyle = '#4fd4ff';
-            // Left corner
+            // RIGHT wall diagonal
+            const R0 = lerpWallRight(tStart);
+            const R1 = lerpWallRight(tEnd);
             ctx.beginPath();
-            ctx.arc(backLeftX + 8, backCeilingY + 8, 3, 0, Math.PI * 2);
-            ctx.fill();
-            // Right corner
-            ctx.beginPath();
-            ctx.arc(backRightX - 8, backCeilingY + 8, 3, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.moveTo(R0.x - 4, R0.y);
+            ctx.lineTo(R1.x - 4, R1.y);
+            ctx.stroke();
 
             ctx.restore();
         }
@@ -1721,51 +1747,43 @@
             ctx.restore();
         }
 
-        // ========== 地板地毯 Floor Rug ==========
-        // Bright rectangular rug pattern for depth perception
-        // 地板上的明亮矩形地毯图案，增强深度感
-        function drawFloorRug(frontLeftX, frontRightX, backLeftX, backRightX, frontFloorY, backFloorY) {
+        // ========== 地板覆盖层 Floor Overlay ==========
+        // Glass-like overlay covering entire floor for depth perception
+        // 地板上的玻璃状覆盖层，覆盖整个地板以增强深度感
+        function drawFloorOverlay(frontLeftX, frontRightX, backLeftX, backRightX, frontFloorY, backFloorY) {
+            // Build the quadrilateral of the floor
+            const FL = { x: frontLeftX,  y: frontFloorY };
+            const FR = { x: frontRightX, y: frontFloorY };
+            const BR = { x: backRightX,  y: backFloorY };
+            const BL = { x: backLeftX,   y: backFloorY };
+
+            const grad = ctx.createLinearGradient(0, backFloorY, 0, frontFloorY);
+            grad.addColorStop(0.0, "rgba(40, 45, 70, 0.78)");
+            grad.addColorStop(0.6, "rgba(25, 30, 55, 0.55)");
+            grad.addColorStop(1.0, "rgba(10, 12, 30, 0.35)");
+
             ctx.save();
-
-            // Rug polygon (trapezoid centered on floor)
-            // 地毯多边形（地板中央的梯形）
-            const rugWidthFront = (frontRightX - frontLeftX) * 0.5;  // 50% of front width
-            const rugWidthBack = (backRightX - backLeftX) * 0.6;     // 60% of back width
-            const rugDepthFront = frontFloorY * 0.92;  // Start near front
-            const rugDepthBack = backFloorY + (frontFloorY - backFloorY) * 0.1;  // End near back
-
-            const rugFrontLeft = frontLeftX + (frontRightX - frontLeftX - rugWidthFront) / 2;
-            const rugFrontRight = rugFrontLeft + rugWidthFront;
-            const rugBackLeft = backLeftX + (backRightX - backLeftX - rugWidthBack) / 2;
-            const rugBackRight = rugBackLeft + rugWidthBack;
-
-            // Rug fill with gradient (brighter center) - 地毯填充，中央更亮
-            const rugGrad = ctx.createLinearGradient(0, rugDepthBack, 0, rugDepthFront);
-            rugGrad.addColorStop(0, 'rgba(79, 212, 255, 0.08)');   // Cyan tint at back
-            rugGrad.addColorStop(0.5, 'rgba(197, 84, 255, 0.12)'); // Purple tint in center
-            rugGrad.addColorStop(1, 'rgba(79, 212, 255, 0.06)');   // Fade at front
-            ctx.fillStyle = rugGrad;
+            ctx.fillStyle = grad;
             ctx.beginPath();
-            ctx.moveTo(rugFrontLeft, rugDepthFront);
-            ctx.lineTo(rugFrontRight, rugDepthFront);
-            ctx.lineTo(rugBackRight, rugDepthBack);
-            ctx.lineTo(rugBackLeft, rugDepthBack);
+            ctx.moveTo(FL.x, FL.y);
+            ctx.lineTo(FR.x, FR.y);
+            ctx.lineTo(BR.x, BR.y);
+            ctx.lineTo(BL.x, BL.y);
             ctx.closePath();
             ctx.fill();
+            ctx.restore();
 
-            // Rug border (subtle glow) - 地毯边框（轻微发光）
-            ctx.shadowColor = 'rgba(79, 212, 255, 0.4)';
-            ctx.shadowBlur = 8;
-            ctx.strokeStyle = 'rgba(79, 212, 255, 0.3)';
-            ctx.lineWidth = 2;
+            // optional: thin glowing outline around the floor
+            ctx.save();
+            ctx.strokeStyle = "rgba(100, 140, 255, 0.25)";
+            ctx.lineWidth   = 1;
             ctx.beginPath();
-            ctx.moveTo(rugFrontLeft, rugDepthFront);
-            ctx.lineTo(rugFrontRight, rugDepthFront);
-            ctx.lineTo(rugBackRight, rugDepthBack);
-            ctx.lineTo(rugBackLeft, rugDepthBack);
+            ctx.moveTo(FL.x, FL.y);
+            ctx.lineTo(FR.x, FR.y);
+            ctx.lineTo(BR.x, BR.y);
+            ctx.lineTo(BL.x, BL.y);
             ctx.closePath();
             ctx.stroke();
-
             ctx.restore();
         }
 
