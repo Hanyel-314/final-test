@@ -1314,17 +1314,6 @@
             // 天花板线 - 保持固定 Ceiling line - keep fixed
             const ceilingY = H * 0.18;  // 天花板不变 Ceiling stays constant
 
-            // === 绘制后墙 Draw back wall ===
-            ctx.fillStyle = '#1a1a1a';  // 深色后墙 Dark back wall
-            ctx.fillRect(backLeftX, ceilingY, backRightX - backLeftX, backWallY - ceilingY);
-
-            // 后墙渐变 Back wall gradient
-            const backWallGrad = ctx.createLinearGradient(backLeftX, ceilingY, backRightX, ceilingY);
-            backWallGrad.addColorStop(0, 'rgba(40, 40, 50, 0.3)');
-            backWallGrad.addColorStop(0.5, 'rgba(50, 50, 60, 0.4)');
-            backWallGrad.addColorStop(1, 'rgba(40, 40, 50, 0.3)');
-            ctx.fillStyle = backWallGrad;
-            ctx.fillRect(backLeftX, ceilingY, backRightX - backLeftX, backWallY - ceilingY);
 
             // === 绘制地板 Draw floor ===
             // 地板梯形 Floor trapezoid
@@ -1476,42 +1465,135 @@
             }
             ctx.restore();
 
-            // === 绘制电脑 Draw computer at the far end ===
-            // Simple front-facing computer standing on the floor (no fake 3D)
-            // 一个正面朝向、立在地板上的电脑，不使用伪3D效果
+            // === 调用环境和物体绘制函数 Call environment and object drawing functions ===
+            // 绘制霓虹环境（后墙、光板、LED灯条）Draw neon environment (back wall, panels, LED strips)
+            drawCorridorEnvironment(backLeftX, backRightX, backWallY);
 
-            // 基础位置 Basic position
-            const backCenterX = (backLeftX + backRightX) / 2;
-            const floorY = backWallY;  // 地板线 Floor line where computer stands
+            // 绘制桌子和电脑 Draw desk and computer
+            drawDeskAndComputer(backLeftX, backRightX, backWallY);
 
-            // 电脑缩放和垂直偏移 Computer scale and vertical offset
-            const computerScaleFar  = 0.7;   // 远处时缩小 Size when far
-            const computerScaleNear = 1.4;   // 靠近时放大 Size when close
+        // ========== 走廊环境绘制 Corridor Environment Drawing ==========
+        // Gaming room inspired neon environment
+        // 游戏室风格的霓虹环境
+        function drawCorridorEnvironment(backLeftX, backRightX, backWallY) {
+            // 后墙渐变 Back wall gradient - dark blue/purple sci-fi vibe
+            const wallGrad = ctx.createLinearGradient(0, 0, 0, H * 0.7);
+            wallGrad.addColorStop(0, '#151827');
+            wallGrad.addColorStop(1, '#080912');
+            ctx.fillStyle = wallGrad;
+            ctx.fillRect(backLeftX, 0, backRightX - backLeftX, backWallY);
 
-            const computerYOffsetFar  = -80;  // 远处时屏幕较高 Screen appears higher when far
-            const computerYOffsetNear = -40;  // 靠近时屏幕较低 Screen slightly lower when near
+            // 墙面光板 Wall light panels - left and right of computer area
+            const panelW = 120;
+            const panelH = 80;
+            const panelY = backWallY - 220;
+            const leftPanelX = W * 0.18;
+            const rightPanelX = W * 0.64;
 
+            ctx.save();
+            ctx.strokeStyle = 'rgba(90, 130, 255, 0.8)';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(leftPanelX, panelY, panelW, panelH);
+            ctx.strokeRect(rightPanelX, panelY + 40, panelW, panelH);
+
+            // 光板内部发光 Soft inner glow
+            ctx.shadowColor = 'rgba(90, 130, 255, 0.5)';
+            ctx.shadowBlur = 20;
+            ctx.fillStyle = 'rgba(40, 70, 140, 0.35)';
+            ctx.fillRect(leftPanelX + 4, panelY + 4, panelW - 8, panelH - 8);
+            ctx.fillRect(rightPanelX + 4, panelY + 44, panelW - 8, panelH - 8);
+            ctx.restore();
+
+            // LED灯条 - 沿后墙底部 LED strip along bottom of back wall
+            ctx.save();
+            ctx.shadowColor = 'rgba(70, 120, 255, 0.9)';
+            ctx.shadowBlur = 25;
+            ctx.strokeStyle = '#4f7aff';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(W * 0.18, backWallY + 2);
+            ctx.lineTo(W * 0.82, backWallY + 2);
+            ctx.stroke();
+            ctx.restore();
+
+            // LED灯条 - 桌子下方 LED strip under desk front
+            ctx.save();
+            ctx.shadowColor = 'rgba(70, 150, 255, 0.9)';
+            ctx.shadowBlur = 30;
+            ctx.strokeStyle = '#4e8bff';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(W * 0.30, backWallY - 40);
+            ctx.lineTo(W * 0.70, backWallY - 40);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // ========== 桌子和电脑绘制 Desk and Computer Drawing ==========
+        // Clean, symmetric desk with large monitor
+        // 干净对称的桌子和大显示器
+        function drawDeskAndComputer(backLeftX, backRightX, backWallY) {
             const t = walkProgress;
+
+            // 增大缩放范围 Increased scale range for more dominant presence
+            const computerScaleFar  = 1.0;  // 远处时的大小 Size when far
+            const computerScaleNear = 1.8;  // 靠近时的大小 Size when close
             const computerScale = lerp(computerScaleFar, computerScaleNear, t);
-            const computerYOffset = lerp(computerYOffsetFar, computerYOffsetNear, t);
 
-            const cx = backCenterX;
-            const baseY = floorY + computerYOffset;
+            const floorY = backWallY;
+            const cx = (backLeftX + backRightX) / 2;
 
-            // 尺寸（缩放后）Dimensions (scaled)
-            const standWidth       = 36  * computerScale;
-            const standHeight      = 26  * computerScale;
-            const basePlateWidth   = 80  * computerScale;
-            const basePlateHeight  = 10  * computerScale;
-            const monitorWidth     = 130 * computerScale;
-            const monitorHeight    = 80  * computerScale;
-            const monitorBorder    = 4   * computerScale;
+            // ========== 桌子尺寸 Desk dimensions ==========
+            const deskWidth     = 420 * computerScale;
+            const deskDepth     = 80  * computerScale;
+            const deskThickness = 16  * computerScale;
+            const legWidth      = 26  * computerScale;
+            const legHeight     = 120 * computerScale;
 
-            // === 底座板（贴着地板）Base plate touching the floor ===
-            const basePlateBottomY = floorY;
+            // 桌面前边缘位置 Front edge of desktop
+            const deskFrontY = floorY - 40 * computerScale;
+            const deskTopY   = deskFrontY - deskThickness;
+            const deskLeftX  = cx - deskWidth / 2;
+            const deskRightX = cx + deskWidth / 2;
+
+            // ========== 绘制桌面 Draw desk top (full rectangle, symmetric) ==========
+            ctx.fillStyle = '#4d4f5a';
+            ctx.fillRect(deskLeftX, deskTopY, deskWidth, deskThickness);
+
+            // 桌面前边缘厚度 Slight front face for thickness
+            ctx.fillStyle = '#41434c';
+            ctx.fillRect(deskLeftX, deskFrontY, deskWidth, 4 * computerScale);
+
+            // ========== 绘制桌腿 Draw desk legs (two straight legs) ==========
+            const legTopY = deskFrontY + 4 * computerScale;
+            const legBottomY = floorY;
+
+            ctx.fillStyle = '#3a3c45';
+
+            // 左桌腿 Left leg
+            const leftLegX = cx - deskWidth * 0.25 - legWidth / 2;
+            ctx.fillRect(leftLegX, legTopY, legWidth, legBottomY - legTopY);
+
+            // 右桌腿 Right leg
+            const rightLegX = cx + deskWidth * 0.25 - legWidth / 2;
+            ctx.fillRect(rightLegX, legTopY, legWidth, legBottomY - legTopY);
+
+            // ========== 显示器和支架 Monitor + Stand ==========
+            const monitorWidth  = 220 * computerScale;
+            const monitorHeight = 130 * computerScale;
+            const monitorBorder = 6   * computerScale;
+
+            const standHeight = 40 * computerScale;
+            const standWidth  = 40 * computerScale;
+
+            const basePlateWidth  = 120 * computerScale;
+            const basePlateHeight = 12  * computerScale;
+
+            // 底座板在桌面上 Base plate on top of desk
+            const basePlateBottomY = deskTopY;
             const basePlateTopY    = basePlateBottomY - basePlateHeight;
 
-            ctx.fillStyle = 'rgba(70, 70, 85, 1)';
+            ctx.fillStyle = '#3c3f4b';
             ctx.fillRect(
                 cx - basePlateWidth / 2,
                 basePlateTopY,
@@ -1519,11 +1601,11 @@
                 basePlateHeight
             );
 
-            // === 支架（从底座向上）Stand rising from base plate ===
+            // 支架 Stand
             const standBottomY = basePlateTopY;
             const standTopY    = standBottomY - standHeight;
 
-            ctx.fillStyle = 'rgba(80, 80, 95, 1)';
+            ctx.fillStyle = '#505361';
             ctx.fillRect(
                 cx - standWidth / 2,
                 standTopY,
@@ -1531,13 +1613,12 @@
                 standHeight
             );
 
-            // === 显示器（坐在支架顶部）Monitor sitting on top of stand ===
-            const monitorBottomY = standTopY - 4 * computerScale;
+            // 显示器外框 Monitor frame
+            const monitorBottomY = standTopY - 8 * computerScale;
             const monitorTopY    = monitorBottomY - monitorHeight;
             const monitorLeftX   = cx - monitorWidth / 2;
 
-            // 显示器外框 Monitor frame
-            ctx.fillStyle = 'rgba(10, 10, 18, 1)';
+            ctx.fillStyle = '#0c0f18';
             ctx.fillRect(
                 monitorLeftX,
                 monitorTopY,
@@ -1545,7 +1626,7 @@
                 monitorHeight
             );
 
-            ctx.strokeStyle = 'rgba(190, 190, 210, 0.9)';
+            ctx.strokeStyle = 'rgba(220, 230, 255, 0.95)';
             ctx.lineWidth = monitorBorder;
             ctx.strokeRect(
                 monitorLeftX,
@@ -1554,13 +1635,13 @@
                 monitorHeight
             );
 
-            // 屏幕发光效果 Inner glowing screen
+            // 屏幕内部蓝色发光 Inner blue screen glow
             ctx.save();
-            ctx.shadowColor = 'rgba(120, 180, 255, 0.7)';
-            ctx.shadowBlur = 20 * computerScale;
-            ctx.fillStyle = 'rgba(40, 90, 160, 0.85)';
+            ctx.shadowColor = 'rgba(90, 150, 255, 0.9)';
+            ctx.shadowBlur = 35 * computerScale;
+            ctx.fillStyle = '#2e77ff';
 
-            const padding = 8 * computerScale;
+            const padding = 10 * computerScale;
             ctx.fillRect(
                 monitorLeftX + padding,
                 monitorTopY + padding,
@@ -1569,15 +1650,15 @@
             );
             ctx.restore();
 
-            // === 地板阴影（可选）Soft shadow on floor ===
+            // 桌子下方地板阴影 Soft floor shadow under desk
             ctx.save();
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
             ctx.beginPath();
             ctx.ellipse(
                 cx,
-                floorY + 4 * computerScale,
-                basePlateWidth * 0.45,
-                10 * computerScale,
+                floorY + 6 * computerScale,
+                deskWidth * 0.38,
+                18 * computerScale,
                 0,
                 0,
                 Math.PI * 2
@@ -1585,15 +1666,15 @@
             ctx.fill();
             ctx.restore();
 
-            // 环境光效 Atmosphere lighting
-            // 从显示器发出的柔和蓝光 Soft blue glow from monitor
+            // 屏幕发光环境光 Screen glow atmospheric lighting
             const glowCenterY = monitorTopY + monitorHeight / 2;
-            const glowGrad = ctx.createRadialGradient(cx, glowCenterY, 20 * computerScale,
-                                                      cx, glowCenterY, 200 * computerScale);
-            glowGrad.addColorStop(0, 'rgba(80, 140, 220, 0.05)');
+            const glowGrad = ctx.createRadialGradient(cx, glowCenterY, 30 * computerScale,
+                                                      cx, glowCenterY, 250 * computerScale);
+            glowGrad.addColorStop(0, 'rgba(90, 140, 255, 0.08)');
             glowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
             ctx.fillStyle = glowGrad;
             ctx.fillRect(0, 0, W, H);
+        }
 
             // 调试文本（显示walkProgress）Debug text (show walkProgress)
             ctx.fillStyle = 'rgba(200, 200, 200, 0.8)';
