@@ -101,8 +101,8 @@
         // ========== 走廊几何常量 Corridor Geometry Constants ==========
         // 统一的走廊坐标框架，让左右墙和后墙的高度对齐
         // Unified corridor coordinate frame - side walls and back wall heights align
-        const CORRIDOR_FRONT_CEILING_Y = H * 0.16;  // 前端天花板Y (靠近相机) Front ceiling Y (near camera)
-        const CORRIDOR_BACK_CEILING_Y  = H * 0.20;  // 后墙顶部Y Top of back wall
+        const CORRIDOR_FRONT_CEILING_Y = H * 0.06;  // 前端天花板Y (靠近相机) - 提高，减少黑边 Front ceiling Y (raised, less black band)
+        const CORRIDOR_BACK_CEILING_Y  = H * 0.09;  // 后墙顶部Y - 提高 Top of back wall (raised)
         const CORRIDOR_BACK_FLOOR_Y_FAR  = H * 0.62; // 后墙地板线（远离时）Back wall floor line (when far)
         const CORRIDOR_BACK_FLOOR_Y_NEAR = H * 0.68; // 后墙地板线（靠近时）Back wall floor line (when near)
         const CORRIDOR_FRONT_FLOOR_Y = H;            // 前端地板Y（屏幕底部）Front floor Y (screen bottom)
@@ -115,7 +115,7 @@
 
         // 走廊尽头的电脑缩放范围 Computer scale range at corridor end
         const COMPUTER_SCALE_FAR  = 1.0;   // 远离时的大小 Size when far
-        const COMPUTER_SCALE_NEAR = 1.18;  // 靠近时的大小（轻微放大，避免整屏缩放感）Size when near (slight zoom, avoid screen-wide scaling)
+        const COMPUTER_SCALE_NEAR = 1.8;   // 靠近时的大小（明显放大，接近时占据约2/3屏幕高度）Size when near (noticeably larger, ~2/3 screen height when close)
 
         // 线性插值函数 Linear interpolation function
         function lerp(a, b, t) {
@@ -1509,26 +1509,8 @@
             ctx.fillStyle = wallGrad;
             ctx.fillRect(backLeftX, backCeilingY, backRightX - backLeftX, backFloorY - backCeilingY);
 
-            // 墙面光板 Wall light panels - left and right of computer area
-            const panelW = 100;
-            const panelH = 70;
-            const panelY = backFloorY - 200;
-            const leftPanelX = backLeftX + 30;
-            const rightPanelX = backRightX - 130;
-
-            ctx.save();
-            ctx.strokeStyle = 'rgba(90, 130, 255, 0.7)';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(leftPanelX, panelY, panelW, panelH);
-            ctx.strokeRect(rightPanelX, panelY + 30, panelW, panelH);
-
-            // 光板内部发光 Soft inner glow
-            ctx.shadowColor = 'rgba(90, 130, 255, 0.4)';
-            ctx.shadowBlur = 15;
-            ctx.fillStyle = 'rgba(40, 70, 140, 0.25)';
-            ctx.fillRect(leftPanelX + 3, panelY + 3, panelW - 6, panelH - 6);
-            ctx.fillRect(rightPanelX + 3, panelY + 33, panelW - 6, panelH - 6);
-            ctx.restore();
+            // REMOVED: Blue square panels on back wall (left and right of computer)
+            // User requested removal of the two decorative panels
 
             // LED灯条 - 沿后墙底部 Single LED strip at base of back wall (where floor meets wall)
             ctx.save();
@@ -1587,8 +1569,10 @@
             ctx.fillRect(rightLegX, legTopY, legWidth, legBottomY - legTopY);
 
             // ========== 显示器和支架 Monitor + Stand ==========
-            const monitorWidth  = 200 * computerScale;
-            const monitorHeight = 120 * computerScale;
+            // Increased sizes so desk + monitor occupy ~2/3 screen height when close
+            // 增大尺寸，使得靠近时桌子+显示器占据约2/3屏幕高度
+            const monitorWidth  = 220 * computerScale;
+            const monitorHeight = 140 * computerScale;
             const monitorBorder = 5   * computerScale;
 
             const standHeight = 32 * computerScale;
@@ -1675,12 +1659,8 @@
             ctx.restore();
         }
 
-            // 调试文本（显示walkProgress）Debug text (show walkProgress)
-            ctx.fillStyle = 'rgba(200, 200, 200, 0.8)';
-            ctx.font = '16px Arial';
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'top';
-            ctx.fillText(`Corridor 1 - Walk Progress: ${walkProgress.toFixed(2)}`, 20, 20);
+            // REMOVED: Debug text showing walkProgress (per user request)
+            // No debug text should appear during normal gameplay
         }
 
         // ========== 主循环 ==========
