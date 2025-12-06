@@ -102,6 +102,14 @@
         // 走廊场景中返回电梯的按钮（左下角）
         let backButton = { x: 20, y: 0, w: 140, h: 44 };
 
+        // Monitor bounds for click detection (updated each frame in drawDeskAndComputer)
+        // 显示器边界用于点击检测（每帧在drawDeskAndComputer中更新）
+        let monitorBounds = { x: 0, y: 0, w: 0, h: 0 };
+
+        // View mode in corridor: "corridor" (normal) or "monitor" (fullscreen monitor view)
+        // 走廊视角模式："corridor"（正常）或"monitor"（全屏显示器视角）
+        let viewMode = "corridor";
+
         // ========== 走廊几何常量 Corridor Geometry Constants ==========
         // 统一的走廊坐标框架，让左右墙和后墙的高度对齐
         // Unified corridor coordinate frame - side walls and back wall heights align
@@ -1304,19 +1312,28 @@
                 ctx.fillStyle = '#0a0a0a';
                 ctx.fillRect(0, 0, W, H);
 
-                // 应用FPS头部晃动到整个场景 Apply FPS head-bob to entire scene
-                // 先用walkProgress做视角，再加上轻微的头部偏移 Perspective from walkProgress, plus subtle head movement
-                ctx.save();
-                ctx.translate(headBobOffsetX, headBobOffsetY);
-
                 // 根据场景状态绘制不同场景 Branch rendering by scene state
                 if (sceneState === 'elevator') {
+                    // 应用FPS头部晃动到电梯场景 Apply FPS head-bob to elevator scene
+                    ctx.save();
+                    ctx.translate(headBobOffsetX, headBobOffsetY);
                     this.drawElevatorScene();
+                    ctx.restore();
                 } else if (sceneState === 'corridor1') {
-                    drawCorridor1Scene();
-                }
+                    if (viewMode === 'corridor') {
+                        // 应用FPS头部晃动到走廊场景 Apply FPS head-bob to corridor scene
+                        ctx.save();
+                        ctx.translate(headBobOffsetX, headBobOffsetY);
+                        drawCorridor1Scene();
+                        ctx.restore();
 
-                ctx.restore();  // 恢复头部晃动变换 Restore head-bob transform
+                        // Draw "Back to Elevator" button (no head-bob for UI)
+                        drawBackToElevatorButton(ctx);
+                    } else if (viewMode === 'monitor') {
+                        // Draw fullscreen monitor view (no head-bob)
+                        drawMonitorViewFullscreen(ctx);
+                    }
+                }
             }
         }
 
@@ -1526,10 +1543,10 @@
             // 绘制桌子和电脑 Draw desk and computer
             drawDeskAndComputer(backLeftX, backRightX, backFloorY, t);
 
-            // Update and draw "Back to Elevator" button (bottom-left corner)
-            // 更新并绘制"返回电梯"按钮（左下角）
+            // Update "Back to Elevator" button position (will be drawn in render() method)
+            // 更新"返回电梯"按钮位置（将在render()方法中绘制）
             backButton.y = H - backButton.h - 20;
-            drawBackToElevatorButton(ctx);
+        }
 
         // ========== 走廊环境绘制 Corridor Environment Drawing ==========
         // Gaming room inspired neon environment
@@ -1888,6 +1905,37 @@
             );
             ctx.restore();
 
+            // Update monitor bounds for click detection
+            // 更新显示器边界用于点击检测
+            monitorBounds.x = monitorLeftX;
+            monitorBounds.y = monitorTopY;
+            monitorBounds.w = monitorWidth;
+            monitorBounds.h = monitorHeight;
+
+            // When player is at the front, show "Click Screen" hint on the monitor
+            // 到达走廊最前时，在屏幕上显示"Click Screen"提示
+            const isAtFront = (tClamped >= 0.98) && (viewMode === 'corridor');
+            if (isAtFront) {
+                const now = performance.now() / 1000;
+                const blink = 0.5 + 0.5 * Math.sin(now * 3.0); // 0..1 pulsing
+
+                ctx.save();
+                ctx.font = `bold ${18 * computerScale}px 'Segoe UI', Arial, sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                // Subtle glow effect
+                ctx.shadowColor = 'rgba(79, 212, 255, ' + blink + ')';
+                ctx.shadowBlur = 15 * computerScale;
+                ctx.fillStyle = 'rgba(79, 212, 255, ' + blink + ')';
+
+                const hintX = cx;
+                const hintY = monitorTopY + monitorHeight / 2;
+                ctx.fillText('Click Screen', hintX, hintY);
+
+                ctx.restore();
+            }
+
             // 桌子下方地板阴影 Soft floor shadow under desk
             ctx.save();
             ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
@@ -1939,8 +1987,58 @@
             ctx.restore();
         }
 
-            // REMOVED: Debug text showing walkProgress (per user request)
-            // No debug text should appear during normal gameplay
+        // ========== 全屏显示器视角 Monitor View Fullscreen ==========
+        // When player clicks monitor, show fullscreen monitor view
+        // 当玩家点击显示器时，显示全屏显示器视角
+        function drawMonitorViewFullscreen(ctx) {
+            // Black background
+            ctx.fillStyle = "#050716";
+            ctx.fillRect(0, 0, W, H);
+
+            // Monitor frame (centered, large)
+            const frameW = W * 0.8;
+            const frameH = H * 0.7;
+            const frameX = (W - frameW) / 2;
+            const frameY = (H - frameH) / 2;
+
+            // Monitor outer frame
+            ctx.fillStyle = '#050711';
+            ctx.fillRect(frameX, frameY, frameW, frameH);
+
+            const border = 8;
+            ctx.strokeStyle = 'rgba(220, 230, 255, 0.95)';
+            ctx.lineWidth = border;
+            ctx.strokeRect(frameX, frameY, frameW, frameH);
+
+            // Screen inner glow (blue)
+            ctx.save();
+            ctx.shadowColor = 'rgba(90, 150, 255, 0.9)';
+            ctx.shadowBlur = 40;
+            ctx.fillStyle = '#2c74ff';
+
+            const padding = 15;
+            ctx.fillRect(
+                frameX + padding,
+                frameY + padding,
+                frameW - padding * 2,
+                frameH - padding * 2
+            );
+            ctx.restore();
+
+            // "Click anywhere to return" hint
+            ctx.save();
+            const now = performance.now() / 1000;
+            const blink = 0.5 + 0.5 * Math.sin(now * 2.0);
+
+            ctx.font = 'bold 24px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.shadowColor = 'rgba(255, 255, 255, ' + blink + ')';
+            ctx.shadowBlur = 20;
+            ctx.fillStyle = 'rgba(255, 255, 255, ' + blink + ')';
+
+            ctx.fillText('Click anywhere to return', W / 2, H - 60);
+            ctx.restore();
         }
 
         // ========== 主循环 ==========
@@ -1954,26 +2052,46 @@
 
             // 连续的FPS风格走路 - 基于速度和时间 Continuous FPS-style walk based on velocity and time
             // 按住按键=持续移动 Hold key = continuous movement
-            walkProgress += walkVelocity * WALK_SPEED * dt;
-            walkProgress = Math.max(0, Math.min(1, walkProgress));  // 限制在0-1之间 Clamp between 0-1
+            // Only advance walkProgress in corridor view (not in monitor view)
+            // 只在走廊视角中更新walkProgress（监视器视角中不更新）
+            if (sceneState === 'corridor1' && viewMode === 'corridor') {
+                walkProgress += walkVelocity * WALK_SPEED * dt;
+                walkProgress = Math.max(0, Math.min(1, walkProgress));  // 限制在0-1之间 Clamp between 0-1
 
-            // 更新地板滚动 - 地面网格向后流动 Update floor scroll - ground grid flows backward
-            // 地板格子随走路向后流动，而不是被放大压缩 Floor tiles slide backwards when walking, not scaled
-            // Stop floor/wall/ceiling scrolling at movement limits
-            // 到达走廊最前或最后时，继续按键地板不会再滑动
-            const atFrontLimit = (walkProgress >= 1 && walkVelocity > 0);  // 到达最前端且继续前进 At front and still pressing forward
-            const atBackLimit  = (walkProgress <= 0 && walkVelocity < 0);  // 到达最后端且继续后退 At back and still pressing backward
+                // 更新地板滚动 - 地面网格向后流动 Update floor scroll - ground grid flows backward
+                // Stop floor/wall/ceiling scrolling at movement limits
+                // 到达走廊最前或最后时，继续按键地板不会再滑动
+                const atFrontLimit = (walkProgress >= 1 && walkVelocity > 0);  // 到达最前端且继续前进 At front and still pressing forward
+                const atBackLimit  = (walkProgress <= 0 && walkVelocity < 0);  // 到达最后端且继续后退 At back and still pressing backward
 
-            // 只在允许范围内滚动地板 Only scroll when within allowed range
-            if (!atFrontLimit && !atBackLimit) {
-                floorScroll += walkVelocity * FLOOR_SCROLL_SPEED * dt;
+                // 只在允许范围内滚动地板 Only scroll when within allowed range
+                if (!atFrontLimit && !atBackLimit) {
+                    floorScroll += walkVelocity * FLOOR_SCROLL_SPEED * dt;
 
-                // 更新墙面和天花板滚动（走廊场景使用）Update wall and ceiling scroll (for corridor scene)
-                // 不同的速度创造深度感 Different speeds create depth perception
-                // ⚠️ In corridor1, geometry stays fixed. Walk feeling comes from scrolling textures + head-bob only.
-                // 走廊场景里，墙/地板/桌子/电脑都不缩放不变形，靠纹理滑动和轻微晃动来表达走路
-                wallScroll += walkVelocity * WALL_SCROLL_SPEED * dt;
-                ceilingScroll += walkVelocity * CEILING_SCROLL_SPEED * dt;
+                    // 更新墙面和天花板滚动（走廊场景使用）Update wall and ceiling scroll (for corridor scene)
+                    // 不同的速度创造深度感 Different speeds create depth perception
+                    // ⚠️ In corridor1, geometry stays fixed. Walk feeling comes from scrolling textures + head-bob only.
+                    // 走廊场景里，墙/地板/桌子/电脑都不缩放不变形，靠纹理滑动和轻微晃动来表达走路
+                    wallScroll += walkVelocity * WALL_SCROLL_SPEED * dt;
+                    ceilingScroll += walkVelocity * CEILING_SCROLL_SPEED * dt;
+                }
+            } else if (sceneState === 'elevator') {
+                // Elevator walking logic (unchanged)
+                walkProgress += walkVelocity * WALK_SPEED * dt;
+                walkProgress = Math.max(0, Math.min(1, walkProgress));
+
+                const atFrontLimit = (walkProgress >= 1 && walkVelocity > 0);
+                const atBackLimit  = (walkProgress <= 0 && walkVelocity < 0);
+
+                if (!atFrontLimit && !atBackLimit) {
+                    floorScroll += walkVelocity * FLOOR_SCROLL_SPEED * dt;
+                }
+            }
+
+            // When in monitor view, ensure walkVelocity stays 0
+            // 在监视器视角中，确保walkVelocity保持为0
+            if (sceneState === 'corridor1' && viewMode === 'monitor') {
+                walkVelocity = 0;
             }
 
             // 更新进入提示动画 Update enter hint animation
@@ -2164,6 +2282,7 @@
         // 一层电梯外的长廊场景，走路效果与电梯一致
         function enterCorridor1() {
             sceneState = 'corridor1';
+            viewMode = 'corridor';  // Reset to corridor view mode
 
             // 重置走路状态 Reset walking for corridor
             walkProgress = 0;
@@ -2197,24 +2316,50 @@
                     enterCorridor1();
                 }
             } else if (sceneState === 'corridor1') {
-                // Check if "Back to Elevator" button was clicked
-                // 检查是否点击了"返回电梯"按钮
-                if (
-                    mx >= backButton.x &&
-                    mx <= backButton.x + backButton.w &&
-                    my >= backButton.y &&
-                    my <= backButton.y + backButton.h
-                ) {
-                    // Return to elevator scene
-                    // 返回电梯场景
-                    sceneState = 'elevator';
-                    walkProgress = 0;
-                    walkVelocity = 0;
-                    floorScroll = 0;
-                    wallScroll = 0;
-                    ceilingScroll = 0;
-                    readyToEnter = false;
-                    enterHintPhase = 0;
+                const t = Math.max(0, Math.min(1, walkProgress));
+
+                if (viewMode === 'corridor') {
+                    // Check if "Back to Elevator" button was clicked
+                    // 检查是否点击了"返回电梯"按钮
+                    if (
+                        mx >= backButton.x &&
+                        mx <= backButton.x + backButton.w &&
+                        my >= backButton.y &&
+                        my <= backButton.y + backButton.h
+                    ) {
+                        // Return to elevator scene
+                        // 返回电梯场景
+                        sceneState = 'elevator';
+                        walkProgress = 0;
+                        walkVelocity = 0;
+                        floorScroll = 0;
+                        wallScroll = 0;
+                        ceilingScroll = 0;
+                        readyToEnter = false;
+                        enterHintPhase = 0;
+                        viewMode = 'corridor';  // Reset view mode
+                    } else {
+                        // Check if clicking monitor to enter monitor view
+                        // 检查是否点击显示器以进入显示器视角
+                        const isAtFront = (t >= 0.98);
+
+                        if (
+                            isAtFront &&
+                            mx >= monitorBounds.x &&
+                            mx <= monitorBounds.x + monitorBounds.w &&
+                            my >= monitorBounds.y &&
+                            my <= monitorBounds.y + monitorBounds.h
+                        ) {
+                            viewMode = 'monitor';
+                            walkVelocity = 0;  // Stop walking when entering monitor view
+                            console.log('Switched to monitor view');
+                        }
+                    }
+                } else if (viewMode === 'monitor') {
+                    // Click anywhere in monitor view to return to corridor view
+                    // 在监视器视角中点击任何地方返回走廊视角
+                    viewMode = 'corridor';
+                    console.log('Returned to corridor view');
                 }
                 // Future: add computer interaction when player is at the end
                 // 未来：当玩家到达尽头时添加电脑交互
@@ -2235,15 +2380,19 @@
                     if (doorsFullyOpen) {
                         walkVelocity = 1;  // 持续向前 Continuous forward
                     }
-                } else if (sceneState === 'corridor1') {
-                    // 走廊内：始终可以走 Corridor: always allow walking
+                } else if (sceneState === 'corridor1' && viewMode === 'corridor') {
+                    // 走廊内：只在正常走廊视角时可以走 Corridor: only allow walking in corridor view
                     walkVelocity = 1;
                 }
             }
 
             // 向后走 Walk backward (hold to walk back)
             if (key === 'ArrowDown' || key === 's' || key === 'S') {
-                walkVelocity = -1;  // 持续向后 Continuous backward (works in all scenes)
+                if (sceneState === 'corridor1' && viewMode === 'corridor') {
+                    walkVelocity = -1;  // 持续向后 Continuous backward (only in corridor view)
+                } else if (sceneState === 'elevator') {
+                    walkVelocity = -1;  // 电梯内也可以后退 Also allow backward in elevator
+                }
             }
         });
 
@@ -2252,11 +2401,19 @@
             const key = e.key;
 
             if (key === 'ArrowUp' || key === 'w' || key === 'W') {
-                if (walkVelocity > 0) walkVelocity = 0;  // 停止前进 Stop forward
+                if (sceneState === 'corridor1' && viewMode === 'corridor') {
+                    if (walkVelocity > 0) walkVelocity = 0;  // 停止前进 Stop forward
+                } else if (sceneState === 'elevator') {
+                    if (walkVelocity > 0) walkVelocity = 0;  // 停止前进 Stop forward
+                }
             }
 
             if (key === 'ArrowDown' || key === 's' || key === 'S') {
-                if (walkVelocity < 0) walkVelocity = 0;  // 停止后退 Stop backward
+                if (sceneState === 'corridor1' && viewMode === 'corridor') {
+                    if (walkVelocity < 0) walkVelocity = 0;  // 停止后退 Stop backward
+                } else if (sceneState === 'elevator') {
+                    if (walkVelocity < 0) walkVelocity = 0;  // 停止后退 Stop backward
+                }
             }
         });
     </script>
