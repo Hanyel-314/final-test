@@ -113,13 +113,22 @@
         const CORRIDOR_BACK_LEFT_X_NEAR  = W * 0.26; // 后墙左边（靠近时）Back wall left (when near)
         const CORRIDOR_BACK_RIGHT_X_NEAR = W * 0.74; // 后墙右边（靠近时）Back wall right (when near)
 
-        // 走廊尽头的电脑缩放范围 Computer scale range at corridor end
-        const COMPUTER_SCALE_FAR  = 1.0;   // 远离时的大小 Size when far
-        const COMPUTER_SCALE_NEAR = 1.8;   // 靠近时的大小（明显放大，接近时占据约2/3屏幕高度）Size when near (noticeably larger, ~2/3 screen height when close)
+        // 走廊尽头的电脑缩放范围 Computer scale range at corridor end - TWO PHASE
+        // Extra close-up when walkProgress is in [0.8, 1.0]:
+        // desk + monitor scale up and slide slightly down so the screen fills ~2/3 of the view.
+        // 在走近的最后一段，电脑和桌子进一步放大并略微下移，让屏幕几乎占满画面
+        const COMPUTER_SCALE_FAR   = 1.0;   // 远离时的大小 Size when far (t = 0)
+        const COMPUTER_SCALE_MID   = 1.6;   // 正常靠近时 Normal approach (t = 0.8)
+        const COMPUTER_SCALE_CLOSE = 2.4;   // 紧密特写时 Tight close-up (t = 1.0)
 
         // 线性插值函数 Linear interpolation function
         function lerp(a, b, t) {
             return a + (b - a) * t;
+        }
+
+        // 限制到 [0, 1] 范围 Clamp to [0, 1] range
+        function clamp01(x) {
+            return Math.max(0, Math.min(1, x));
         }
 
         // ========== 全屏3D电梯厢几何定义 ==========
@@ -1529,19 +1538,38 @@
         // Clean, symmetric desk with large monitor - standing on the floor
         // 干净对称的桌子和大显示器 - 站立在地板上
         function drawDeskAndComputer(backLeftX, backRightX, backFloorY, t) {
-            // 电脑尺寸随walkProgress轻微变化 Computer scale changes slightly with walkProgress
-            const computerScale = lerp(COMPUTER_SCALE_FAR, COMPUTER_SCALE_NEAR, t);
+            // TWO-PHASE SCALING: normal approach (0→0.8) + extra close-up (0.8→1.0)
+            // 两阶段缩放：正常接近（0→0.8）+ 额外特写（0.8→1.0）
+            const tClamped = clamp01(t);
+
+            // Phase 1: base approach (0 to 0.8)
+            const basePhase = Math.min(tClamped, 0.8) / 0.8;  // 0..1 from 0 to 0.8
+
+            // Phase 2: close-up zoom (0.8 to 1.0)
+            const closePhase = clamp01((tClamped - 0.8) / 0.2);  // 0..1 from 0.8 to 1.0
+
+            // Ease the close-up phase for smooth feeling (smoothstep)
+            const closePhaseEased = closePhase * closePhase * (3 - 2 * closePhase);
+
+            // Compute final scale: base approach + extra close-up zoom
+            let computerScale = lerp(COMPUTER_SCALE_FAR, COMPUTER_SCALE_MID, basePhase);
+            computerScale = lerp(computerScale, COMPUTER_SCALE_CLOSE, closePhaseEased);
 
             const floorY = backFloorY;  // Desk legs touch the back wall floor line
             const cx = (backLeftX + backRightX) / 2;
+
+            // Vertical offset for close-up: slide desk+monitor down so monitor stays visible
+            // 特写时的垂直偏移：将桌子+显示器整体下移，使显示器保持在画面内
+            const MAX_DOWN_OFFSET = 40 * computerScale;
+            const downOffset = lerp(0, MAX_DOWN_OFFSET, closePhaseEased);
 
             // ========== 桌子尺寸 Desk dimensions ==========
             const deskWidth     = 360 * computerScale;
             const deskThickness = 14  * computerScale;
             const legWidth      = 24  * computerScale;
 
-            // 桌面前边缘位置 Front edge of desktop
-            const deskFrontY = floorY - 32 * computerScale;
+            // 桌面前边缘位置 Front edge of desktop - adjusted by downOffset
+            const deskFrontY = floorY - 32 * computerScale + downOffset;
             const deskTopY   = deskFrontY - deskThickness;
             const deskLeftX  = cx - deskWidth / 2;
             const deskRightX = cx + deskWidth / 2;
