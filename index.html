@@ -2488,6 +2488,21 @@
 
         // Handle lobby clicks
         function handleGameHubLobbyClick() {
+            // Check return button click
+            const returnBtnX = 20;
+            const returnBtnY = 20;
+            const returnBtnW = 150;
+            const returnBtnH = 45;
+
+            if (pointInRect_hub(gameHubMouseX, gameHubMouseY, returnBtnX, returnBtnY, returnBtnW, returnBtnH)) {
+                // Return to corridor
+                viewMode = 'corridor';
+                gameHubState = 'lobby';  // Reset to lobby when returning
+                console.log('Returned to corridor view via button');
+                return;
+            }
+
+            // Check game icon clicks
             gameIcons.forEach((icon, i) => {
                 if (pointInCircle_hub(gameHubMouseX, gameHubMouseY, icon.x, icon.y, icon.size / 2)) {
                     if (gameUnlockStates[i]) {
@@ -2528,6 +2543,33 @@
             ctx.font = '20px Arial';
             ctx.textAlign = 'center';
             ctx.fillText('Select a game to unlock and play', centerX_hub, 120);
+
+            // Return to Corridor button (top-left corner)
+            const returnBtnX = 20;
+            const returnBtnY = 20;
+            const returnBtnW = 150;
+            const returnBtnH = 45;
+
+            const isReturnHovering = pointInRect_hub(gameHubMouseX, gameHubMouseY, returnBtnX, returnBtnY, returnBtnW, returnBtnH);
+
+            ctx.save();
+            // Button background
+            ctx.fillStyle = isReturnHovering ? 'rgba(79, 212, 255, 0.3)' : 'rgba(79, 212, 255, 0.15)';
+            roundRect_hub(ctx, returnBtnX, returnBtnY, returnBtnW, returnBtnH, 8);
+            ctx.fill();
+
+            // Button border
+            ctx.strokeStyle = isReturnHovering ? '#4fd4ff' : 'rgba(79, 212, 255, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Button text
+            ctx.fillStyle = '#4fd4ff';
+            ctx.font = 'bold 18px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('← Return to Corridor', returnBtnX + returnBtnW / 2, returnBtnY + returnBtnH / 2);
+            ctx.restore();
 
             // Game icons
             gameIcons.forEach((icon, i) => {
@@ -2592,14 +2634,14 @@
                 ctx.fillText(icon.name.replace(/[⚡🍉🏃🧠🚀] /, ''), icon.x, icon.y + size / 2 + 25);
             });
 
-            // Press ESC to return hint
+            // Return hint
             ctx.save();
             const now = performance.now() / 1000;
             const blink = 0.5 + 0.5 * Math.sin(now * 2.0);
-            ctx.font = '18px Arial';
+            ctx.font = '16px Arial';
             ctx.textAlign = 'center';
             ctx.fillStyle = `rgba(255, 255, 255, ${blink})`;
-            ctx.fillText('Press ESC to return to corridor', W / 2, H - 30);
+            ctx.fillText('Press ESC or click the button above to return to corridor', W / 2, H - 30);
             ctx.restore();
         }
 
