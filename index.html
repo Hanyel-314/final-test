@@ -102,13 +102,30 @@
         // 走廊场景中返回电梯的按钮（左下角）
         let backButton = { x: 20, y: 0, w: 140, h: 44 };
 
+        // Elevator door hitbox for precise click detection (updated each frame)
+        // 电梯门碰撞框用于精确点击检测（每帧更新）
+        let elevatorDoorHitbox = { x: 0, y: 0, w: 0, h: 0 };
+
         // Monitor bounds for click detection (updated each frame in drawDeskAndComputer)
         // 显示器边界用于点击检测（每帧在drawDeskAndComputer中更新）
         let monitorBounds = { x: 0, y: 0, w: 0, h: 0 };
 
+        // Monitor screen inner rectangle for clipping game content
+        // 显示器屏幕内部矩形用于裁剪游戏内容
+        let monitorScreen = { x: 0, y: 0, w: 0, h: 0 };
+
         // View mode in corridor: "corridor" (normal) or "monitor" (fullscreen monitor view)
         // 走廊视角模式："corridor"（正常）或"monitor"（全屏显示器视角）
         let viewMode = "corridor";
+
+        // Monitor state: "menu" (game selection) or "game" (playing a game)
+        // 显示器状态："menu"（游戏选择）或"game"（正在玩游戏）
+        let monitorState = "menu";
+        let activeGame = null;  // Current game: "space", "fruit", "memory", "maze", "lightning"
+
+        // Monitor back button (bottom-left, HUD overlay)
+        // 显示器返回按钮（左下角，HUD覆盖层）
+        let monitorBackButton = { x: 24, y: 0, w: 120, h: 40 };
 
         // Floor texture image for plush gaming rug
         // 地板纹理图片（毛绒游戏地毯）
@@ -273,6 +290,13 @@
             const doorRight = VP_X + doorWidth / 2;
             const doorTop = doorCenterY - doorHeight / 2;
             const doorBottom = doorCenterY + doorHeight / 2;
+
+            // Update elevator door hitbox for click detection
+            // 更新电梯门碰撞框用于点击检测
+            elevatorDoorHitbox.x = doorLeft;
+            elevatorDoorHitbox.y = doorTop;
+            elevatorDoorHitbox.w = doorWidth;
+            elevatorDoorHitbox.h = doorHeight;
 
             // 门框厚度
             const frameThick = 25;
@@ -2485,6 +2509,12 @@
         function startGameHubGame(index) {
             currentGameIndex = index;
             gameHubState = 'game_' + index;
+
+            // Sync monitor state system
+            monitorState = "game";
+            const gameNames = ["lightning", "fruit", "space", "memory", "maze"];
+            activeGame = gameNames[index];
+
             initGameHub(index);
         }
 
@@ -3549,6 +3579,40 @@
             drawGameHubBackButton();
         }
 
+        // ========== Monitor Back Button (HUD) ==========
+        // Unified back button for monitor view (bottom-left corner)
+        // 显示器视角的统一返回按钮（左下角）
+        function drawMonitorBackButton(ctx) {
+            const btn = monitorBackButton;
+            btn.y = H - btn.h - 24; // 24px from bottom
+
+            ctx.save();
+            ctx.fillStyle = "rgba(15, 22, 40, 0.92)";
+            ctx.strokeStyle = "rgba(120, 180, 255, 0.9)";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            // Use roundRect if available, otherwise draw regular rect
+            if (ctx.roundRect) {
+                ctx.roundRect(btn.x, btn.y, btn.w, btn.h, 10);
+            } else {
+                ctx.rect(btn.x, btn.y, btn.w, btn.h);
+            }
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = "white";
+            ctx.font = "15px sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+
+            // Button label depends on monitorState
+            // menu -> goes back to corridor
+            // game -> goes back to menu
+            const label = (monitorState === "menu") ? "Back to Room" : "Back to Games";
+            ctx.fillText(label, btn.x + btn.w / 2, btn.y + btn.h / 2);
+            ctx.restore();
+        }
+
         // Main draw function for monitor view (routes to appropriate scene)
         function drawMonitorViewFullscreen(ctx) {
             // Black background
@@ -3570,39 +3634,60 @@
             ctx.lineWidth = border;
             ctx.strokeRect(frameX, frameY, frameW, frameH);
 
-            // Clip to screen inner area for game content
+            // Define and update monitor screen rectangle for clipping
+            // 定义并更新显示器屏幕矩形用于裁剪
             const padding = 15;
+            monitorScreen.x = frameX + padding;
+            monitorScreen.y = frameY + padding;
+            monitorScreen.w = frameW - padding * 2;
+            monitorScreen.h = frameH - padding * 2;
+
+            // Clip to screen inner area for game content
+            // 裁剪到屏幕内部区域显示游戏内容
             ctx.save();
             ctx.beginPath();
-            ctx.rect(frameX + padding, frameY + padding, frameW - padding * 2, frameH - padding * 2);
+            ctx.rect(monitorScreen.x, monitorScreen.y, monitorScreen.w, monitorScreen.h);
             ctx.clip();
 
-            // Draw game content inside the monitor frame
-            if (gameHubState === 'lobby') {
-                drawGameHubLobby();
-            } else if (gameHubState.startsWith('unlock_')) {
-                const index = parseInt(gameHubState.split('_')[1]);
-                const type = gameIcons[index].unlockType;
+            // Route to appropriate content based on monitorState
+            // 根据monitorState路由到相应的内容
+            if (monitorState === "menu") {
+                // Show game selection menu (using existing lobby code)
+                // 显示游戏选择菜单（使用现有的大厅代码）
+                if (gameHubState === 'lobby') {
+                    drawGameHubLobby();
+                } else if (gameHubState.startsWith('unlock_')) {
+                    const index = parseInt(gameHubState.split('_')[1]);
+                    const type = gameIcons[index].unlockType;
 
-                switch(type) {
-                    case 'charge': drawGameHubUnlockCharge(); break;
-                    case 'drag': drawGameHubUnlockDrag(); break;
-                    case 'slide': drawGameHubUnlockSlide(); break;
-                    case 'password': drawGameHubUnlockPassword(); break;
-                    case 'rotate': drawGameHubUnlockRotate(); break;
+                    switch(type) {
+                        case 'charge': drawGameHubUnlockCharge(); break;
+                        case 'drag': drawGameHubUnlockDrag(); break;
+                        case 'slide': drawGameHubUnlockSlide(); break;
+                        case 'password': drawGameHubUnlockPassword(); break;
+                        case 'rotate': drawGameHubUnlockRotate(); break;
+                    }
                 }
-            } else if (gameHubState.startsWith('game_')) {
-                const index = parseInt(gameHubState.split('_')[1]);
-                switch(index) {
-                    case 0: drawGameHub0(); break;
-                    case 1: drawGameHub1(); break;
-                    case 2: drawGameHub2(); break;
-                    case 3: drawGameHub3(); break;
-                    case 4: drawGameHub4(); break;
+            } else if (monitorState === "game" && activeGame !== null) {
+                // Draw the active game (will be scaled/centered later)
+                // 绘制活动游戏（稍后将缩放/居中）
+                if (gameHubState.startsWith('game_')) {
+                    const index = parseInt(gameHubState.split('_')[1]);
+                    switch(index) {
+                        case 0: drawGameHub0(); break;
+                        case 1: drawGameHub1(); break;
+                        case 2: drawGameHub2(); break;
+                        case 3: drawGameHub3(); break;
+                        case 4: drawGameHub4(); break;
+                    }
                 }
             }
 
             ctx.restore();
+
+            // Draw HUD back button AFTER restore (not clipped)
+            // 在restore之后绘制HUD返回按钮（不被裁剪）
+            drawMonitorBackButton(ctx);
 
             // Reset gameHubMouseJustPressed after each frame
             gameHubMouseJustPressed = false;
@@ -3832,6 +3917,31 @@
                 gameHubMouseDown = true;
                 gameHubMouseJustPressed = true;
 
+                // Check monitor back button FIRST (highest priority)
+                // 首先检查监视器返回按钮（最高优先级）
+                const btn = monitorBackButton;
+                if (mx >= btn.x && mx <= btn.x + btn.w &&
+                    my >= btn.y && my <= btn.y + btn.h) {
+
+                    if (monitorState === "menu") {
+                        // From menu: return to corridor
+                        // 从菜单返回走廊
+                        viewMode = "corridor";
+                        monitorState = "menu";
+                        activeGame = null;
+                        gameHubState = "lobby";  // Reset gameHubState
+                        console.log('Returned to corridor from monitor menu');
+                    } else if (monitorState === "game") {
+                        // From game: return to menu
+                        // 从游戏返回菜单
+                        monitorState = "menu";
+                        activeGame = null;
+                        gameHubState = "lobby";  // Reset to lobby
+                        console.log('Returned to menu from game');
+                    }
+                    return;  // Stop processing other clicks
+                }
+
                 // Handle lobby clicks
                 if (gameHubState === 'lobby') {
                     handleGameHubLobbyClick();
@@ -3959,9 +4069,16 @@
             const my = e.clientY - rect.top;
 
             if (sceneState === 'elevator') {
-                // 只有在1层才能进入走廊 Only enter corridor on floor 1
+                // Only enter corridor on floor 1 when clicking INSIDE the door hitbox
+                // 只有在1层且点击门内部时才能进入走廊
                 if (readyToEnter && scene.elevator.currentFloor === 1) {
-                    enterCorridor1();
+                    const hb = elevatorDoorHitbox;
+                    const insideDoor = mx >= hb.x && mx <= hb.x + hb.w &&
+                                       my >= hb.y && my <= hb.y + hb.h;
+
+                    if (insideDoor) {
+                        enterCorridor1();
+                    }
                 }
             } else if (sceneState === 'corridor1') {
                 const t = Math.max(0, Math.min(1, walkProgress));
