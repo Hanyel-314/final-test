@@ -3467,6 +3467,33 @@
 
         // Main draw function for monitor view (routes to appropriate scene)
         function drawMonitorViewFullscreen(ctx) {
+            // Black background
+            ctx.fillStyle = "#050716";
+            ctx.fillRect(0, 0, W, H);
+
+            // Monitor frame (centered, large) - same as before integration
+            const frameW = W * 0.8;
+            const frameH = H * 0.7;
+            const frameX = (W - frameW) / 2;
+            const frameY = (H - frameH) / 2;
+
+            // Monitor outer frame
+            ctx.fillStyle = '#050711';
+            ctx.fillRect(frameX, frameY, frameW, frameH);
+
+            const border = 8;
+            ctx.strokeStyle = 'rgba(220, 230, 255, 0.95)';
+            ctx.lineWidth = border;
+            ctx.strokeRect(frameX, frameY, frameW, frameH);
+
+            // Clip to screen inner area for game content
+            const padding = 15;
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(frameX + padding, frameY + padding, frameW - padding * 2, frameH - padding * 2);
+            ctx.clip();
+
+            // Draw game content inside the monitor frame
             if (gameHubState === 'lobby') {
                 drawGameHubLobby();
             } else if (gameHubState.startsWith('unlock_')) {
@@ -3490,6 +3517,8 @@
                     case 4: drawGameHub4(); break;
                 }
             }
+
+            ctx.restore();
 
             // Reset gameHubMouseJustPressed after each frame
             gameHubMouseJustPressed = false;
