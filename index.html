@@ -2438,33 +2438,6 @@
             });
         }
 
-        // Helper: Draw back button for game hub scenes
-        function drawGameHubBackButton() {
-            const btnX = 20;
-            const btnY = H - 60;
-            const btnW = 100;
-            const btnH = 40;
-
-            const isHovering = pointInRect_hub(gameHubMouseX, gameHubMouseY, btnX, btnY, btnW, btnH);
-
-            ctx.fillStyle = isHovering ? '#555' : '#333';
-            roundRect_hub(ctx, btnX, btnY, btnW, btnH, 5);
-            ctx.fill();
-
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-
-            ctx.fillStyle = '#fff';
-            ctx.font = '16px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('← Back', btnX + btnW / 2, btnY + 25);
-
-            if (isHovering && gameHubMouseJustPressed) {
-                gameHubState = 'lobby';
-            }
-        }
-
         // Initialize unlock mechanism
         function initGameHubUnlock(index) {
             const type = gameIcons[index].unlockType;
@@ -2607,20 +2580,6 @@
 
         // Handle lobby clicks
         function handleGameHubLobbyClick() {
-            // Check return button click
-            const returnBtnX = 20;
-            const returnBtnY = 20;
-            const returnBtnW = 150;
-            const returnBtnH = 45;
-
-            if (pointInRect_hub(gameHubMouseX, gameHubMouseY, returnBtnX, returnBtnY, returnBtnW, returnBtnH)) {
-                // Return to corridor
-                viewMode = 'corridor';
-                gameHubState = 'lobby';  // Reset to lobby when returning
-                console.log('Returned to corridor view via button');
-                return;
-            }
-
             // Check game icon clicks
             gameIcons.forEach((icon, i) => {
                 if (pointInCircle_hub(gameHubMouseX, gameHubMouseY, icon.x, icon.y, icon.size / 2)) {
@@ -2662,33 +2621,6 @@
             ctx.font = '20px Arial';
             ctx.textAlign = 'center';
             ctx.fillText('Select a game to unlock and play', centerX_hub, 120);
-
-            // Return to Corridor button (top-left corner)
-            const returnBtnX = 20;
-            const returnBtnY = 20;
-            const returnBtnW = 150;
-            const returnBtnH = 45;
-
-            const isReturnHovering = pointInRect_hub(gameHubMouseX, gameHubMouseY, returnBtnX, returnBtnY, returnBtnW, returnBtnH);
-
-            ctx.save();
-            // Button background
-            ctx.fillStyle = isReturnHovering ? 'rgba(79, 212, 255, 0.3)' : 'rgba(79, 212, 255, 0.15)';
-            roundRect_hub(ctx, returnBtnX, returnBtnY, returnBtnW, returnBtnH, 8);
-            ctx.fill();
-
-            // Button border
-            ctx.strokeStyle = isReturnHovering ? '#4fd4ff' : 'rgba(79, 212, 255, 0.5)';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-
-            // Button text
-            ctx.fillStyle = '#4fd4ff';
-            ctx.font = 'bold 18px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('← Return to Corridor', returnBtnX + returnBtnW / 2, returnBtnY + returnBtnH / 2);
-            ctx.restore();
 
             // Game icons
             gameIcons.forEach((icon, i) => {
@@ -2836,7 +2768,6 @@
                 }, 500);
             }
 
-            drawGameHubBackButton();
         }
 
         // UNLOCK 2: Drag Cut (Fruit)
@@ -2936,7 +2867,6 @@
                 }
             }
 
-            drawGameHubBackButton();
         }
 
         // UNLOCK 3: Slide (Door)
@@ -3008,7 +2938,6 @@
                 ctx.fillRect(W / 2 + openDist, 0, doorW, doorH);
             }
 
-            drawGameHubBackButton();
         }
 
         // UNLOCK 4: Password (Memory)
@@ -3062,7 +2991,6 @@
                 }, 500);
             }
 
-            drawGameHubBackButton();
         }
 
         // UNLOCK 5: Rotate (Planet)
@@ -3133,7 +3061,6 @@
                 }, 500);
             }
 
-            drawGameHubBackButton();
         }
 
         // GAME 0: Lightning Reaction
@@ -3208,7 +3135,6 @@
                 ctx.fillText(`Final Score: ${gameData.score}`, W / 2, H / 2 + 20);
             }
 
-            drawGameHubBackButton();
         }
 
         // GAME 1: Fruit Slicing
@@ -3319,7 +3245,6 @@
                 ctx.fillText(`Final Score: ${gameData.score}`, W / 2, H / 2 + 20);
             }
 
-            drawGameHubBackButton();
         }
 
         // GAME 2: Maze
@@ -3329,8 +3254,8 @@
 
             ctx.fillStyle = '#2196f3';
             ctx.font = 'bold 32px Arial';
-            ctx.textAlign = 'left';
-            ctx.fillText('🏃 Maze Challenge', 50, 60);
+            ctx.textAlign = 'center';
+            ctx.fillText('🏃 Maze Challenge', W / 2, 60);
 
             // Simple maze (17x11)
             const maze = [
@@ -3348,8 +3273,16 @@
             ];
 
             const cellSize = 50;
-            const offsetX = 150;
-            const offsetY = 100;
+            const mazeCols = maze[0].length;  // 17
+            const mazeRows = maze.length;     // 11
+            const mazeWidth = mazeCols * cellSize;
+            const mazeHeight = mazeRows * cellSize;
+
+            // Center the maze inside the canvas
+            const baseW = canvas.width;
+            const baseH = canvas.height;
+            const offsetX = (baseW - mazeWidth) / 2;
+            const offsetY = (baseH - mazeHeight) / 2 + 30; // shift down slightly from center
 
             // Draw maze
             for (let y = 0; y < maze.length; y++) {
@@ -3415,11 +3348,9 @@
             // Instructions
             ctx.fillStyle = '#fff';
             ctx.font = '16px Arial';
-            ctx.textAlign = 'left';
-            ctx.fillText('Use arrow keys to move', 50, H - 80);
-            ctx.fillText('Reach the green exit 🏁', 50, H - 60);
+            ctx.textAlign = 'center';
+            ctx.fillText('Use arrow keys to move • Reach the green exit 🏁', W / 2, H - 40);
 
-            drawGameHubBackButton();
         }
 
         // GAME 3: Memory Cards
@@ -3487,7 +3418,6 @@
                 ctx.fillText(`${stars} Moves: ${gameData.moves}`, W / 2, H / 2 + 20);
             }
 
-            drawGameHubBackButton();
         }
 
         // GAME 4: Space Dodge
@@ -3581,7 +3511,6 @@
             ctx.textAlign = 'left';
             ctx.fillText('Use ← → or A D to move', 50, H - 60);
 
-            drawGameHubBackButton();
         }
 
         // ========== Monitor Back Button (HUD) ==========
@@ -3634,22 +3563,22 @@
             ctx.fillStyle = '#050711';
             ctx.fillRect(frameX, frameY, frameW, frameH);
 
-            const border = 8;
+            const bezel = 8;  // thickness of the silver border
             ctx.strokeStyle = 'rgba(220, 230, 255, 0.95)';
-            ctx.lineWidth = border;
+            ctx.lineWidth = bezel;
             ctx.strokeRect(frameX, frameY, frameW, frameH);
 
-            // Define and update monitor screen rectangle (inner blue screen area)
-            const padding = 15;
-            const screenX = frameX + padding;
-            const screenY = frameY + padding;
-            const screenWidth = frameW - padding * 2;
-            const screenHeight = frameH - padding * 2;
+            // Define inner blue screen area - flush with the bezel on all sides
+            const innerX = frameX + bezel;
+            const innerY = frameY + bezel;
+            const innerW = frameW - bezel * 2;
+            const innerH = frameH - bezel * 2;
 
-            monitorScreen.x = screenX;
-            monitorScreen.y = screenY;
-            monitorScreen.w = screenWidth;
-            monitorScreen.h = screenHeight;
+            // Store globally so monitor view can use it
+            monitorScreen.x = innerX;
+            monitorScreen.y = innerY;
+            monitorScreen.w = innerW;
+            monitorScreen.h = innerH;
 
             const s = monitorScreen;
 
@@ -3659,15 +3588,15 @@
             ctx.rect(s.x, s.y, s.w, s.h);
             ctx.clip();
 
-            // 2) Compute scale to fit the WHOLE original canvas into the monitor screen
+            // 2) Compute scale to FILL the monitor screen (may slightly stretch)
             const baseW = canvas.width;
             const baseH = canvas.height;
-            const scale = Math.min(s.w / baseW, s.h / baseH);
+            const scaleX = s.w / baseW;
+            const scaleY = s.h / baseH;
 
-            // 3) Center the scaled content in the monitor
-            ctx.translate(s.x + s.w / 2, s.y + s.h / 2);
-            ctx.scale(scale, scale);
-            ctx.translate(-baseW / 2, -baseH / 2);
+            // 3) Scale and position content to fill entire inner screen
+            ctx.translate(s.x, s.y);
+            ctx.scale(scaleX, scaleY);
 
             // 4) Draw the existing monitor content in ORIGINAL coordinates
             //    (all existing game/menu drawing logic assumes (0..canvas.width, 0..canvas.height))
@@ -3920,14 +3849,15 @@
                 const mx = e.clientX - rect.left;
                 const my = e.clientY - rect.top;
 
-                // Transform mouse coordinates to game space
+                // Transform mouse coordinates to game space (inverse transform)
                 const s = monitorScreen;
                 const baseW = canvas.width;
                 const baseH = canvas.height;
-                const scale = Math.min(s.w / baseW, s.h / baseH);
+                const scaleX = s.w / baseW;
+                const scaleY = s.h / baseH;
 
-                gameHubMouseX = ((mx - (s.x + s.w / 2)) / scale) + (baseW / 2);
-                gameHubMouseY = ((my - (s.y + s.h / 2)) / scale) + (baseH / 2);
+                gameHubMouseX = (mx - s.x) / scaleX;
+                gameHubMouseY = (my - s.y) / scaleY;
             }
         });
 
@@ -3965,14 +3895,12 @@
                 const s = monitorScreen;
                 const baseW = canvas.width;
                 const baseH = canvas.height;
-                const scale = Math.min(s.w / baseW, s.h / baseH);
+                const scaleX = s.w / baseW;
+                const scaleY = s.h / baseH;
 
                 // Inverse transform: screen -> game coordinates
-                const gameMx = ((mx - (s.x + s.w / 2)) / scale) + (baseW / 2);
-                const gameMy = ((my - (s.y + s.h / 2)) / scale) + (baseH / 2);
-
-                gameHubMouseX = gameMx;
-                gameHubMouseY = gameMy;
+                gameHubMouseX = (mx - s.x) / scaleX;
+                gameHubMouseY = (my - s.y) / scaleY;
                 gameHubMouseDown = true;
                 gameHubMouseJustPressed = true;
 
