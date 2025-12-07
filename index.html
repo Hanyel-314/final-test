@@ -2438,6 +2438,19 @@
             });
         }
 
+        // Shared game title rendering function for consistent styling
+        function drawGameTitle(ctx, text, color) {
+            ctx.save();
+            ctx.font = "bold 28px Orbitron, system-ui";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "top";
+            ctx.fillStyle = color || "#ffcc66";
+            ctx.shadowColor = color || "#ffcc66";
+            ctx.shadowBlur = 12;
+            ctx.fillText(text, canvas.width / 2, 40);
+            ctx.restore();
+        }
+
         // Initialize unlock mechanism
         function initGameHubUnlock(index) {
             const type = gameIcons[index].unlockType;
@@ -2508,11 +2521,24 @@
                         activeButton: -1,
                         difficulty: 1
                     };
+                    // Center the 3x2 button grid
+                    const cols = 3;
+                    const rows = 2;
+                    const tileSize = 100;
+                    const tileGapX = 180;
+                    const tileGapY = 100;
+                    const gridWidth = cols * tileSize + (cols - 1) * tileGapX;
+                    const gridHeight = rows * tileSize + (rows - 1) * tileGapY;
+                    const gridOffsetX = (canvas.width - gridWidth) / 2;
+                    const gridOffsetY = (canvas.height - gridHeight) / 2 + 40;
+
                     for (let i = 0; i < 6; i++) {
+                        const col = i % 3;
+                        const row = Math.floor(i / 3);
                         gameData.buttons.push({
-                            x: 200 + (i % 3) * 280,
-                            y: 250 + Math.floor(i / 3) * 200,
-                            size: 100,
+                            x: gridOffsetX + col * (tileSize + tileGapX) + tileSize / 2,
+                            y: gridOffsetY + row * (tileSize + tileGapY) + tileSize / 2,
+                            size: tileSize,
                             active: false
                         });
                     }
@@ -2524,7 +2550,9 @@
                         score: 0,
                         fruits: [],
                         particles: [],
-                        nextSpawn: 0
+                        spawnTimer: 0,
+                        spawnInterval: 1200, // milliseconds
+                        timeSinceStart: 0
                     };
                     break;
 
@@ -3072,15 +3100,15 @@
             // Update timer
             gameData.timeLeft -= 1 / 60;
 
-            // UI
-            ctx.fillStyle = '#ffeb3b';
-            ctx.font = 'bold 32px Arial';
-            ctx.textAlign = 'left';
-            ctx.fillText('⚡ Lightning Reaction', 50, 60);
+            // Centered title
+            drawGameTitle(ctx, '⚡ Lightning Reaction', '#ffeb3b');
 
+            // UI - top right (below title area)
+            ctx.fillStyle = '#ffeb3b';
+            ctx.font = 'bold 20px Arial';
             ctx.textAlign = 'right';
-            ctx.fillText(`Time: ${Math.ceil(gameData.timeLeft)}s`, W - 50, 60);
-            ctx.fillText(`Score: ${gameData.score}`, W - 50, 100);
+            ctx.fillText(`Time: ${Math.ceil(gameData.timeLeft)}s`, W - 50, 90);
+            ctx.fillText(`Score: ${gameData.score}`, W - 50, 120);
 
             // Spawn buttons
             gameData.nextSpawn -= 1 / 60;
@@ -3137,58 +3165,132 @@
 
         }
 
+        // Helper: Draw neon-style fruit
+        function drawFruit(ctx, f) {
+            const grd = ctx.createRadialGradient(
+                f.x - f.size * 0.4, f.y - f.size * 0.4, f.size * 0.2,
+                f.x, f.y, f.size
+            );
+            grd.addColorStop(0, "#ffffff");
+            grd.addColorStop(0.3, f.color || "#ff6b6b");
+            grd.addColorStop(1, "#b3003c");
+
+            ctx.save();
+            ctx.fillStyle = grd;
+            ctx.beginPath();
+            ctx.arc(f.x, f.y, f.size, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Glow outline
+            ctx.strokeStyle = "rgba(255,255,255,0.9)";
+            ctx.lineWidth = 2;
+            ctx.shadowColor = f.color || "#ff6b6b";
+            ctx.shadowBlur = 20;
+            ctx.stroke();
+
+            // Small leaf
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = "#28f59b";
+            ctx.beginPath();
+            ctx.ellipse(f.x - f.size * 0.3, f.y - f.size * 0.9,
+                        f.size * 0.4, f.size * 0.2, -0.4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // Helper: Draw neon-style bomb
+        function drawBomb(ctx, b) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
+            ctx.fillStyle = "#151520";
+            ctx.fill();
+
+            ctx.strokeStyle = "#ff3b6b";
+            ctx.lineWidth = 3;
+            ctx.shadowColor = "#ff3b6b";
+            ctx.shadowBlur = 15;
+            ctx.stroke();
+
+            // Fuse
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = "#f5f5f5";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(b.x + b.size * 0.4, b.y - b.size * 0.2);
+            ctx.quadraticCurveTo(
+                b.x + b.size * 0.8, b.y - b.size * 0.8,
+                b.x + b.size * 1.2, b.y - b.size * 0.4
+            );
+            ctx.stroke();
+
+            // Glowing fuse tip
+            ctx.fillStyle = "#ffdd55";
+            ctx.shadowColor = "#ffdd55";
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            ctx.arc(b.x + b.size * 1.25, b.y - b.size * 0.45, 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
         // GAME 1: Fruit Slicing
         function drawGameHub1() {
             ctx.fillStyle = '#0a0e27';
             ctx.fillRect(0, 0, W, H);
             drawGameHubStars();
 
+            const deltaTime = 1000 / 60; // ~16.67ms per frame
             gameData.timeLeft -= 1 / 60;
+            gameData.timeSinceStart += deltaTime;
+            gameData.spawnTimer += deltaTime;
 
-            // UI
+            // Centered title
+            drawGameTitle(ctx, '🍉 Fruit Slicer', '#4caf50');
+
+            // UI - top right (below title area)
             ctx.fillStyle = '#4caf50';
-            ctx.font = 'bold 32px Arial';
-            ctx.textAlign = 'left';
-            ctx.fillText('🍉 Fruit Slicer', 50, 60);
-
+            ctx.font = 'bold 20px Arial';
             ctx.textAlign = 'right';
-            ctx.fillText(`Time: ${Math.ceil(gameData.timeLeft)}s`, W - 50, 60);
-            ctx.fillText(`Score: ${gameData.score}`, W - 50, 100);
+            ctx.fillText(`Time: ${Math.ceil(gameData.timeLeft)}s`, W - 50, 90);
+            ctx.fillText(`Score: ${gameData.score}`, W - 50, 120);
 
-            // Spawn fruits
-            gameData.nextSpawn -= 1 / 60;
-            if (gameData.nextSpawn <= 0) {
+            // Gradual difficulty increase
+            const difficultyLevel = Math.floor(gameData.timeSinceStart / 20000);
+            gameData.spawnInterval = Math.max(400, 1200 - difficultyLevel * 150);
+
+            // Spawn fruits with timer-based approach
+            if (gameData.spawnTimer >= gameData.spawnInterval) {
+                gameData.spawnTimer = 0;
                 const isBomb = Math.random() < 0.2;
+                const fruitColors = ['#ff6b6b', '#4caf50', '#ffeb3b', '#ff9800', '#9c27b0'];
                 gameData.fruits.push({
-                    x: Math.random() * (W - 200) + 100,
-                    y: H + 50,
+                    x: Math.random() * (canvas.width * 0.8) + canvas.width * 0.1,
+                    y: canvas.height + 30,
                     vx: (Math.random() - 0.5) * 4,
-                    vy: -15 - Math.random() * 5,
+                    vy: -(10 + Math.random() * 4), // Shoot upwards
                     isBomb: isBomb,
-                    size: 40,
+                    size: 28,
+                    color: fruitColors[Math.floor(Math.random() * fruitColors.length)],
                     sliced: false
                 });
-                gameData.nextSpawn = 1 + Math.random();
             }
+
+            const gravity = 0.3;
 
             // Update fruits
             gameData.fruits.forEach((fruit, i) => {
-                fruit.vy += 0.5; // gravity
+                fruit.vy += gravity; // gravity
                 fruit.x += fruit.vx;
                 fruit.y += fruit.vy;
 
                 // Draw
                 if (!fruit.sliced) {
-                    ctx.fillStyle = fruit.isBomb ? '#f44336' : '#4caf50';
-                    ctx.beginPath();
-                    ctx.arc(fruit.x, fruit.y, fruit.size, 0, Math.PI * 2);
-                    ctx.fill();
-
                     if (fruit.isBomb) {
-                        ctx.fillStyle = '#fff';
-                        ctx.font = '24px Arial';
-                        ctx.textAlign = 'center';
-                        ctx.fillText('💣', fruit.x, fruit.y + 8);
+                        drawBomb(ctx, fruit);
+                    } else {
+                        drawFruit(ctx, fruit);
                     }
                 }
 
@@ -3252,10 +3354,8 @@
             ctx.fillStyle = '#0a0e27';
             ctx.fillRect(0, 0, W, H);
 
-            ctx.fillStyle = '#2196f3';
-            ctx.font = 'bold 32px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('🏃 Maze Challenge', W / 2, 60);
+            // Centered title
+            drawGameTitle(ctx, '🏃 Maze Challenge', '#2196f3');
 
             // Simple maze (17x11)
             const maze = [
@@ -3359,13 +3459,14 @@
             ctx.fillRect(0, 0, W, H);
             drawGameHubStars();
 
-            ctx.fillStyle = '#9c27b0';
-            ctx.font = 'bold 32px Arial';
-            ctx.textAlign = 'left';
-            ctx.fillText('🧠 Memory Match', 50, 60);
+            // Centered title
+            drawGameTitle(ctx, '🧠 Memory Match', '#9c27b0');
 
+            // UI - top right (below title area)
+            ctx.fillStyle = '#9c27b0';
+            ctx.font = 'bold 20px Arial';
             ctx.textAlign = 'right';
-            ctx.fillText(`Moves: ${gameData.moves}`, W - 50, 60);
+            ctx.fillText(`Moves: ${gameData.moves}`, W - 50, 90);
 
             // Draw cards
             gameData.cards.forEach(card => {
@@ -3420,20 +3521,88 @@
 
         }
 
+        // Helper: Draw neon-style UFO
+        function drawUfo(ctx, o) {
+            const r = o.size;
+
+            ctx.save();
+            ctx.translate(o.x, o.y);
+
+            // Optional: tiny rotation so the UFO feels alive
+            if (!o.rotation) o.rotation = Math.random() * Math.PI * 2;
+            o.rotation += 0.01;
+            ctx.rotate(o.rotation);
+
+            // 1) Glow halo
+            const haloRadius = r * 1.6;
+            const haloGrad = ctx.createRadialGradient(
+                0, 0, haloRadius * 0.2,
+                0, 0, haloRadius
+            );
+            haloGrad.addColorStop(0, "rgba(255,255,255,0.8)");
+            haloGrad.addColorStop(1, "rgba(80,200,255,0.0)");
+            ctx.fillStyle = haloGrad;
+            ctx.beginPath();
+            ctx.arc(0, 0, haloRadius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 2) Main saucer body (ellipse)
+            ctx.shadowColor = "#46eaff";
+            ctx.shadowBlur = 18;
+            ctx.fillStyle = "#151c2a";
+            ctx.beginPath();
+            ctx.ellipse(0, 0, r * 1.6, r * 0.8, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Neon edge of saucer
+            ctx.strokeStyle = "#46eaff";
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // 3) Dome on top
+            const domeGrad = ctx.createRadialGradient(
+                -r * 0.3, -r * 1.1, r * 0.1,
+                0, -r * 1.1, r * 0.9
+            );
+            domeGrad.addColorStop(0, "#ffffff");
+            domeGrad.addColorStop(0.3, "#7af0ff");
+            domeGrad.addColorStop(1, "#3366ff");
+            ctx.fillStyle = domeGrad;
+            ctx.beginPath();
+            ctx.ellipse(0, -r * 0.9, r * 0.9, r * 1.0, 0, Math.PI, 0, true);
+            ctx.fill();
+
+            // 4) Small lights along the saucer rim
+            const lightCount = 6;
+            for (let i = 0; i < lightCount; i++) {
+                const t = (i / lightCount) * Math.PI * 2;
+                const lx = Math.cos(t) * r * 1.15;
+                const ly = Math.sin(t) * r * 0.45;
+
+                ctx.fillStyle = i % 2 === 0 ? "#ff6bcb" : "#46ff9a";
+                ctx.beginPath();
+                ctx.arc(lx, ly, r * 0.18, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.restore();
+        }
+
         // GAME 4: Space Dodge
         function drawGameHub4() {
             ctx.fillStyle = '#0a0e27';
             ctx.fillRect(0, 0, W, H);
             drawGameHubStars();
 
-            ctx.fillStyle = '#ff5722';
-            ctx.font = 'bold 32px Arial';
-            ctx.textAlign = 'left';
-            ctx.fillText('🚀 Space Dodge', 50, 60);
+            // Centered title
+            drawGameTitle(ctx, '🚀 Space Dodge', '#ff5722');
 
+            // UI - top right (below title area)
+            ctx.fillStyle = '#ff5722';
+            ctx.font = 'bold 20px Arial';
             ctx.textAlign = 'right';
-            ctx.fillText(`Score: ${gameData.score}`, W - 50, 60);
-            ctx.fillText(`Lives: ${'❤️'.repeat(gameData.lives)}`, W - 50, 100);
+            ctx.fillText(`Score: ${gameData.score}`, W - 50, 90);
+            ctx.fillText(`Lives: ${'❤️'.repeat(gameData.lives)}`, W - 50, 120);
 
             // Ship control
             if (gameHubKeysPressed['ArrowLeft'] || gameHubKeysPressed['a']) {
@@ -3468,14 +3637,12 @@
                 gameData.difficulty += 0.01;
             }
 
-            // Update meteors
+            // Update meteors (now UFOs)
             gameData.meteors.forEach((meteor, i) => {
                 meteor.y += meteor.speed;
 
-                ctx.fillStyle = '#8d6e63';
-                ctx.beginPath();
-                ctx.arc(meteor.x, meteor.y, meteor.size, 0, Math.PI * 2);
-                ctx.fill();
+                // Draw UFO instead of simple circle
+                drawUfo(ctx, meteor);
 
                 // Collision with ship
                 if (dist_hub(meteor.x, meteor.y, gameData.shipX, gameData.shipY) < meteor.size + 15) {
