@@ -112,13 +112,17 @@
 
         // Floor texture image for plush gaming rug
         // 地板纹理图片（毛绒游戏地毯）
-        const FLOOR_IMAGE_URL = "https://raw.githubusercontent.com/<my-user>/<my-repo>/main/gamer-rug.png"; // Replace with real URL
+        const FLOOR_IMAGE_URL = "https://github.com/Hanyel-314/final-test/blob/claude/elevator-experience-01MKmEoFCuuVLDTWucLkXy6p/0edaf664a064dc42e771e8cccdb61da3.png?raw=true";
         const floorTexture = new Image();
         let floorTextureLoaded = false;
 
         floorTexture.src = FLOOR_IMAGE_URL;
         floorTexture.onload = () => {
             floorTextureLoaded = true;
+            console.log('Floor texture loaded successfully');
+        };
+        floorTexture.onerror = () => {
+            console.error('Failed to load floor texture from:', FLOOR_IMAGE_URL);
         };
 
         // ========== 走廊几何常量 Corridor Geometry Constants ==========
