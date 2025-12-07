@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini Game Hub - 迷你游戏大厅</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #gameCanvas {
+            border: 3px solid #4fd4ff;
+            box-shadow: 0 0 30px rgba(79, 212, 255, 0.5);
+            cursor: pointer;
+            background: #0a0e27;
+        }
+
+        .info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #4fd4ff;
+            font-size: 14px;
+            text-shadow: 0 0 10px rgba(79, 212, 255, 0.8);
+        }
+    </style>
+</head>
+<body>
+    <div class="info">Mini Game Hub v1.0</div>
+    <canvas id="gameCanvas" width="1200" height="700"></canvas>
+
+    <script>
+        'use strict';
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const W = canvas.width;
+        const H = canvas.height;
+
+        // ==================== UTILITY FUNCTIONS ====================
+
+        function dist(x1, y1, x2, y2) {
+            return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+        }
+
+        function pointInCircle(px, py, cx, cy, r) {
+            return dist(px, py, cx, cy) <= r;
+        }
+
+        function pointInRect(px, py, rx, ry, rw, rh) {
+            return px >= rx && px <= rx + rw && py >= ry && py <= ry + rh;
+        }
+
+        function roundRect(ctx, x, y, w, h, r) {
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.lineTo(x + w - r, y);
+            ctx.arcTo(x + w, y, x + w, y + r, r);
+            ctx.lineTo(x + w, y + h - r);
+            ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+            ctx.lineTo(x + r, y + h);
+            ctx.arcTo(x, y + h, x, y + h - r, r);
+            ctx.lineTo(x, y + r);
+            ctx.arcTo(x, y, x + r, y, r);
+            ctx.closePath();
+        }
+
+        function easeOutQuad(t) {
+            return t * (2 - t);
+        }
+
+        function lerp(a, b, t) {
+            return a + (b - a) * t;
+        }
+
+        // ==================== GLOBAL STATE ====================
+
+        let sceneState = 'lobby'; // 'lobby', 'unlock_X', 'game_X'
+        let unlockStates = [false, false, false, false, false]; // 5 games unlocked status
+        let currentUnlockIndex = -1;
+        let currentGameIndex = -1;
+
+        // Mouse state
+        let mouseX = 0;
+        let mouseY = 0;
+        let mouseDown = false;
+        let mouseJustPressed = false;
+
+        // Keyboard state
+        let keysPressed = {};
+
+        // ==================== BACKGROUND STARS ====================
+
+        const stars = [];
+        for (let i = 0; i < 80; i++) {
+            stars.push({
+                x: Math.random() * W,
+                y: Math.random() * H,
+                r: Math.random() * 1.5 + 0.5,
+                alpha: Math.random() * 0.5 + 0.3,
+                twinkle: Math.random() * Math.PI * 2
+            });
+        }
+
+        function drawStars() {
+            stars.forEach(star => {
+                star.twinkle += 0.02;
+                const alpha = star.alpha + Math.sin(star.twinkle) * 0.2;
+                ctx.fillStyle = `rgba(200, 220, 255, ${alpha})`;
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.r, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        // ==================== LOBBY SCENE ====================
+
+        const gameIcons = [
+            { name: '⚡ Lightning', emoji: '⚡', color: '#ffeb3b', unlockType: 'charge' },
+            { name: '🍉 Fruit', emoji: '🍉', color: '#4caf50', unlockType: 'drag' },
+            { name: '🚪 Maze', emoji: '🏃', color: '#2196f3', unlockType: 'slide' },
+            { name: '📖 Memory', emoji: '🧠', color: '#9c27b0', unlockType: 'password' },
+            { name: '🚀 Space', emoji: '🚀', color: '#ff5722', unlockType: 'rotate' }
+        ];
+
+        const centerX = W / 2;
+        const centerY = H / 2;
+        const radius = 200;
+
+        gameIcons.forEach((icon, i) => {
+            const angle = (i / 5) * Math.PI * 2 - Math.PI / 2;
+            icon.x = centerX + Math.cos(angle) * radius;
+            icon.y = centerY + Math.sin(angle) * radius;
+            icon.size = 80;
+            icon.hoverScale = 1.0;
+            icon.glowAlpha = 0.3;
+        });
+
+        function drawLobby() {
+            // Background gradient
+            const grad = ctx.createLinearGradient(0, 0, 0, H);
+            grad.addColorStop(0, '#1a1a2e');
+            grad.addColorStop(0.5, '#16213e');
+            grad.addColorStop(1, '#0f3460');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, W, H);
+
+            drawStars();
+
+            // Title
+            ctx.save();
+            ctx.shadowColor = '#4fd4ff';
+            ctx.shadowBlur = 20;
+            ctx.fillStyle = '#4fd4ff';
+            ctx.font = 'bold 48px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('MINI GAME HUB', centerX, 80);
+            ctx.restore();
+
+            // Subtitle
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.font = '20px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Select a game to unlock and play', centerX, 120);
+
+            // Game icons
+            gameIcons.forEach((icon, i) => {
+                const isHovering = pointInCircle(mouseX, mouseY, icon.x, icon.y, icon.size / 2);
+
+                // Smooth hover animation
+                if (isHovering) {
+                    icon.hoverScale = Math.min(icon.hoverScale + 0.05, 1.2);
+                    icon.glowAlpha = Math.min(icon.glowAlpha + 0.05, 0.8);
+                } else {
+                    icon.hoverScale = Math.max(icon.hoverScale - 0.05, 1.0);
+                    icon.glowAlpha = Math.max(icon.glowAlpha - 0.05, 0.3);
+                }
+
+                const size = icon.size * icon.hoverScale;
+
+                // Glow
+                ctx.save();
+                ctx.shadowColor = icon.color;
+                ctx.shadowBlur = 30;
+                ctx.globalAlpha = icon.glowAlpha;
+                ctx.fillStyle = icon.color;
+                ctx.beginPath();
+                ctx.arc(icon.x, icon.y, size / 2 + 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+
+                // Icon circle
+                ctx.save();
+                if (unlockStates[i]) {
+                    ctx.fillStyle = icon.color;
+                } else {
+                    ctx.fillStyle = '#2a2a4a';
+                }
+                ctx.beginPath();
+                ctx.arc(icon.x, icon.y, size / 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Border
+                ctx.strokeStyle = unlockStates[i] ? '#fff' : '#555';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                ctx.restore();
+
+                // Emoji
+                ctx.font = `${size * 0.5}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = unlockStates[i] ? '#fff' : '#888';
+                ctx.fillText(icon.emoji, icon.x, icon.y);
+
+                // Lock icon if not unlocked
+                if (!unlockStates[i]) {
+                    ctx.font = `${size * 0.3}px Arial`;
+                    ctx.fillText('🔒', icon.x, icon.y + size * 0.4);
+                }
+
+                // Name label
+                ctx.font = '16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#fff';
+                ctx.fillText(icon.name.replace(/[⚡🍉🏃🧠🚀] /, ''), icon.x, icon.y + size / 2 + 25);
+            });
+        }
+
+        function handleLobbyClick() {
+            gameIcons.forEach((icon, i) => {
+                if (pointInCircle(mouseX, mouseY, icon.x, icon.y, icon.size / 2)) {
+                    if (unlockStates[i]) {
+                        // Already unlocked, go to game
+                        startGame(i);
+                    } else {
+                        // Start unlock sequence
+                        startUnlock(i);
+                    }
+                }
+            });
+        }
+
+        function startUnlock(index) {
+            currentUnlockIndex = index;
+            sceneState = 'unlock_' + index;
+            initUnlock(index);
+        }
+
+        function startGame(index) {
+            currentGameIndex = index;
+            sceneState = 'game_' + index;
+            initGame(index);
+        }
+
+        // ==================== UNLOCK MECHANISMS ====================
+
+        let unlockData = {};
+
+        function initUnlock(index) {
+            const type = gameIcons[index].unlockType;
+
+            switch(type) {
+                case 'charge':
+                    unlockData = { charge: 0 };
+                    break;
+                case 'drag':
+                    unlockData = {
+                        knifeX: W / 2 - 200,
+                        knifeY: H / 2,
+                        fruitX: W / 2 + 200,
+                        fruitY: H / 2,
+                        dragging: false,
+                        cut: false,
+                        cutAnim: 0
+                    };
+                    break;
+                case 'slide':
+                    unlockData = { sliderPos: 0, dragging: false, doorAnim: 0 };
+                    break;
+                case 'password':
+                    unlockData = { input: '', cursor: 0, cursorBlink: 0 };
+                    break;
+                case 'rotate':
+                    unlockData = {
+                        planetX: W / 2,
+                        planetY: H / 2,
+                        rotation: 0,
+                        totalRotation: 0,
+                        lastAngle: 0,
+                        dragging: false
+                    };
+                    break;
+            }
+        }
+
+        // UNLOCK 1: Charge (Lightning)
+        function drawUnlockCharge() {
+            ctx.fillStyle = '#0a0e27';
+            ctx.fillRect(0, 0, W, H);
+            drawStars();
+
+            // Title
+            ctx.fillStyle = '#ffeb3b';
+            ctx.font = 'bold 36px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('⚡ CHARGING UNLOCK', W / 2, 100);
+
+            ctx.fillStyle = '#fff';
+            ctx.font = '18px Arial';
+            ctx.fillText('Hover over the button to charge it to 100%', W / 2, 140);
+
+            // Charge button
+            const btnX = W / 2 - 100;
+            const btnY = H / 2 - 50;
+            const btnW = 200;
+            const btnH = 100;
+
+            const isHovering = pointInRect(mouseX, mouseY, btnX, btnY, btnW, btnH);
+
+            if (isHovering) {
+                unlockData.charge = Math.min(unlockData.charge + 1.5, 100);
+            } else {
+                unlockData.charge = Math.max(unlockData.charge - 0.8, 0);
+            }
+
+            // Button
+            ctx.save();
+            const glowIntensity = unlockData.charge / 100;
+            ctx.shadowColor = '#ffeb3b';
+            ctx.shadowBlur = 20 * glowIntensity;
+            ctx.fillStyle = `rgba(255, 235, 59, ${0.2 + glowIntensity * 0.3})`;
+            roundRect(ctx, btnX, btnY, btnW, btnH, 10);
+            ctx.fill();
+            ctx.strokeStyle = '#ffeb3b';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.restore();
+
+            // Charge bar
+            const barX = btnX + 20;
+            const barY = btnY + 40;
+            const barW = btnW - 40;
+            const barH = 20;
+
+            ctx.fillStyle = '#333';
+            roundRect(ctx, barX, barY, barW, barH, 5);
+            ctx.fill();
+
+            ctx.fillStyle = '#ffeb3b';
+            const fillW = (barW * unlockData.charge) / 100;
+            roundRect(ctx, barX, barY, fillW, barH, 5);
+            ctx.fill();
+
+            // Percentage text
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 24px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${Math.floor(unlockData.charge)}%`, btnX + btnW / 2, btnY + 30);
+
+            // Check if unlocked
+            if (unlockData.charge >= 100) {
+                setTimeout(() => {
+                    unlockStates[currentUnlockIndex] = true;
+                    sceneState = 'lobby';
+                }, 500);
+            }
+
+            // Back button
+            drawBackButton();
+        }
+
+        // UNLOCK 2: Drag Cut (Fruit)
+        function drawUnlockDrag() {
+            ctx.fillStyle = '#0a0e27';
+            ctx.fillRect(0, 0, W, H);
+            drawStars();
+
+            ctx.fillStyle = '#4caf50';
+            ctx.font = 'bold 36px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('🍉 DRAG TO CUT', W / 2, 100);
+
+            ctx.fillStyle = '#fff';
+            ctx.font = '18px Arial';
+            ctx.fillText('Drag the knife to the fruit to slice it', W / 2, 140);
+
+            // Knife
+            const knifeW = 60;
+            const knifeH = 20;
+
+            if (unlockData.dragging) {
+                unlockData.knifeX = mouseX;
+                unlockData.knifeY = mouseY;
+            }
+
+            ctx.save();
+            ctx.translate(unlockData.knifeX, unlockData.knifeY);
+            ctx.rotate(Math.PI / 4);
+
+            // Handle
+            ctx.fillStyle = '#8d6e63';
+            ctx.fillRect(-knifeW / 2, -knifeH / 2, 20, knifeH);
+
+            // Blade
+            ctx.fillStyle = '#cfd8dc';
+            ctx.beginPath();
+            ctx.moveTo(-knifeW / 2 + 20, -knifeH / 2);
+            ctx.lineTo(knifeW / 2, 0);
+            ctx.lineTo(-knifeW / 2 + 20, knifeH / 2);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.restore();
+
+            // Fruit
+            if (!unlockData.cut) {
+                ctx.fillStyle = '#4caf50';
+                ctx.beginPath();
+                ctx.arc(unlockData.fruitX, unlockData.fruitY, 50, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Seeds
+                ctx.fillStyle = '#2e7d32';
+                for (let i = 0; i < 5; i++) {
+                    const angle = (i / 5) * Math.PI * 2;
+                    const sx = unlockData.fruitX + Math.cos(angle) * 20;
+                    const sy = unlockData.fruitY + Math.sin(angle) * 20;
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Check collision
+                if (dist(unlockData.knifeX, unlockData.knifeY, unlockData.fruitX, unlockData.fruitY) < 60) {
+                    unlockData.cut = true;
+                }
+            } else {
+                // Cut animation
+                unlockData.cutAnim += 0.1;
+
+                const offset = unlockData.cutAnim * 50;
+
+                // Left half
+                ctx.save();
+                ctx.translate(unlockData.fruitX - offset, unlockData.fruitY);
+                ctx.fillStyle = '#4caf50';
+                ctx.beginPath();
+                ctx.arc(0, 0, 50, -Math.PI / 2, Math.PI / 2);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+
+                // Right half
+                ctx.save();
+                ctx.translate(unlockData.fruitX + offset, unlockData.fruitY);
+                ctx.fillStyle = '#4caf50';
+                ctx.beginPath();
+                ctx.arc(0, 0, 50, Math.PI / 2, -Math.PI / 2);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+
+                if (unlockData.cutAnim > 2) {
+                    unlockStates[currentUnlockIndex] = true;
+                    sceneState = 'lobby';
+                }
+            }
+
+            drawBackButton();
+        }
+
+        // UNLOCK 3: Slide (Door)
+        function drawUnlockSlide() {
+            ctx.fillStyle = '#0a0e27';
+            ctx.fillRect(0, 0, W, H);
+            drawStars();
+
+            ctx.fillStyle = '#2196f3';
+            ctx.font = 'bold 36px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('🚪 SLIDE TO UNLOCK', W / 2, 100);
+
+            ctx.fillStyle = '#fff';
+            ctx.font = '18px Arial';
+            ctx.fillText('Drag the slider all the way to the right', W / 2, 140);
+
+            // Slider track
+            const trackX = W / 2 - 200;
+            const trackY = H / 2 - 15;
+            const trackW = 400;
+            const trackH = 30;
+
+            ctx.fillStyle = '#333';
+            roundRect(ctx, trackX, trackY, trackW, trackH, 15);
+            ctx.fill();
+
+            // Slider handle
+            const handleW = 60;
+            const handleX = trackX + unlockData.sliderPos * (trackW - handleW);
+
+            if (unlockData.dragging) {
+                const newPos = (mouseX - trackX - handleW / 2) / (trackW - handleW);
+                unlockData.sliderPos = Math.max(0, Math.min(1, newPos));
+            }
+
+            ctx.save();
+            ctx.shadowColor = '#2196f3';
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = '#2196f3';
+            roundRect(ctx, handleX, trackY - 5, handleW, trackH + 10, 15);
+            ctx.fill();
+            ctx.restore();
+
+            // Arrow
+            ctx.fillStyle = '#fff';
+            ctx.font = '24px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('→', handleX + handleW / 2, trackY + trackH / 2 + 8);
+
+            // Check unlock
+            if (unlockData.sliderPos >= 0.99) {
+                unlockData.doorAnim += 0.05;
+
+                if (unlockData.doorAnim >= 1) {
+                    unlockStates[currentUnlockIndex] = true;
+                    sceneState = 'lobby';
+                }
+            }
+
+            // Door animation
+            if (unlockData.doorAnim > 0) {
+                const doorW = W * 0.5;
+                const doorH = H;
+                const openDist = doorW * easeOutQuad(unlockData.doorAnim);
+
+                ctx.fillStyle = '#1a1a2e';
+                ctx.fillRect(0, 0, doorW - openDist, doorH);
+                ctx.fillRect(W / 2 + openDist, 0, doorW, doorH);
+            }
+
+            drawBackButton();
+        }
+
+        // UNLOCK 4: Password (Memory)
+        function drawUnlockPassword() {
+            ctx.fillStyle = '#0a0e27';
+            ctx.fillRect(0, 0, W, H);
+            drawStars();
+
+            ctx.fillStyle = '#9c27b0';
+            ctx.font = 'bold 36px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('📖 PASSWORD UNLOCK', W / 2, 100);
+
+            ctx.fillStyle = '#fff';
+            ctx.font = '18px Arial';
+            ctx.fillText('Enter the password: MEMORY', W / 2, 140);
+
+            // Input box
+            const boxX = W / 2 - 150;
+            const boxY = H / 2 - 30;
+            const boxW = 300;
+            const boxH = 60;
+
+            ctx.save();
+            ctx.shadowColor = '#9c27b0';
+            ctx.shadowBlur = 15;
+            ctx.strokeStyle = '#9c27b0';
+            ctx.lineWidth = 3;
+            roundRect(ctx, boxX, boxY, boxW, boxH, 10);
+            ctx.stroke();
+            ctx.restore();
+
+            // Input text
+            ctx.fillStyle = '#fff';
+            ctx.font = '28px monospace';
+            ctx.textAlign = 'left';
+            ctx.fillText(unlockData.input, boxX + 20, boxY + 40);
+
+            // Cursor
+            unlockData.cursorBlink += 0.1;
+            if (Math.floor(unlockData.cursorBlink) % 2 === 0) {
+                const textWidth = ctx.measureText(unlockData.input).width;
+                ctx.fillRect(boxX + 20 + textWidth, boxY + 15, 2, 30);
+            }
+
+            // Check password
+            if (unlockData.input.toUpperCase() === 'MEMORY') {
+                setTimeout(() => {
+                    unlockStates[currentUnlockIndex] = true;
+                    sceneState = 'lobby';
+                }, 500);
+            }
+
+            drawBackButton();
+        }
+
+        // UNLOCK 5: Rotate (Planet)
+        function drawUnlockRotate() {
+            ctx.fillStyle = '#0a0e27';
+            ctx.fillRect(0, 0, W, H);
+            drawStars();
+
+            ctx.fillStyle = '#ff5722';
+            ctx.font = 'bold 36px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('🚀 ROTATE TO UNLOCK', W / 2, 100);
+
+            ctx.fillStyle = '#fff';
+            ctx.font = '18px Arial';
+            const progress = Math.min((unlockData.totalRotation / (Math.PI * 2)) * 100, 100);
+            ctx.fillText(`Rotate the planet 360° (${Math.floor(progress)}%)`, W / 2, 140);
+
+            // Planet
+            const planetR = 80;
+
+            if (unlockData.dragging) {
+                const angle = Math.atan2(mouseY - unlockData.planetY, mouseX - unlockData.planetX);
+                let deltaAngle = angle - unlockData.lastAngle;
+
+                // Handle angle wrapping
+                if (deltaAngle > Math.PI) deltaAngle -= Math.PI * 2;
+                if (deltaAngle < -Math.PI) deltaAngle += Math.PI * 2;
+
+                unlockData.totalRotation += Math.abs(deltaAngle);
+                unlockData.rotation = angle;
+                unlockData.lastAngle = angle;
+            }
+
+            // Draw planet
+            ctx.save();
+            ctx.translate(unlockData.planetX, unlockData.planetY);
+
+            // Planet body
+            ctx.fillStyle = '#ff5722';
+            ctx.beginPath();
+            ctx.arc(0, 0, planetR, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Rotation indicator (marker)
+            ctx.save();
+            ctx.rotate(unlockData.rotation);
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(planetR * 0.6, 0, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            // Progress ring
+            ctx.strokeStyle = '#4caf50';
+            ctx.lineWidth = 5;
+            ctx.beginPath();
+            ctx.arc(0, 0, planetR + 20, -Math.PI / 2, -Math.PI / 2 + unlockData.totalRotation);
+            ctx.stroke();
+
+            ctx.restore();
+
+            // Check unlock
+            if (unlockData.totalRotation >= Math.PI * 2) {
+                setTimeout(() => {
+                    unlockStates[currentUnlockIndex] = true;
+                    sceneState = 'lobby';
+                }, 500);
+            }
+
+            drawBackButton();
+        }
+
+        function drawBackButton() {
+            const btnX = 20;
+            const btnY = H - 60;
+            const btnW = 100;
+            const btnH = 40;
+
+            const isHovering = pointInRect(mouseX, mouseY, btnX, btnY, btnW, btnH);
+
+            ctx.fillStyle = isHovering ? '#555' : '#333';
+            roundRect(ctx, btnX, btnY, btnW, btnH, 5);
+            ctx.fill();
+
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = '#fff';
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('← Back', btnX + btnW / 2, btnY + 25);
+
+            if (isHovering && mouseJustPressed) {
+                sceneState = 'lobby';
+            }
+        }
+
+        // ==================== GAMES ====================
+
+        let gameData = {};
+
+        function initGame(index) {
+            switch(index) {
+                case 0: // Lightning Reaction
+                    gameData = {
+                        timeLeft: 30,
+                        score: 0,
+                        buttons: [],
+                        nextSpawn: 0,
+                        activeButton: -1,
+                        difficulty: 1
+                    };
+                    for (let i = 0; i < 6; i++) {
+                        gameData.buttons.push({
+                            x: 200 + (i % 3) * 280,
+                            y: 250 + Math.floor(i / 3) * 200,
+                            size: 100,
+                            active: false
+                        });
+                    }
+                    break;
+
+                case 1: // Fruit Slicing
+                    gameData = {
+                        timeLeft: 45,
+                        score: 0,
+                        fruits: [],
+                        particles: [],
+                        nextSpawn: 0
+                    };
+                    break;
+
+                case 2: // Maze
+                    gameData = {
+                        playerX: 1,
+                        playerY: 1,
+                        enemies: [
+                            { x: 15, y: 1, dir: 0 },
+                            { x: 1, y: 9, dir: 1 },
+                            { x: 15, y: 9, dir: 2 }
+                        ],
+                        gameOver: false,
+                        won: false
+                    };
+                    break;
+
+                case 3: // Memory Cards
+                    gameData = {
+                        cards: [],
+                        flipped: [],
+                        matched: [],
+                        moves: 0,
+                        canFlip: true
+                    };
+                    const colors = ['#f44336', '#2196f3', '#4caf50', '#ffeb3b', '#9c27b0', '#ff9800', '#00bcd4', '#e91e63'];
+                    const pairs = [...colors, ...colors];
+                    pairs.sort(() => Math.random() - 0.5);
+                    for (let i = 0; i < 16; i++) {
+                        gameData.cards.push({
+                            x: 350 + (i % 4) * 120,
+                            y: 200 + Math.floor(i / 4) * 120,
+                            color: pairs[i],
+                            index: i
+                        });
+                    }
+                    break;
+
+                case 4: // Space Dodge
+                    gameData = {
+                        shipX: W / 2,
+                        shipY: H - 100,
+                        meteors: [],
+                        score: 0,
+                        lives: 3,
+                        nextSpawn: 0,
+                        difficulty: 1,
+                        gameOver: false
+                    };
+                    break;
+            }
+        }
+
+        // GAME 1: Lightning Reaction
+        function drawGame0() {
+            ctx.fillStyle = '#0a0e27';
+            ctx.fillRect(0, 0, W, H);
+            drawStars();
+
+            // Update timer
+            gameData.timeLeft -= 1 / 60;
+
+            // UI
+            ctx.fillStyle = '#ffeb3b';
+            ctx.font = 'bold 32px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText('⚡ Lightning Reaction', 50, 60);
+
+            ctx.textAlign = 'right';
+            ctx.fillText(`Time: ${Math.ceil(gameData.timeLeft)}s`, W - 50, 60);
+            ctx.fillText(`Score: ${gameData.score}`, W - 50, 100);
+
+            // Spawn buttons
+            gameData.nextSpawn -= 1 / 60;
+            if (gameData.nextSpawn <= 0 && gameData.activeButton === -1) {
+                gameData.activeButton = Math.floor(Math.random() * 6);
+                gameData.nextSpawn = Math.max(0.5, 2 - gameData.difficulty * 0.2);
+            }
+
+            // Draw buttons
+            gameData.buttons.forEach((btn, i) => {
+                const active = i === gameData.activeButton;
+
+                ctx.save();
+                if (active) {
+                    ctx.shadowColor = '#ffeb3b';
+                    ctx.shadowBlur = 30;
+                }
+                ctx.fillStyle = active ? '#ffeb3b' : '#333';
+                roundRect(ctx, btn.x - btn.size / 2, btn.y - btn.size / 2, btn.size, btn.size, 10);
+                ctx.fill();
+                ctx.restore();
+
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                if (active) {
+                    ctx.fillStyle = '#000';
+                    ctx.font = 'bold 24px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('CLICK!', btn.x, btn.y + 8);
+                }
+
+                // Check click
+                if (active && mouseJustPressed && pointInRect(mouseX, mouseY, btn.x - btn.size / 2, btn.y - btn.size / 2, btn.size, btn.size)) {
+                    gameData.score += Math.floor(10 * gameData.difficulty);
+                    gameData.activeButton = -1;
+                    gameData.difficulty = Math.min(gameData.difficulty + 0.1, 3);
+                }
+            });
+
+            // Game over
+            if (gameData.timeLeft <= 0) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                ctx.fillRect(0, 0, W, H);
+
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 48px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Game Over!', W / 2, H / 2 - 50);
+                ctx.font = '32px Arial';
+                ctx.fillText(`Final Score: ${gameData.score}`, W / 2, H / 2 + 20);
+            }
+
+            drawBackButton();
+        }
+
+        // GAME 2: Fruit Slicing
+        function drawGame1() {
+            ctx.fillStyle = '#0a0e27';
+            ctx.fillRect(0, 0, W, H);
+            drawStars();
+
+            gameData.timeLeft -= 1 / 60;
+
+            // UI
+            ctx.fillStyle = '#4caf50';
+            ctx.font = 'bold 32px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText('🍉 Fruit Slicer', 50, 60);
+
+            ctx.textAlign = 'right';
+            ctx.fillText(`Time: ${Math.ceil(gameData.timeLeft)}s`, W - 50, 60);
+            ctx.fillText(`Score: ${gameData.score}`, W - 50, 100);
+
+            // Spawn fruits
+            gameData.nextSpawn -= 1 / 60;
+            if (gameData.nextSpawn <= 0) {
+                const isBomb = Math.random() < 0.2;
+                gameData.fruits.push({
+                    x: Math.random() * (W - 200) + 100,
+                    y: H + 50,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: -15 - Math.random() * 5,
+                    isBomb: isBomb,
+                    size: 40,
+                    sliced: false
+                });
+                gameData.nextSpawn = 1 + Math.random();
+            }
+
+            // Update fruits
+            gameData.fruits.forEach((fruit, i) => {
+                fruit.vy += 0.5; // gravity
+                fruit.x += fruit.vx;
+                fruit.y += fruit.vy;
+
+                // Draw
+                if (!fruit.sliced) {
+                    ctx.fillStyle = fruit.isBomb ? '#f44336' : '#4caf50';
+                    ctx.beginPath();
+                    ctx.arc(fruit.x, fruit.y, fruit.size, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    if (fruit.isBomb) {
+                        ctx.fillStyle = '#fff';
+                        ctx.font = '24px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('💣', fruit.x, fruit.y + 8);
+                    }
+                }
+
+                // Check mouse drag slicing
+                if (mouseDown && dist(mouseX, mouseY, fruit.x, fruit.y) < fruit.size && !fruit.sliced) {
+                    fruit.sliced = true;
+                    if (fruit.isBomb) {
+                        gameData.score -= 10;
+                    } else {
+                        gameData.score += 5;
+                    }
+
+                    // Create particles
+                    for (let j = 0; j < 10; j++) {
+                        gameData.particles.push({
+                            x: fruit.x,
+                            y: fruit.y,
+                            vx: (Math.random() - 0.5) * 6,
+                            vy: (Math.random() - 0.5) * 6,
+                            life: 1,
+                            color: fruit.isBomb ? '#f44336' : '#4caf50'
+                        });
+                    }
+                }
+            });
+
+            // Remove off-screen fruits
+            gameData.fruits = gameData.fruits.filter(f => f.y < H + 100);
+
+            // Update particles
+            gameData.particles.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.02;
+
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x, p.y, 5, 5);
+                ctx.globalAlpha = 1;
+            });
+
+            gameData.particles = gameData.particles.filter(p => p.life > 0);
+
+            // Game over
+            if (gameData.timeLeft <= 0) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                ctx.fillRect(0, 0, W, H);
+
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 48px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Game Over!', W / 2, H / 2 - 50);
+                ctx.font = '32px Arial';
+                ctx.fillText(`Final Score: ${gameData.score}`, W / 2, H / 2 + 20);
+            }
+
+            drawBackButton();
+        }
+
+        // GAME 3: Maze (simplified version)
+        function drawGame2() {
+            ctx.fillStyle = '#0a0e27';
+            ctx.fillRect(0, 0, W, H);
+
+            ctx.fillStyle = '#2196f3';
+            ctx.font = 'bold 32px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText('🏃 Maze Challenge', 50, 60);
+
+            // Simple maze (17x11)
+            const maze = [
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
+                [1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1],
+                [1,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+                [1,0,1,0,1,1,1,1,1,1,1,1,1,0,1,0,1],
+                [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                [1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1],
+                [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
+                [1,0,1,0,1,1,1,1,1,1,1,1,1,0,1,0,1],
+                [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,1],
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+            ];
+
+            const cellSize = 50;
+            const offsetX = 150;
+            const offsetY = 100;
+
+            // Draw maze
+            for (let y = 0; y < maze.length; y++) {
+                for (let x = 0; x < maze[y].length; x++) {
+                    if (maze[y][x] === 1) {
+                        ctx.fillStyle = '#333';
+                    } else if (maze[y][x] === 2) {
+                        ctx.fillStyle = '#4caf50';
+                    } else {
+                        ctx.fillStyle = '#111';
+                    }
+                    ctx.fillRect(offsetX + x * cellSize, offsetY + y * cellSize, cellSize, cellSize);
+                }
+            }
+
+            // Player
+            ctx.fillStyle = '#2196f3';
+            ctx.beginPath();
+            ctx.arc(offsetX + gameData.playerX * cellSize + cellSize / 2, offsetY + gameData.playerY * cellSize + cellSize / 2, 15, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Enemies (simple patrol)
+            gameData.enemies.forEach(enemy => {
+                ctx.fillStyle = '#f44336';
+                ctx.beginPath();
+                ctx.arc(offsetX + enemy.x * cellSize + cellSize / 2, offsetY + enemy.y * cellSize + cellSize / 2, 12, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Simple movement
+                if (Math.random() < 0.02) {
+                    const directions = [[0,-1], [1,0], [0,1], [-1,0]];
+                    const dir = directions[Math.floor(Math.random() * 4)];
+                    const newX = enemy.x + dir[0];
+                    const newY = enemy.y + dir[1];
+                    if (maze[newY] && maze[newY][newX] === 0) {
+                        enemy.x = newX;
+                        enemy.y = newY;
+                    }
+                }
+
+                // Check collision with player
+                if (enemy.x === gameData.playerX && enemy.y === gameData.playerY) {
+                    gameData.gameOver = true;
+                }
+            });
+
+            // Check win
+            if (maze[gameData.playerY][gameData.playerX] === 2) {
+                gameData.won = true;
+            }
+
+            // Game over / win screen
+            if (gameData.gameOver || gameData.won) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                ctx.fillRect(0, 0, W, H);
+
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 48px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(gameData.won ? 'You Win! 🏁' : 'Game Over!', W / 2, H / 2);
+            }
+
+            // Instructions
+            ctx.fillStyle = '#fff';
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText('Use arrow keys to move', 50, H - 80);
+            ctx.fillText('Reach the green exit 🏁', 50, H - 60);
+
+            drawBackButton();
+        }
+
+        // GAME 4: Memory Cards
+        function drawGame3() {
+            ctx.fillStyle = '#0a0e27';
+            ctx.fillRect(0, 0, W, H);
+            drawStars();
+
+            ctx.fillStyle = '#9c27b0';
+            ctx.font = 'bold 32px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText('🧠 Memory Match', 50, 60);
+
+            ctx.textAlign = 'right';
+            ctx.fillText(`Moves: ${gameData.moves}`, W - 50, 60);
+
+            // Draw cards
+            gameData.cards.forEach(card => {
+                const flipped = gameData.flipped.includes(card.index) || gameData.matched.includes(card.index);
+
+                ctx.fillStyle = flipped ? card.color : '#444';
+                roundRect(ctx, card.x - 50, card.y - 50, 100, 100, 10);
+                ctx.fill();
+
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Click handling
+                if (mouseJustPressed && pointInRect(mouseX, mouseY, card.x - 50, card.y - 50, 100, 100) &&
+                    gameData.canFlip && !gameData.matched.includes(card.index) && !gameData.flipped.includes(card.index)) {
+
+                    gameData.flipped.push(card.index);
+
+                    if (gameData.flipped.length === 2) {
+                        gameData.canFlip = false;
+                        gameData.moves++;
+
+                        const card1 = gameData.cards[gameData.flipped[0]];
+                        const card2 = gameData.cards[gameData.flipped[1]];
+
+                        setTimeout(() => {
+                            if (card1.color === card2.color) {
+                                gameData.matched.push(gameData.flipped[0], gameData.flipped[1]);
+                            }
+                            gameData.flipped = [];
+                            gameData.canFlip = true;
+                        }, 800);
+                    }
+                }
+            });
+
+            // Win condition
+            if (gameData.matched.length === 16) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                ctx.fillRect(0, 0, W, H);
+
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 48px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('You Win!', W / 2, H / 2 - 50);
+
+                const stars = gameData.moves <= 20 ? '⭐⭐⭐' : gameData.moves <= 30 ? '⭐⭐' : '⭐';
+                ctx.font = '32px Arial';
+                ctx.fillText(`${stars} Moves: ${gameData.moves}`, W / 2, H / 2 + 20);
+            }
+
+            drawBackButton();
+        }
+
+        // GAME 5: Space Dodge
+        function drawGame4() {
+            ctx.fillStyle = '#0a0e27';
+            ctx.fillRect(0, 0, W, H);
+            drawStars();
+
+            ctx.fillStyle = '#ff5722';
+            ctx.font = 'bold 32px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText('🚀 Space Dodge', 50, 60);
+
+            ctx.textAlign = 'right';
+            ctx.fillText(`Score: ${gameData.score}`, W - 50, 60);
+            ctx.fillText(`Lives: ${'❤️'.repeat(gameData.lives)}`, W - 50, 100);
+
+            // Ship control
+            if (keysPressed['ArrowLeft'] || keysPressed['a']) {
+                gameData.shipX = Math.max(50, gameData.shipX - 5);
+            }
+            if (keysPressed['ArrowRight'] || keysPressed['d']) {
+                gameData.shipX = Math.min(W - 50, gameData.shipX + 5);
+            }
+
+            // Draw ship
+            ctx.save();
+            ctx.translate(gameData.shipX, gameData.shipY);
+            ctx.fillStyle = '#2196f3';
+            ctx.beginPath();
+            ctx.moveTo(0, -20);
+            ctx.lineTo(-15, 20);
+            ctx.lineTo(15, 20);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+
+            // Spawn meteors
+            gameData.nextSpawn -= 1 / 60;
+            if (gameData.nextSpawn <= 0) {
+                gameData.meteors.push({
+                    x: Math.random() * W,
+                    y: -50,
+                    speed: 3 + gameData.difficulty,
+                    size: 30 + Math.random() * 20
+                });
+                gameData.nextSpawn = Math.max(0.3, 1 - gameData.difficulty * 0.1);
+                gameData.difficulty += 0.01;
+            }
+
+            // Update meteors
+            gameData.meteors.forEach((meteor, i) => {
+                meteor.y += meteor.speed;
+
+                ctx.fillStyle = '#8d6e63';
+                ctx.beginPath();
+                ctx.arc(meteor.x, meteor.y, meteor.size, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Collision with ship
+                if (dist(meteor.x, meteor.y, gameData.shipX, gameData.shipY) < meteor.size + 15) {
+                    gameData.lives--;
+                    gameData.meteors.splice(i, 1);
+                    if (gameData.lives <= 0) {
+                        gameData.gameOver = true;
+                    }
+                }
+
+                // Score for dodging
+                if (meteor.y > H) {
+                    gameData.score += 10;
+                    gameData.meteors.splice(i, 1);
+                }
+            });
+
+            // Game over
+            if (gameData.gameOver) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                ctx.fillRect(0, 0, W, H);
+
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 48px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Game Over!', W / 2, H / 2 - 50);
+                ctx.font = '32px Arial';
+                ctx.fillText(`Final Score: ${gameData.score}`, W / 2, H / 2 + 20);
+            }
+
+            ctx.fillStyle = '#fff';
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText('Use ← → or A D to move', 50, H - 60);
+
+            drawBackButton();
+        }
+
+        // ==================== MAIN LOOP ====================
+
+        function draw() {
+            if (sceneState === 'lobby') {
+                drawLobby();
+            } else if (sceneState.startsWith('unlock_')) {
+                const index = parseInt(sceneState.split('_')[1]);
+                const type = gameIcons[index].unlockType;
+
+                switch(type) {
+                    case 'charge': drawUnlockCharge(); break;
+                    case 'drag': drawUnlockDrag(); break;
+                    case 'slide': drawUnlockSlide(); break;
+                    case 'password': drawUnlockPassword(); break;
+                    case 'rotate': drawUnlockRotate(); break;
+                }
+            } else if (sceneState.startsWith('game_')) {
+                const index = parseInt(sceneState.split('_')[1]);
+                switch(index) {
+                    case 0: drawGame0(); break;
+                    case 1: drawGame1(); break;
+                    case 2: drawGame2(); break;
+                    case 3: drawGame3(); break;
+                    case 4: drawGame4(); break;
+                }
+            }
+
+            mouseJustPressed = false;
+            requestAnimationFrame(draw);
+        }
+
+        // ==================== EVENT LISTENERS ====================
+
+        canvas.addEventListener('mousemove', e => {
+            const rect = canvas.getBoundingClientRect();
+            mouseX = e.clientX - rect.left;
+            mouseY = e.clientY - rect.top;
+        });
+
+        canvas.addEventListener('mousedown', e => {
+            const rect = canvas.getBoundingClientRect();
+            mouseX = e.clientX - rect.left;
+            mouseY = e.clientY - rect.top;
+            mouseDown = true;
+            mouseJustPressed = true;
+
+            if (sceneState === 'lobby') {
+                handleLobbyClick();
+            } else if (sceneState.startsWith('unlock_')) {
+                const index = parseInt(sceneState.split('_')[1]);
+                const type = gameIcons[index].unlockType;
+
+                // Handle drag unlocks
+                if (type === 'drag') {
+                    if (pointInCircle(mouseX, mouseY, unlockData.knifeX, unlockData.knifeY, 30)) {
+                        unlockData.dragging = true;
+                    }
+                } else if (type === 'slide') {
+                    const trackX = W / 2 - 200;
+                    const trackY = H / 2 - 15;
+                    const trackW = 400;
+                    const trackH = 30;
+                    const handleW = 60;
+                    const handleX = trackX + unlockData.sliderPos * (trackW - handleW);
+
+                    if (pointInRect(mouseX, mouseY, handleX, trackY - 5, handleW, trackH + 10)) {
+                        unlockData.dragging = true;
+                    }
+                } else if (type === 'rotate') {
+                    if (pointInCircle(mouseX, mouseY, unlockData.planetX, unlockData.planetY, 80)) {
+                        unlockData.dragging = true;
+                        unlockData.lastAngle = Math.atan2(mouseY - unlockData.planetY, mouseX - unlockData.planetX);
+                    }
+                }
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            mouseDown = false;
+
+            if (sceneState.startsWith('unlock_')) {
+                const index = parseInt(sceneState.split('_')[1]);
+                const type = gameIcons[index].unlockType;
+
+                if (type === 'drag') {
+                    unlockData.dragging = false;
+                } else if (type === 'slide') {
+                    unlockData.dragging = false;
+                } else if (type === 'rotate') {
+                    unlockData.dragging = false;
+                }
+            }
+        });
+
+        window.addEventListener('keydown', e => {
+            keysPressed[e.key] = true;
+
+            if (sceneState.startsWith('unlock_')) {
+                const index = parseInt(sceneState.split('_')[1]);
+                const type = gameIcons[index].unlockType;
+
+                if (type === 'password') {
+                    if (e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
+                        unlockData.input += e.key.toUpperCase();
+                    } else if (e.key === 'Backspace') {
+                        unlockData.input = unlockData.input.slice(0, -1);
+                    }
+                }
+            } else if (sceneState === 'game_2') {
+                // Maze movement
+                const maze = [
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
+                    [1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1],
+                    [1,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+                    [1,0,1,0,1,1,1,1,1,1,1,1,1,0,1,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1],
+                    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
+                    [1,0,1,0,1,1,1,1,1,1,1,1,1,0,1,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,1],
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+                ];
+
+                let newX = gameData.playerX;
+                let newY = gameData.playerY;
+
+                if (e.key === 'ArrowUp' || e.key === 'w') newY--;
+                if (e.key === 'ArrowDown' || e.key === 's') newY++;
+                if (e.key === 'ArrowLeft' || e.key === 'a') newX--;
+                if (e.key === 'ArrowRight' || e.key === 'd') newX++;
+
+                if (maze[newY] && (maze[newY][newX] === 0 || maze[newY][newX] === 2)) {
+                    gameData.playerX = newX;
+                    gameData.playerY = newY;
+                }
+            }
+        });
+
+        window.addEventListener('keyup', e => {
+            keysPressed[e.key] = false;
+        });
+
+        // Start the game loop
+        draw();
+    </script>
+</body>
+</html>
