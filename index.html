@@ -3848,12 +3848,9 @@
                             console.log('Switched to monitor view');
                         }
                     }
-                } else if (viewMode === 'monitor') {
-                    // Click anywhere in monitor view to return to corridor view
-                    // 在监视器视角中点击任何地方返回走廊视角
-                    viewMode = 'corridor';
-                    console.log('Returned to corridor view');
                 }
+                // Note: In monitor view, use ESC key to return to corridor (handled in keydown event)
+                // 注意：在监视器视角中，使用ESC键返回走廊（在keydown事件中处理）
                 // Future: add computer interaction when player is at the end
                 // 未来：当玩家到达尽头时添加电脑交互
             }
