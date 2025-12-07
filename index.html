@@ -1670,8 +1670,8 @@
             // 绘制地板纹理 Draw floor texture (plush gaming rug)
             drawFloorTexture(frontLeftX, frontRightX, backLeftX, backRightX, frontFloorY, backFloorY);
 
-            // 绘制毛绒地毯纤维覆盖层 Draw plush rug fuzz overlay (fiber texture on top)
-            drawRugFuzzOverlay(ctx, frontLeftX, frontRightX, backLeftX, backRightX, frontFloorY, backFloorY);
+            // 绘制柔软毛绒地毯覆盖层 Draw soft plush rug overlay (subtle fuzzy texture)
+            drawRugSoftPlushOverlay(ctx, frontLeftX, frontRightX, backLeftX, backRightX, frontFloorY, backFloorY);
 
             // 绘制科技模拟时钟 Draw large analog clock above monitor
             drawTechAnalogClock(backLeftX, backRightX, backCeilingY, backFloorY);
@@ -1957,13 +1957,18 @@
         // ========== Plush Rug Fuzz Overlay ==========
         // Adds fiber texture and vignette on top of the floor texture to simulate a plush gaming rug
         // 在地板纹理上添加纤维纹理和渐变，模拟毛绒游戏地毯
-        function drawRugFuzzOverlay(ctx, frontLeftX, frontRightX, backLeftX, backRightX, frontFloorY, backFloorY) {
+        function drawRugSoftPlushOverlay(
+            ctx,
+            frontLeftX, frontRightX,
+            backLeftX, backRightX,
+            frontFloorY, backFloorY
+        ) {
             const BL = { x: backLeftX,   y: backFloorY };
             const BR = { x: backRightX,  y: backFloorY };
             const FL = { x: frontLeftX,  y: frontFloorY };
             const FR = { x: frontRightX, y: frontFloorY };
 
-            // Clip to the rug area (same as the floor trapezoid)
+            // Clip exactly to the rug trapezoid so nothing spills outside
             ctx.save();
             ctx.beginPath();
             ctx.moveTo(FL.x, FL.y);
@@ -1974,77 +1979,77 @@
             ctx.clip();
 
             // -----------------------------------
-            // 1) Soft vignette to remove glossiness
+            // 1) VERY SOFT vignette (almost invisible)
             // -----------------------------------
+            // Just slightly darken the far edge and sides to remove the "glossy" feel,
+            // but keep the image bright overall.
+            const height = frontFloorY - backFloorY;
             const grad = ctx.createLinearGradient(0, backFloorY, 0, frontFloorY);
-            grad.addColorStop(0.0, "rgba(0, 0, 0, 0.45)");
-            grad.addColorStop(0.5, "rgba(0, 0, 0, 0.20)");
-            grad.addColorStop(1.0, "rgba(0, 0, 0, 0.10)");
+            grad.addColorStop(0.0, "rgba(0, 0, 0, 0.20)"); // far end a bit darker
+            grad.addColorStop(0.4, "rgba(0, 0, 0, 0.08)");
+            grad.addColorStop(1.0, "rgba(0, 0, 0, 0.03)");
 
             ctx.fillStyle = grad;
-            ctx.fillRect(BL.x - 5, backFloorY - 5, BR.x - BL.x + 10, frontFloorY - backFloorY + 10);
+            ctx.globalAlpha = 1.0;
+            ctx.fillRect(
+                BL.x - 5,
+                backFloorY - 5,
+                BR.x - BL.x + 10,
+                height + 10
+            );
 
             // -----------------------------------
-            // 2) Fine "fiber" noise strokes
+            // 2) fine "fiber" noise for plush feeling
             // -----------------------------------
-            const widthFront = FR.x - FL.x;
-            const height = frontFloorY - backFloorY;
-
-            const fibers = 2500; // number of tiny strokes
-
-            ctx.globalAlpha = 0.28;
-            ctx.strokeStyle = "rgba(255, 255, 255, 0.22)";
-            ctx.lineWidth = 1;
+            const fibers = 1200; // fewer strokes than before
+            ctx.globalAlpha = 0.18;
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.40)";
+            ctx.lineWidth   = 0.8;
+            ctx.lineCap     = "round";
 
             for (let i = 0; i < fibers; i++) {
-                // random depth 0..1 (back->front)
-                const t = Math.random();
+                const t = Math.random(); // depth 0..1
                 const y = backFloorY + height * t;
 
-                // interpolate left/right x at this depth
-                const leftX = BL.x + (FL.x - BL.x) * t;
+                const leftX  = BL.x + (FL.x - BL.x) * t;
                 const rightX = BR.x + (FR.x - BR.x) * t;
-                const span = rightX - leftX;
+                const span   = rightX - leftX;
 
-                const x = leftX + Math.random() * span;
-
-                // small short stroke, mostly along X with a tiny Y jitter
-                const len = (0.008 + Math.random() * 0.015) * span;
-                const dy = (Math.random() - 0.5) * 2.0;
+                const x  = leftX + Math.random() * span;
+                const len = span * (0.004 + Math.random() * 0.010);
 
                 ctx.beginPath();
-                ctx.moveTo(x, y + dy);
-                ctx.lineTo(x + len, y + dy * 0.3);
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + len, y);
                 ctx.stroke();
             }
 
-            // darker random fibers in the opposite direction to break uniformity
-            ctx.globalAlpha = 0.20;
-            ctx.strokeStyle = "rgba(0, 0, 0, 0.50)";
+            // darker fibers (very subtle) to break uniformity
+            ctx.globalAlpha = 0.10;
+            ctx.strokeStyle = "rgba(0, 0, 0, 0.55)";
             for (let i = 0; i < fibers * 0.4; i++) {
                 const t = Math.random();
                 const y = backFloorY + height * t;
 
-                const leftX = BL.x + (FL.x - BL.x) * t;
+                const leftX  = BL.x + (FL.x - BL.x) * t;
                 const rightX = BR.x + (FR.x - BR.x) * t;
-                const span = rightX - leftX;
+                const span   = rightX - leftX;
 
-                const x = leftX + Math.random() * span;
-
-                const len = (0.006 + Math.random() * 0.012) * span;
+                const x  = leftX + Math.random() * span;
+                const len = span * (0.003 + Math.random() * 0.008);
 
                 ctx.beginPath();
                 ctx.moveTo(x, y);
-                ctx.lineTo(x + len * 0.3, y + len * 0.4);
+                ctx.lineTo(x + len * 0.6, y + 0.5);
                 ctx.stroke();
             }
 
             ctx.restore();
 
-            // subtle outline to separate rug from the dark floor
+            // thin outline so the rug reads as an object on the floor
             ctx.save();
-            ctx.strokeStyle = "rgba(190, 220, 255, 0.35)";
-            ctx.lineWidth = 1;
+            ctx.strokeStyle = "rgba(200, 230, 255, 0.35)";
+            ctx.lineWidth   = 1;
             ctx.beginPath();
             ctx.moveTo(FL.x, FL.y);
             ctx.lineTo(FR.x, FR.y);
@@ -3580,36 +3585,36 @@
         }
 
         // ========== Monitor Back Button (HUD) ==========
-        // Unified back button for monitor view (bottom-left corner)
-        // 显示器视角的统一返回按钮（左下角）
+        // Unified back button for monitor view (top-left corner)
+        // 显示器视角的统一返回按钮（左上角）
         function drawMonitorBackButton(ctx) {
+            const s = monitorScreen;      // inner monitor screen rect
             const btn = monitorBackButton;
-            btn.y = H - btn.h - 24; // 24px from bottom
+
+            // TOP-LEFT corner, with a small margin inside the screen
+            btn.x = s.x + 16;
+            btn.y = s.y + 16;
+            btn.w = 130;
+            btn.h = 40;
 
             ctx.save();
-            ctx.fillStyle = "rgba(15, 22, 40, 0.92)";
+            ctx.fillStyle   = "rgba(15, 22, 40, 0.92)";
             ctx.strokeStyle = "rgba(120, 180, 255, 0.9)";
-            ctx.lineWidth = 2;
+            ctx.lineWidth   = 2;
             ctx.beginPath();
-            // Use roundRect if available, otherwise draw regular rect
-            if (ctx.roundRect) {
-                ctx.roundRect(btn.x, btn.y, btn.w, btn.h, 10);
-            } else {
-                ctx.rect(btn.x, btn.y, btn.w, btn.h);
-            }
+            ctx.roundRect(btn.x, btn.y, btn.w, btn.h, 10);
             ctx.fill();
             ctx.stroke();
 
-            ctx.fillStyle = "white";
-            ctx.font = "15px sans-serif";
-            ctx.textAlign = "center";
+            ctx.fillStyle    = "white";
+            ctx.font         = "15px sans-serif";
+            ctx.textAlign    = "center";
             ctx.textBaseline = "middle";
 
-            // Button label depends on monitorState
-            // menu -> goes back to corridor
-            // game -> goes back to menu
+            // Different labels for menu vs game
             const label = (monitorState === "menu") ? "Back to Room" : "Back to Games";
             ctx.fillText(label, btn.x + btn.w / 2, btn.y + btn.h / 2);
+
             ctx.restore();
         }
 
@@ -3619,7 +3624,7 @@
             ctx.fillStyle = "#050716";
             ctx.fillRect(0, 0, W, H);
 
-            // Monitor frame (centered, large) - same as before integration
+            // Monitor frame (centered, large)
             const frameW = W * 0.8;
             const frameH = H * 0.7;
             const frameX = (W - frameW) / 2;
@@ -3634,26 +3639,40 @@
             ctx.lineWidth = border;
             ctx.strokeRect(frameX, frameY, frameW, frameH);
 
-            // Define and update monitor screen rectangle for clipping
-            // 定义并更新显示器屏幕矩形用于裁剪
+            // Define and update monitor screen rectangle (inner blue screen area)
             const padding = 15;
-            monitorScreen.x = frameX + padding;
-            monitorScreen.y = frameY + padding;
-            monitorScreen.w = frameW - padding * 2;
-            monitorScreen.h = frameH - padding * 2;
+            const screenX = frameX + padding;
+            const screenY = frameY + padding;
+            const screenWidth = frameW - padding * 2;
+            const screenHeight = frameH - padding * 2;
 
-            // Clip to screen inner area for game content
-            // 裁剪到屏幕内部区域显示游戏内容
+            monitorScreen.x = screenX;
+            monitorScreen.y = screenY;
+            monitorScreen.w = screenWidth;
+            monitorScreen.h = screenHeight;
+
+            const s = monitorScreen;
+
+            // 1) Clip to the monitor screen rectangle
             ctx.save();
             ctx.beginPath();
-            ctx.rect(monitorScreen.x, monitorScreen.y, monitorScreen.w, monitorScreen.h);
+            ctx.rect(s.x, s.y, s.w, s.h);
             ctx.clip();
 
-            // Route to appropriate content based on monitorState
-            // 根据monitorState路由到相应的内容
+            // 2) Compute scale to fit the WHOLE original canvas into the monitor screen
+            const baseW = canvas.width;
+            const baseH = canvas.height;
+            const scale = Math.min(s.w / baseW, s.h / baseH);
+
+            // 3) Center the scaled content in the monitor
+            ctx.translate(s.x + s.w / 2, s.y + s.h / 2);
+            ctx.scale(scale, scale);
+            ctx.translate(-baseW / 2, -baseH / 2);
+
+            // 4) Draw the existing monitor content in ORIGINAL coordinates
+            //    (all existing game/menu drawing logic assumes (0..canvas.width, 0..canvas.height))
             if (monitorState === "menu") {
-                // Show game selection menu (using existing lobby code)
-                // 显示游戏选择菜单（使用现有的大厅代码）
+                // Show game selection menu
                 if (gameHubState === 'lobby') {
                     drawGameHubLobby();
                 } else if (gameHubState.startsWith('unlock_')) {
@@ -3669,8 +3688,7 @@
                     }
                 }
             } else if (monitorState === "game" && activeGame !== null) {
-                // Draw the active game (will be scaled/centered later)
-                // 绘制活动游戏（稍后将缩放/居中）
+                // Draw the active game
                 if (gameHubState.startsWith('game_')) {
                     const index = parseInt(gameHubState.split('_')[1]);
                     switch(index) {
@@ -3683,10 +3701,9 @@
                 }
             }
 
-            ctx.restore();
+            ctx.restore(); // remove clipping & scaling
 
-            // Draw HUD back button AFTER restore (not clipped)
-            // 在restore之后绘制HUD返回按钮（不被裁剪）
+            // 5) Draw the Back button AFTER restore so it is not clipped
             drawMonitorBackButton(ctx);
 
             // Reset gameHubMouseJustPressed after each frame
@@ -3900,8 +3917,17 @@
         canvas.addEventListener('mousemove', (e) => {
             const rect = canvas.getBoundingClientRect();
             if (sceneState === 'corridor1' && viewMode === 'monitor') {
-                gameHubMouseX = e.clientX - rect.left;
-                gameHubMouseY = e.clientY - rect.top;
+                const mx = e.clientX - rect.left;
+                const my = e.clientY - rect.top;
+
+                // Transform mouse coordinates to game space
+                const s = monitorScreen;
+                const baseW = canvas.width;
+                const baseH = canvas.height;
+                const scale = Math.min(s.w / baseW, s.h / baseH);
+
+                gameHubMouseX = ((mx - (s.x + s.w / 2)) / scale) + (baseW / 2);
+                gameHubMouseY = ((my - (s.y + s.h / 2)) / scale) + (baseH / 2);
             }
         });
 
@@ -3912,35 +3938,43 @@
 
             // Handle game hub interactions in monitor view
             if (sceneState === 'corridor1' && viewMode === 'monitor') {
-                gameHubMouseX = mx;
-                gameHubMouseY = my;
-                gameHubMouseDown = true;
-                gameHubMouseJustPressed = true;
-
                 // Check monitor back button FIRST (highest priority)
-                // 首先检查监视器返回按钮（最高优先级）
+                // Back button uses screen coordinates (not transformed)
                 const btn = monitorBackButton;
                 if (mx >= btn.x && mx <= btn.x + btn.w &&
                     my >= btn.y && my <= btn.y + btn.h) {
 
                     if (monitorState === "menu") {
                         // From menu: return to corridor
-                        // 从菜单返回走廊
                         viewMode = "corridor";
                         monitorState = "menu";
                         activeGame = null;
-                        gameHubState = "lobby";  // Reset gameHubState
+                        gameHubState = "lobby";
                         console.log('Returned to corridor from monitor menu');
                     } else if (monitorState === "game") {
                         // From game: return to menu
-                        // 从游戏返回菜单
                         monitorState = "menu";
                         activeGame = null;
-                        gameHubState = "lobby";  // Reset to lobby
+                        gameHubState = "lobby";
                         console.log('Returned to menu from game');
                     }
                     return;  // Stop processing other clicks
                 }
+
+                // Transform mouse coordinates to game space (inverse of rendering transform)
+                const s = monitorScreen;
+                const baseW = canvas.width;
+                const baseH = canvas.height;
+                const scale = Math.min(s.w / baseW, s.h / baseH);
+
+                // Inverse transform: screen -> game coordinates
+                const gameMx = ((mx - (s.x + s.w / 2)) / scale) + (baseW / 2);
+                const gameMy = ((my - (s.y + s.h / 2)) / scale) + (baseH / 2);
+
+                gameHubMouseX = gameMx;
+                gameHubMouseY = gameMy;
+                gameHubMouseDown = true;
+                gameHubMouseJustPressed = true;
 
                 // Handle lobby clicks
                 if (gameHubState === 'lobby') {
