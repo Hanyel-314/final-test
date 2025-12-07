@@ -110,6 +110,17 @@
         // 走廊视角模式："corridor"（正常）或"monitor"（全屏显示器视角）
         let viewMode = "corridor";
 
+        // Floor texture image for plush gaming rug
+        // 地板纹理图片（毛绒游戏地毯）
+        const FLOOR_IMAGE_URL = "https://raw.githubusercontent.com/<my-user>/<my-repo>/main/gamer-rug.png"; // Replace with real URL
+        const floorTexture = new Image();
+        let floorTextureLoaded = false;
+
+        floorTexture.src = FLOOR_IMAGE_URL;
+        floorTexture.onload = () => {
+            floorTextureLoaded = true;
+        };
+
         // ========== 走廊几何常量 Corridor Geometry Constants ==========
         // 统一的走廊坐标框架，让左右墙和后墙的高度对齐
         // Unified corridor coordinate frame - side walls and back wall heights align
@@ -1537,8 +1548,11 @@
                 frontCeilingY, backCeilingY, frontFloorY, backFloorY
             );
 
-            // 绘制地板覆盖层 Draw floor overlay for depth
-            drawFloorOverlay(frontLeftX, frontRightX, backLeftX, backRightX, frontFloorY, backFloorY);
+            // 绘制地板纹理 Draw floor texture (plush gaming rug)
+            drawFloorTexture(frontLeftX, frontRightX, backLeftX, backRightX, frontFloorY, backFloorY);
+
+            // 绘制科技时钟 Draw tech clock above monitor
+            drawTechClock(backLeftX, backRightX, backCeilingY, backFloorY);
 
             // 绘制桌子和电脑 Draw desk and computer
             drawDeskAndComputer(backLeftX, backRightX, backFloorY, t);
@@ -1615,6 +1629,35 @@
             ctx.stroke();
             ctx.restore();
 
+            // --- Back wall neon frame (top + two vertical sides) ---
+            ctx.save();
+            ctx.shadowColor = "rgba(120, 180, 255, 0.9)";
+            ctx.shadowBlur  = 26;
+            ctx.strokeStyle = "#6fd8ff";
+            ctx.lineWidth   = 3;
+
+            const backWallOffset = 3; // small inward offset so it sits just inside the room
+
+            // left vertical edge
+            ctx.beginPath();
+            ctx.moveTo(backLeftX + backWallOffset, backCeilingY + backWallOffset);
+            ctx.lineTo(backLeftX + backWallOffset, backFloorY - backWallOffset);
+            ctx.stroke();
+
+            // right vertical edge
+            ctx.beginPath();
+            ctx.moveTo(backRightX - backWallOffset, backCeilingY + backWallOffset);
+            ctx.lineTo(backRightX - backWallOffset, backFloorY - backWallOffset);
+            ctx.stroke();
+
+            // top horizontal edge
+            ctx.beginPath();
+            ctx.moveTo(backLeftX + backWallOffset, backCeilingY + backWallOffset);
+            ctx.lineTo(backRightX - backWallOffset, backCeilingY + backWallOffset);
+            ctx.stroke();
+
+            ctx.restore();
+
             // --- DIAGONAL PURPLE STRIPS on side walls, in perspective ---
             ctx.save();
             ctx.shadowColor = "rgba(200, 80, 255, 0.9)";
@@ -1664,6 +1707,10 @@
         // 左右墙上的架子、海报和灯板
         function drawSideWallDecor(frontLeftX, frontRightX, backLeftX, backRightX,
                                     frontCeilingY, backCeilingY, frontFloorY, backFloorY) {
+            // Disable all side-wall decor for now - clean walls with only neon lines
+            // 暂时禁用所有侧墙装饰 - 只保留霓虹线条的干净墙面
+            return;
+
             ctx.save();
 
             // LEFT WALL: Two floating shelves with small objects - 左墙：两个浮动架子和小物件
@@ -1747,35 +1794,52 @@
             ctx.restore();
         }
 
-        // ========== 地板覆盖层 Floor Overlay ==========
-        // Glass-like overlay covering entire floor for depth perception
-        // 地板上的玻璃状覆盖层，覆盖整个地板以增强深度感
-        function drawFloorOverlay(frontLeftX, frontRightX, backLeftX, backRightX, frontFloorY, backFloorY) {
-            // Build the quadrilateral of the floor
+        // ========== 地板纹理 Floor Texture ==========
+        // Image texture for plush gaming rug, clipped to floor trapezoid
+        // 地板纹理图片（毛绒游戏地毯），裁剪到地板梯形区域
+        function drawFloorTexture(frontLeftX, frontRightX, backLeftX, backRightX, frontFloorY, backFloorY) {
+            if (!floorTextureLoaded) return;
+
             const FL = { x: frontLeftX,  y: frontFloorY };
             const FR = { x: frontRightX, y: frontFloorY };
             const BR = { x: backRightX,  y: backFloorY };
             const BL = { x: backLeftX,   y: backFloorY };
 
-            const grad = ctx.createLinearGradient(0, backFloorY, 0, frontFloorY);
-            grad.addColorStop(0.0, "rgba(40, 45, 70, 0.78)");
-            grad.addColorStop(0.6, "rgba(25, 30, 55, 0.55)");
-            grad.addColorStop(1.0, "rgba(10, 12, 30, 0.35)");
-
             ctx.save();
-            ctx.fillStyle = grad;
+
+            // Clip to the floor polygon
             ctx.beginPath();
             ctx.moveTo(FL.x, FL.y);
             ctx.lineTo(FR.x, FR.y);
             ctx.lineTo(BR.x, BR.y);
             ctx.lineTo(BL.x, BL.y);
             ctx.closePath();
-            ctx.fill();
+            ctx.clip();
+
+            // Draw the texture stretched over the entire floor area
+            const dx = BL.x;
+            const dy = backFloorY;
+            const dw = BR.x - BL.x;
+            const dh = frontFloorY - backFloorY;
+
+            ctx.drawImage(
+                floorTexture,
+                0, 0, floorTexture.width, floorTexture.height,
+                dx, dy, dw, dh
+            );
+
+            // Add a slight dark overlay to make it feel like a plush gaming rug
+            const grad = ctx.createLinearGradient(0, backFloorY, 0, frontFloorY);
+            grad.addColorStop(0.0, "rgba(0, 0, 0, 0.45)");
+            grad.addColorStop(1.0, "rgba(0, 0, 0, 0.20)");
+            ctx.fillStyle = grad;
+            ctx.fillRect(dx, dy, dw, dh);
+
             ctx.restore();
 
-            // optional: thin glowing outline around the floor
+            // optional subtle outline
             ctx.save();
-            ctx.strokeStyle = "rgba(100, 140, 255, 0.25)";
+            ctx.strokeStyle = "rgba(150, 200, 255, 0.35)";
             ctx.lineWidth   = 1;
             ctx.beginPath();
             ctx.moveTo(FL.x, FL.y);
@@ -1784,6 +1848,59 @@
             ctx.lineTo(BL.x, BL.y);
             ctx.closePath();
             ctx.stroke();
+            ctx.restore();
+        }
+
+        // ========== 科技时钟 Tech Clock ==========
+        // Animated digital clock with rotating arc and glow effect
+        // 带旋转弧线和发光效果的动画数字时钟
+        function drawTechClock(backLeftX, backRightX, backCeilingY, backFloorY) {
+            const centerX = (backLeftX + backRightX) / 2;
+
+            // place it above the monitor, about 20% down from the ceiling
+            const centerY = backCeilingY + (backFloorY - backCeilingY) * 0.22;
+
+            const radiusOuter = 40;
+            const radiusInner = 26;
+
+            const now = new Date();
+            const seconds = now.getSeconds() + now.getMilliseconds() / 1000;
+
+            // background glow
+            ctx.save();
+            ctx.shadowColor = "rgba(120, 200, 255, 0.9)";
+            ctx.shadowBlur  = 28;
+
+            // outer ring
+            ctx.strokeStyle = "#6fd8ff";
+            ctx.lineWidth   = 4;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radiusOuter, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // rotating arc (tech feeling)
+            const startAngle = -Math.PI / 2;
+            const sweep      = (seconds / 60) * Math.PI * 2;
+
+            ctx.strokeStyle = "#c554ff";
+            ctx.lineWidth   = 4;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radiusInner, startAngle, startAngle + sweep);
+            ctx.stroke();
+            ctx.restore();
+
+            // digital time in the center
+            const hh   = String(now.getHours()).padStart(2, "0");
+            const mm   = String(now.getMinutes()).padStart(2, "0");
+            const ss   = String(now.getSeconds()).padStart(2, "0");
+            const timeText = `${hh}:${mm}:${ss}`;
+
+            ctx.save();
+            ctx.fillStyle   = "#e6f5ff";
+            ctx.font        = "16px monospace";
+            ctx.textAlign   = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(timeText, centerX, centerY);
             ctx.restore();
         }
 
