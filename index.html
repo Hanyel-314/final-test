@@ -1646,6 +1646,9 @@
             // 绘制地板纹理 Draw floor texture (plush gaming rug)
             drawFloorTexture(frontLeftX, frontRightX, backLeftX, backRightX, frontFloorY, backFloorY);
 
+            // 绘制毛绒地毯纤维覆盖层 Draw plush rug fuzz overlay (fiber texture on top)
+            drawRugFuzzOverlay(ctx, frontLeftX, frontRightX, backLeftX, backRightX, frontFloorY, backFloorY);
+
             // 绘制科技模拟时钟 Draw large analog clock above monitor
             drawTechAnalogClock(backLeftX, backRightX, backCeilingY, backFloorY);
 
@@ -1924,19 +1927,100 @@
                 dx, dy, dw, dh
             );
 
-            // Add a slight dark overlay to make it feel like a plush gaming rug
+            ctx.restore();
+        }
+
+        // ========== Plush Rug Fuzz Overlay ==========
+        // Adds fiber texture and vignette on top of the floor texture to simulate a plush gaming rug
+        // 在地板纹理上添加纤维纹理和渐变，模拟毛绒游戏地毯
+        function drawRugFuzzOverlay(ctx, frontLeftX, frontRightX, backLeftX, backRightX, frontFloorY, backFloorY) {
+            const BL = { x: backLeftX,   y: backFloorY };
+            const BR = { x: backRightX,  y: backFloorY };
+            const FL = { x: frontLeftX,  y: frontFloorY };
+            const FR = { x: frontRightX, y: frontFloorY };
+
+            // Clip to the rug area (same as the floor trapezoid)
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(FL.x, FL.y);
+            ctx.lineTo(FR.x, FR.y);
+            ctx.lineTo(BR.x, BR.y);
+            ctx.lineTo(BL.x, BL.y);
+            ctx.closePath();
+            ctx.clip();
+
+            // -----------------------------------
+            // 1) Soft vignette to remove glossiness
+            // -----------------------------------
             const grad = ctx.createLinearGradient(0, backFloorY, 0, frontFloorY);
             grad.addColorStop(0.0, "rgba(0, 0, 0, 0.45)");
-            grad.addColorStop(1.0, "rgba(0, 0, 0, 0.20)");
+            grad.addColorStop(0.5, "rgba(0, 0, 0, 0.20)");
+            grad.addColorStop(1.0, "rgba(0, 0, 0, 0.10)");
+
             ctx.fillStyle = grad;
-            ctx.fillRect(dx, dy, dw, dh);
+            ctx.fillRect(BL.x - 5, backFloorY - 5, BR.x - BL.x + 10, frontFloorY - backFloorY + 10);
+
+            // -----------------------------------
+            // 2) Fine "fiber" noise strokes
+            // -----------------------------------
+            const widthFront = FR.x - FL.x;
+            const height = frontFloorY - backFloorY;
+
+            const fibers = 2500; // number of tiny strokes
+
+            ctx.globalAlpha = 0.28;
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.22)";
+            ctx.lineWidth = 1;
+
+            for (let i = 0; i < fibers; i++) {
+                // random depth 0..1 (back->front)
+                const t = Math.random();
+                const y = backFloorY + height * t;
+
+                // interpolate left/right x at this depth
+                const leftX = BL.x + (FL.x - BL.x) * t;
+                const rightX = BR.x + (FR.x - BR.x) * t;
+                const span = rightX - leftX;
+
+                const x = leftX + Math.random() * span;
+
+                // small short stroke, mostly along X with a tiny Y jitter
+                const len = (0.008 + Math.random() * 0.015) * span;
+                const dy = (Math.random() - 0.5) * 2.0;
+
+                ctx.beginPath();
+                ctx.moveTo(x, y + dy);
+                ctx.lineTo(x + len, y + dy * 0.3);
+                ctx.stroke();
+            }
+
+            // darker random fibers in the opposite direction to break uniformity
+            ctx.globalAlpha = 0.20;
+            ctx.strokeStyle = "rgba(0, 0, 0, 0.50)";
+            for (let i = 0; i < fibers * 0.4; i++) {
+                const t = Math.random();
+                const y = backFloorY + height * t;
+
+                const leftX = BL.x + (FL.x - BL.x) * t;
+                const rightX = BR.x + (FR.x - BR.x) * t;
+                const span = rightX - leftX;
+
+                const x = leftX + Math.random() * span;
+
+                const len = (0.006 + Math.random() * 0.012) * span;
+
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + len * 0.3, y + len * 0.4);
+                ctx.stroke();
+            }
 
             ctx.restore();
 
-            // optional subtle outline
+            // subtle outline to separate rug from the dark floor
             ctx.save();
-            ctx.strokeStyle = "rgba(150, 200, 255, 0.35)";
-            ctx.lineWidth   = 1;
+            ctx.strokeStyle = "rgba(190, 220, 255, 0.35)";
+            ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.moveTo(FL.x, FL.y);
             ctx.lineTo(FR.x, FR.y);
