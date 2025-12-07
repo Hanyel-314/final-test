@@ -1820,10 +1820,11 @@
             ctx.closePath();
             ctx.clip();
 
-            // Draw the texture stretched over the entire floor area
-            const dx = BL.x;
+            // Draw the texture stretched over the entire floor area (full width from front)
+            // 将纹理拉伸覆盖整个地板区域（从前端完整宽度）
+            const dx = frontLeftX;  // Start from front left edge
             const dy = backFloorY;
-            const dw = BR.x - BL.x;
+            const dw = frontRightX - frontLeftX;  // Full front width
             const dh = frontFloorY - backFloorY;
 
             ctx.drawImage(
