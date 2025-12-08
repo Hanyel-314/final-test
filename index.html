@@ -3027,24 +3027,41 @@
             const screenX = backLeftX + (backRightX - backLeftX - screenWidth) / 2;
             const screenY = backCeilingY + (backFloorY - backCeilingY) * 0.35;  // Positioned at eye level
 
-            // Screen background (dark with subtle glow)
-            ctx.fillStyle = '#0a0a15';
+            // Screen background (brighter with stronger glow)
+            const bgGrad = ctx.createLinearGradient(screenX, screenY, screenX, screenY + screenHeight);
+            bgGrad.addColorStop(0, '#0f0f1f');
+            bgGrad.addColorStop(1, '#0a0a15');
+            ctx.fillStyle = bgGrad;
             ctx.fillRect(screenX, screenY, screenWidth, screenHeight);
 
-            // Screen border with cyan glow
+            // Outer glow aura around screen
             ctx.save();
-            ctx.shadowColor = 'rgba(79, 212, 255, 0.8)';
-            ctx.shadowBlur = 20;
-            ctx.strokeStyle = '#4fd4ff';
-            ctx.lineWidth = 4;
+            const outerGlow = ctx.createRadialGradient(
+                screenX + screenWidth/2, screenY + screenHeight/2, 0,
+                screenX + screenWidth/2, screenY + screenHeight/2, screenWidth * 0.7
+            );
+            outerGlow.addColorStop(0, 'rgba(79, 212, 255, 0.2)');
+            outerGlow.addColorStop(1, 'rgba(79, 212, 255, 0)');
+            ctx.fillStyle = outerGlow;
+            ctx.fillRect(screenX - 40, screenY - 40, screenWidth + 80, screenHeight + 80);
+            ctx.restore();
+
+            // Screen border with stronger cyan glow
+            ctx.save();
+            ctx.shadowColor = 'rgba(79, 212, 255, 1.0)';
+            ctx.shadowBlur = 30;
+            ctx.strokeStyle = '#6fddff';
+            ctx.lineWidth = 5;
             ctx.strokeRect(screenX, screenY, screenWidth, screenHeight);
             ctx.restore();
 
-            // Inner display content (animated waveform or pattern)
+            // Inner display content (animated waveform or pattern) - brighter
             const time = Date.now() * 0.001;
             ctx.save();
-            ctx.strokeStyle = 'rgba(79, 212, 255, 0.6)';
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = 'rgba(79, 212, 255, 0.9)';
+            ctx.lineWidth = 3;
+            ctx.shadowColor = 'rgba(79, 212, 255, 0.6)';
+            ctx.shadowBlur = 10;
 
             // Simple audio waveform visualization
             const wavePoints = 30;
@@ -3061,184 +3078,316 @@
             ctx.stroke();
             ctx.restore();
 
-            // Screen title text
+            // Screen title text - brighter
             ctx.save();
-            ctx.fillStyle = 'rgba(79, 212, 255, 0.9)';
-            ctx.font = 'bold 16px monospace';
+            ctx.fillStyle = 'rgba(120, 220, 255, 1.0)';
+            ctx.font = 'bold 18px monospace';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('AUDIO SYSTEM', screenX + screenWidth / 2, screenY + 20);
+            ctx.shadowColor = 'rgba(79, 212, 255, 0.8)';
+            ctx.shadowBlur = 12;
+            ctx.fillText('AUDIO SYSTEM', screenX + screenWidth / 2, screenY + 22);
             ctx.restore();
         }
 
-        // ========== Audio Room Speakers ==========
+        // ========== Audio Room Speakers (3D Box Speakers) ==========
         function drawAudioRoomSpeakers(frontLeftX, frontRightX, backLeftX, backRightX,
                                        frontCeilingY, backCeilingY, frontFloorY, backFloorY) {
-            // Helper to calculate wall points with perspective
-            function getWallPoint(isLeft, depthRatio, heightRatio) {
-                const wallHeight = backFloorY - backCeilingY;
-                const y = backCeilingY + wallHeight * heightRatio;
 
-                if (isLeft) {
-                    // Left wall perspective
-                    const frontY = frontCeilingY + (frontFloorY - frontCeilingY) * heightRatio;
-                    const x = lerp(backLeftX, frontLeftX, depthRatio);
-                    const actualY = lerp(y, frontY, depthRatio);
-                    return { x, y: actualY };
+            // Helper function to draw a 3D speaker box facing the viewer
+            function draw3DSpeaker(centerX, centerY, width, height, isLarge, neonColor, shadowColor) {
+                const depth = width * 0.4;  // 3D depth of the speaker box
+
+                // === Draw 3D box (cabinet) ===
+                // Right side face (darker)
+                ctx.fillStyle = '#1a1a1f';
+                ctx.beginPath();
+                ctx.moveTo(centerX + width/2, centerY - height/2);  // Top right front
+                ctx.lineTo(centerX + width/2 + depth*0.6, centerY - height/2 - depth*0.3);  // Top right back
+                ctx.lineTo(centerX + width/2 + depth*0.6, centerY + height/2 - depth*0.3);  // Bottom right back
+                ctx.lineTo(centerX + width/2, centerY + height/2);  // Bottom right front
+                ctx.closePath();
+                ctx.fill();
+
+                // Top face (medium shade)
+                ctx.fillStyle = '#252530';
+                ctx.beginPath();
+                ctx.moveTo(centerX - width/2, centerY - height/2);  // Top left front
+                ctx.lineTo(centerX - width/2 + depth*0.6, centerY - height/2 - depth*0.3);  // Top left back
+                ctx.lineTo(centerX + width/2 + depth*0.6, centerY - height/2 - depth*0.3);  // Top right back
+                ctx.lineTo(centerX + width/2, centerY - height/2);  // Top right front
+                ctx.closePath();
+                ctx.fill();
+
+                // Front face (main visible face - lighter)
+                const frontGrad = ctx.createLinearGradient(centerX - width/2, centerY, centerX + width/2, centerY);
+                frontGrad.addColorStop(0, '#2a2a35');
+                frontGrad.addColorStop(0.5, '#35354a');
+                frontGrad.addColorStop(1, '#2a2a35');
+                ctx.fillStyle = frontGrad;
+                ctx.fillRect(centerX - width/2, centerY - height/2, width, height);
+
+                // === Add speaker components on front face ===
+                const padding = width * 0.12;
+
+                if (isLarge) {
+                    // Large speaker: Big woofer + small tweeter on top
+                    const wooferRadius = width * 0.32;
+                    const wooferCenterY = centerY + height * 0.15;
+
+                    // Woofer (large round driver)
+                    // Outer cone shadow
+                    const wooferShadowGrad = ctx.createRadialGradient(
+                        centerX, wooferCenterY, 0,
+                        centerX, wooferCenterY, wooferRadius
+                    );
+                    wooferShadowGrad.addColorStop(0, '#0a0a0f');
+                    wooferShadowGrad.addColorStop(0.7, '#1a1a25');
+                    wooferShadowGrad.addColorStop(1, '#0a0a0f');
+                    ctx.fillStyle = wooferShadowGrad;
+                    ctx.beginPath();
+                    ctx.arc(centerX, wooferCenterY, wooferRadius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Woofer cone (lighter center)
+                    const coneGrad = ctx.createRadialGradient(
+                        centerX - wooferRadius * 0.3, wooferCenterY - wooferRadius * 0.3, 0,
+                        centerX, wooferCenterY, wooferRadius * 0.7
+                    );
+                    coneGrad.addColorStop(0, '#3a3a45');
+                    coneGrad.addColorStop(1, '#1a1a25');
+                    ctx.fillStyle = coneGrad;
+                    ctx.beginPath();
+                    ctx.arc(centerX, wooferCenterY, wooferRadius * 0.7, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Dust cap (center dot)
+                    ctx.fillStyle = '#0f0f18';
+                    ctx.beginPath();
+                    ctx.arc(centerX, wooferCenterY, wooferRadius * 0.25, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Dust cap highlight
+                    ctx.fillStyle = 'rgba(100, 100, 120, 0.3)';
+                    ctx.beginPath();
+                    ctx.arc(centerX - wooferRadius * 0.1, wooferCenterY - wooferRadius * 0.1, wooferRadius * 0.15, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Tweeter (horn tweeter on top)
+                    const tweeterCenterY = centerY - height * 0.25;
+                    const tweeterWidth = width * 0.18;
+                    const tweeterHeight = width * 0.15;
+
+                    // Tweeter horn body
+                    ctx.fillStyle = '#1a1a25';
+                    ctx.beginPath();
+                    ctx.ellipse(centerX, tweeterCenterY, tweeterWidth, tweeterHeight, 0, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Tweeter horn opening (lighter)
+                    ctx.fillStyle = '#2a2a35';
+                    ctx.beginPath();
+                    ctx.ellipse(centerX, tweeterCenterY, tweeterWidth * 0.6, tweeterHeight * 0.6, 0, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Tweeter center
+                    ctx.fillStyle = '#0a0a0f';
+                    ctx.beginPath();
+                    ctx.arc(centerX, tweeterCenterY, tweeterWidth * 0.25, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Bass reflex port (bottom)
+                    const portWidth = width * 0.22;
+                    const portHeight = height * 0.08;
+                    const portY = centerY + height * 0.38;
+                    ctx.fillStyle = '#0a0a0f';
+                    ctx.fillRect(centerX - portWidth/2, portY, portWidth, portHeight);
+
+                    // Port inner shadow
+                    const portGrad = ctx.createLinearGradient(centerX, portY, centerX, portY + portHeight);
+                    portGrad.addColorStop(0, 'rgba(0, 0, 0, 0.5)');
+                    portGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                    ctx.fillStyle = portGrad;
+                    ctx.fillRect(centerX - portWidth/2, portY, portWidth, portHeight);
+
                 } else {
-                    // Right wall perspective
-                    const frontY = frontCeilingY + (frontFloorY - frontCeilingY) * heightRatio;
-                    const x = lerp(backRightX, frontRightX, depthRatio);
-                    const actualY = lerp(y, frontY, depthRatio);
-                    return { x, y: actualY };
+                    // Small speaker: Medium woofer + tweeter
+                    const wooferRadius = width * 0.28;
+                    const wooferCenterY = centerY + height * 0.1;
+
+                    // Woofer
+                    const wooferShadowGrad = ctx.createRadialGradient(
+                        centerX, wooferCenterY, 0,
+                        centerX, wooferCenterY, wooferRadius
+                    );
+                    wooferShadowGrad.addColorStop(0, '#0a0a0f');
+                    wooferShadowGrad.addColorStop(0.7, '#1a1a25');
+                    wooferShadowGrad.addColorStop(1, '#0a0a0f');
+                    ctx.fillStyle = wooferShadowGrad;
+                    ctx.beginPath();
+                    ctx.arc(centerX, wooferCenterY, wooferRadius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Cone
+                    const coneGrad = ctx.createRadialGradient(
+                        centerX - wooferRadius * 0.3, wooferCenterY - wooferRadius * 0.3, 0,
+                        centerX, wooferCenterY, wooferRadius * 0.7
+                    );
+                    coneGrad.addColorStop(0, '#3a3a45');
+                    coneGrad.addColorStop(1, '#1a1a25');
+                    ctx.fillStyle = coneGrad;
+                    ctx.beginPath();
+                    ctx.arc(centerX, wooferCenterY, wooferRadius * 0.7, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Dust cap
+                    ctx.fillStyle = '#0f0f18';
+                    ctx.beginPath();
+                    ctx.arc(centerX, wooferCenterY, wooferRadius * 0.3, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Tweeter (small round dome tweeter)
+                    const tweeterCenterY = centerY - height * 0.28;
+                    const tweeterRadius = width * 0.12;
+
+                    ctx.fillStyle = '#1a1a25';
+                    ctx.beginPath();
+                    ctx.arc(centerX, tweeterCenterY, tweeterRadius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#2a2a35';
+                    ctx.beginPath();
+                    ctx.arc(centerX, tweeterCenterY, tweeterRadius * 0.6, 0, Math.PI * 2);
+                    ctx.fill();
                 }
+
+                // === Add corner screws ===
+                const screwRadius = width * 0.015;
+                const screwInset = width * 0.08;
+                const screwPositions = [
+                    {x: centerX - width/2 + screwInset, y: centerY - height/2 + screwInset},
+                    {x: centerX + width/2 - screwInset, y: centerY - height/2 + screwInset},
+                    {x: centerX - width/2 + screwInset, y: centerY + height/2 - screwInset},
+                    {x: centerX + width/2 - screwInset, y: centerY + height/2 - screwInset}
+                ];
+
+                screwPositions.forEach(pos => {
+                    ctx.fillStyle = '#0a0a0f';
+                    ctx.beginPath();
+                    ctx.arc(pos.x, pos.y, screwRadius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.strokeStyle = '#1a1a25';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                });
+
+                // === Neon outline around cabinet edges ===
+                ctx.save();
+                ctx.shadowColor = shadowColor;
+                ctx.shadowBlur = 18;
+                ctx.strokeStyle = neonColor;
+                ctx.lineWidth = 2;
+
+                // Front face outline
+                ctx.strokeRect(centerX - width/2, centerY - height/2, width, height);
+
+                // 3D edge lines
+                ctx.beginPath();
+                // Top edge
+                ctx.moveTo(centerX - width/2, centerY - height/2);
+                ctx.lineTo(centerX - width/2 + depth*0.6, centerY - height/2 - depth*0.3);
+                // Right edge
+                ctx.moveTo(centerX + width/2, centerY - height/2);
+                ctx.lineTo(centerX + width/2 + depth*0.6, centerY - height/2 - depth*0.3);
+                ctx.stroke();
+
+                ctx.restore();
+
+                // === Soft ambient glow around speaker ===
+                ctx.save();
+                const ambientGlow = ctx.createRadialGradient(
+                    centerX, centerY, 0,
+                    centerX, centerY, Math.max(width, height) * 0.8
+                );
+                ambientGlow.addColorStop(0, shadowColor.replace('0.9)', '0.15)'));
+                ambientGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                ctx.fillStyle = ambientGlow;
+                ctx.fillRect(centerX - width, centerY - height, width * 2, height * 2);
+                ctx.restore();
             }
 
-            // === LEFT WALL SPEAKERS ===
+            // === Position speakers in the room ===
 
-            // 1. Bottom floor-standing speaker (large, near floor)
-            const leftBottomDepthStart = 0.25;
-            const leftBottomDepthEnd = 0.45;
-            const leftBottomHeightStart = 0.62;  // Top of speaker
-            const leftBottomHeightEnd = 0.95;    // Bottom of speaker
+            // LEFT WALL - BOTTOM SPEAKER (Large floor-standing)
+            const leftBottomX = frontLeftX + (backLeftX - frontLeftX) * 0.35;
+            const leftBottomY = frontFloorY - (frontFloorY - frontCeilingY) * 0.22;
+            const leftBottomWidth = 80;
+            const leftBottomHeight = 140;
 
-            const LB_TL = getWallPoint(true, leftBottomDepthStart, leftBottomHeightStart);  // Top-left
-            const LB_TR = getWallPoint(true, leftBottomDepthEnd, leftBottomHeightStart);    // Top-right
-            const LB_BR = getWallPoint(true, leftBottomDepthEnd, leftBottomHeightEnd);      // Bottom-right
-            const LB_BL = getWallPoint(true, leftBottomDepthStart, leftBottomHeightEnd);    // Bottom-left
+            draw3DSpeaker(leftBottomX, leftBottomY, leftBottomWidth, leftBottomHeight, true, '#4fd4ff', 'rgba(79, 212, 255, 0.9)');
 
-            // Draw speaker body
-            ctx.fillStyle = '#0a0a15';
-            ctx.beginPath();
-            ctx.moveTo(LB_TL.x, LB_TL.y);
-            ctx.lineTo(LB_TR.x, LB_TR.y);
-            ctx.lineTo(LB_BR.x, LB_BR.y);
-            ctx.lineTo(LB_BL.x, LB_BL.y);
-            ctx.closePath();
-            ctx.fill();
-
-            // Neon cyan outline with glow
+            // Floor shadow under left bottom speaker
             ctx.save();
-            ctx.shadowColor = 'rgba(79, 212, 255, 0.9)';
-            ctx.shadowBlur = 20;
-            ctx.strokeStyle = '#4fd4ff';
-            ctx.lineWidth = 3;
-            ctx.stroke();
-            ctx.restore();
-
-            // Floor glow reflection under speaker
-            ctx.save();
-            const glowGrad = ctx.createRadialGradient(
-                (LB_BL.x + LB_BR.x) / 2, LB_BL.y,
-                0,
-                (LB_BL.x + LB_BR.x) / 2, LB_BL.y,
-                80
+            const leftShadowGrad = ctx.createRadialGradient(
+                leftBottomX, frontFloorY, 0,
+                leftBottomX, frontFloorY, 100
             );
-            glowGrad.addColorStop(0, 'rgba(79, 212, 255, 0.3)');
-            glowGrad.addColorStop(1, 'rgba(79, 212, 255, 0)');
-            ctx.fillStyle = glowGrad;
-            ctx.fillRect((LB_BL.x + LB_BR.x) / 2 - 80, LB_BL.y, 160, 40);
+            leftShadowGrad.addColorStop(0, 'rgba(0, 0, 0, 0.5)');
+            leftShadowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = leftShadowGrad;
+            ctx.fillRect(leftBottomX - 100, frontFloorY - 20, 200, 40);
             ctx.restore();
 
-            // 2. Upper wall-mounted speaker (narrower, higher on wall)
-            const leftTopDepthStart = 0.30;
-            const leftTopDepthEnd = 0.52;
-            const leftTopHeightStart = 0.28;
-            const leftTopHeightEnd = 0.42;
+            // LEFT WALL - TOP SPEAKER (Small wall-mounted)
+            const leftTopX = frontLeftX + (backLeftX - frontLeftX) * 0.38;
+            const leftTopY = frontCeilingY + (frontFloorY - frontCeilingY) * 0.32;
+            const leftTopWidth = 60;
+            const leftTopHeight = 90;
 
-            const LT_TL = getWallPoint(true, leftTopDepthStart, leftTopHeightStart);
-            const LT_TR = getWallPoint(true, leftTopDepthEnd, leftTopHeightStart);
-            const LT_BR = getWallPoint(true, leftTopDepthEnd, leftTopHeightEnd);
-            const LT_BL = getWallPoint(true, leftTopDepthStart, leftTopHeightEnd);
+            draw3DSpeaker(leftTopX, leftTopY, leftTopWidth, leftTopHeight, false, '#c554ff', 'rgba(197, 84, 255, 0.9)');
 
-            // Draw speaker body
-            ctx.fillStyle = '#0a0a15';
-            ctx.beginPath();
-            ctx.moveTo(LT_TL.x, LT_TL.y);
-            ctx.lineTo(LT_TR.x, LT_TR.y);
-            ctx.lineTo(LT_BR.x, LT_BR.y);
-            ctx.lineTo(LT_BL.x, LT_BL.y);
-            ctx.closePath();
-            ctx.fill();
-
-            // Neon purple outline with glow
+            // Mounting bracket for top speaker (small line connecting to wall)
             ctx.save();
-            ctx.shadowColor = 'rgba(197, 84, 255, 0.9)';
-            ctx.shadowBlur = 20;
-            ctx.strokeStyle = '#c554ff';
+            ctx.strokeStyle = '#2a2a35';
             ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(leftTopX + leftTopWidth/2, leftTopY);
+            ctx.lineTo(leftTopX + leftTopWidth/2 + 15, leftTopY - 8);
             ctx.stroke();
             ctx.restore();
 
-            // === RIGHT WALL SPEAKERS (mirrored) ===
+            // RIGHT WALL - BOTTOM SPEAKER (Large floor-standing, mirrored)
+            const rightBottomX = frontRightX - (frontRightX - backRightX) * 0.35;
+            const rightBottomY = frontFloorY - (frontFloorY - frontCeilingY) * 0.22;
 
-            // 1. Bottom floor-standing speaker
-            const rightBottomDepthStart = 0.25;
-            const rightBottomDepthEnd = 0.45;
-            const rightBottomHeightStart = 0.62;
-            const rightBottomHeightEnd = 0.95;
+            draw3DSpeaker(rightBottomX, rightBottomY, leftBottomWidth, leftBottomHeight, true, '#4fd4ff', 'rgba(79, 212, 255, 0.9)');
 
-            const RB_TL = getWallPoint(false, rightBottomDepthEnd, rightBottomHeightStart);
-            const RB_TR = getWallPoint(false, rightBottomDepthStart, rightBottomHeightStart);
-            const RB_BR = getWallPoint(false, rightBottomDepthStart, rightBottomHeightEnd);
-            const RB_BL = getWallPoint(false, rightBottomDepthEnd, rightBottomHeightEnd);
-
-            ctx.fillStyle = '#0a0a15';
-            ctx.beginPath();
-            ctx.moveTo(RB_TL.x, RB_TL.y);
-            ctx.lineTo(RB_TR.x, RB_TR.y);
-            ctx.lineTo(RB_BR.x, RB_BR.y);
-            ctx.lineTo(RB_BL.x, RB_BL.y);
-            ctx.closePath();
-            ctx.fill();
-
+            // Floor shadow under right bottom speaker
             ctx.save();
-            ctx.shadowColor = 'rgba(79, 212, 255, 0.9)';
-            ctx.shadowBlur = 20;
-            ctx.strokeStyle = '#4fd4ff';
-            ctx.lineWidth = 3;
-            ctx.stroke();
-            ctx.restore();
-
-            // Floor glow reflection
-            ctx.save();
-            const glowGradR = ctx.createRadialGradient(
-                (RB_BL.x + RB_BR.x) / 2, RB_BL.y,
-                0,
-                (RB_BL.x + RB_BR.x) / 2, RB_BL.y,
-                80
+            const rightShadowGrad = ctx.createRadialGradient(
+                rightBottomX, frontFloorY, 0,
+                rightBottomX, frontFloorY, 100
             );
-            glowGradR.addColorStop(0, 'rgba(79, 212, 255, 0.3)');
-            glowGradR.addColorStop(1, 'rgba(79, 212, 255, 0)');
-            ctx.fillStyle = glowGradR;
-            ctx.fillRect((RB_BL.x + RB_BR.x) / 2 - 80, RB_BL.y, 160, 40);
+            rightShadowGrad.addColorStop(0, 'rgba(0, 0, 0, 0.5)');
+            rightShadowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = rightShadowGrad;
+            ctx.fillRect(rightBottomX - 100, frontFloorY - 20, 200, 40);
             ctx.restore();
 
-            // 2. Upper wall-mounted speaker
-            const rightTopDepthStart = 0.30;
-            const rightTopDepthEnd = 0.52;
-            const rightTopHeightStart = 0.28;
-            const rightTopHeightEnd = 0.42;
+            // RIGHT WALL - TOP SPEAKER (Small wall-mounted, mirrored)
+            const rightTopX = frontRightX - (frontRightX - backRightX) * 0.38;
+            const rightTopY = frontCeilingY + (frontFloorY - frontCeilingY) * 0.32;
 
-            const RT_TL = getWallPoint(false, rightTopDepthEnd, rightTopHeightStart);
-            const RT_TR = getWallPoint(false, rightTopDepthStart, rightTopHeightStart);
-            const RT_BR = getWallPoint(false, rightTopDepthStart, rightTopHeightEnd);
-            const RT_BL = getWallPoint(false, rightTopDepthEnd, rightTopHeightEnd);
+            draw3DSpeaker(rightTopX, rightTopY, leftTopWidth, leftTopHeight, false, '#c554ff', 'rgba(197, 84, 255, 0.9)');
 
-            ctx.fillStyle = '#0a0a15';
-            ctx.beginPath();
-            ctx.moveTo(RT_TL.x, RT_TL.y);
-            ctx.lineTo(RT_TR.x, RT_TR.y);
-            ctx.lineTo(RT_BR.x, RT_BR.y);
-            ctx.lineTo(RT_BL.x, RT_BL.y);
-            ctx.closePath();
-            ctx.fill();
-
+            // Mounting bracket for top speaker (mirrored)
             ctx.save();
-            ctx.shadowColor = 'rgba(197, 84, 255, 0.9)';
-            ctx.shadowBlur = 20;
-            ctx.strokeStyle = '#c554ff';
+            ctx.strokeStyle = '#2a2a35';
             ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(rightTopX - leftTopWidth/2, rightTopY);
+            ctx.lineTo(rightTopX - leftTopWidth/2 - 15, rightTopY - 8);
             ctx.stroke();
             ctx.restore();
         }
