@@ -1948,7 +1948,8 @@
 
         // ========== 侧墙霓虹相框 Wall Neon Frames ==========
         // Draws horizontal neon-framed displays on left and right walls at eye level
-        // 在左右侧墙上绘制水平霓虹相框（视线高度）
+        // Frame size now fits snugly around poster images
+        // 在左右侧墙上绘制水平霓虹相框（相框紧密贴合海报）
         function drawWallFrames(
             ctx,
             frontLeftX, frontRightX,
@@ -1956,117 +1957,111 @@
             frontCeilingY, backCeilingY,
             frontFloorY, backFloorY
         ) {
-            // LARGE FRAMES with 16:9 aspect ratio for poster images
-            // Frame width: ~55% of wall depth
-            const frameDepthStart = 0.15;  // Start 15% from front
-            const frameDepthEnd = 0.70;    // End 70% from front (55% width)
+            // POSTER DIMENSIONS - Define poster area first, then build frame around it
+            // Posters are positioned at eye level on the walls
+            const posterDepthStart = 0.15;  // Start 15% from front
+            const posterDepthEnd = 0.70;    // End 70% from front (55% width)
+            const posterCenterY = 0.50;     // Centered vertically at 50%
 
-            // Calculate frame center position
-            const frameCenterDepth = (frameDepthStart + frameDepthEnd) / 2;
-            const frameCenterY = 0.50; // Centered vertically at 50%
+            // Poster dimensions with 16:9 aspect ratio
+            const posterWidthRatio = posterDepthEnd - posterDepthStart; // 0.55
+            const posterHeightRatio = posterWidthRatio * 0.56;  // ~16:9 aspect ratio
 
-            // Frame dimensions with 16:9 aspect ratio
-            // Width spans 55% of wall, height calculated to maintain 16:9
-            const frameWidthRatio = frameDepthEnd - frameDepthStart; // 0.55
-            const frameHeightRatio = frameWidthRatio * 0.56;  // ~16:9 aspect ratio (9/16 = 0.5625)
+            const posterTopRatio = posterCenterY - posterHeightRatio / 2;
+            const posterBottomRatio = posterCenterY + posterHeightRatio / 2;
 
-            const frameTopRatio = frameCenterY - frameHeightRatio / 2;
-            const frameBottomRatio = frameCenterY + frameHeightRatio / 2;
+            // FRAME MARGIN - Small padding between poster and neon frame
+            // Convert pixel margin to ratio based on typical wall size
+            const FRAME_MARGIN_RATIO = 0.012; // ~14px equivalent margin
 
             ctx.save();
 
             // ========== LEFT WALL FRAME (CS:GO POSTER) ==========
             {
-                // Calculate top edge of frame
-                const topY = lerp(frontCeilingY, frontFloorY, frameTopRatio);
-                const topBackY = lerp(backCeilingY, backFloorY, frameTopRatio);
+                // Step 1: Define POSTER area (no margin yet)
+                const posterTopY = lerp(frontCeilingY, frontFloorY, posterTopRatio);
+                const posterTopBackY = lerp(backCeilingY, backFloorY, posterTopRatio);
+                const posterBottomY = lerp(frontCeilingY, frontFloorY, posterBottomRatio);
+                const posterBottomBackY = lerp(backCeilingY, backFloorY, posterBottomRatio);
 
-                // Calculate bottom edge of frame
-                const bottomY = lerp(frontCeilingY, frontFloorY, frameBottomRatio);
-                const bottomBackY = lerp(backCeilingY, backFloorY, frameBottomRatio);
+                const posterFrontTop = {
+                    x: lerp(frontLeftX, backLeftX, posterDepthStart),
+                    y: lerp(posterTopY, posterTopBackY, posterDepthStart)
+                };
+                const posterBackTop = {
+                    x: lerp(frontLeftX, backLeftX, posterDepthEnd),
+                    y: lerp(posterTopY, posterTopBackY, posterDepthEnd)
+                };
+                const posterBackBottom = {
+                    x: lerp(frontLeftX, backLeftX, posterDepthEnd),
+                    y: lerp(posterBottomY, posterBottomBackY, posterDepthEnd)
+                };
+                const posterFrontBottom = {
+                    x: lerp(frontLeftX, backLeftX, posterDepthStart),
+                    y: lerp(posterBottomY, posterBottomBackY, posterDepthStart)
+                };
 
-                // Four corners of the frame (front to back along wall)
-                const frontTop = {
+                // Step 2: Build FRAME around poster with margin
+                const frameDepthStart = posterDepthStart - FRAME_MARGIN_RATIO;
+                const frameDepthEnd = posterDepthEnd + FRAME_MARGIN_RATIO;
+                const frameTopRatio = posterTopRatio - FRAME_MARGIN_RATIO;
+                const frameBottomRatio = posterBottomRatio + FRAME_MARGIN_RATIO;
+
+                const frameTopY = lerp(frontCeilingY, frontFloorY, frameTopRatio);
+                const frameTopBackY = lerp(backCeilingY, backFloorY, frameTopRatio);
+                const frameBottomY = lerp(frontCeilingY, frontFloorY, frameBottomRatio);
+                const frameBottomBackY = lerp(backCeilingY, backFloorY, frameBottomRatio);
+
+                const frameFrontTop = {
                     x: lerp(frontLeftX, backLeftX, frameDepthStart),
-                    y: lerp(topY, topBackY, frameDepthStart)
+                    y: lerp(frameTopY, frameTopBackY, frameDepthStart)
                 };
-                const backTop = {
+                const frameBackTop = {
                     x: lerp(frontLeftX, backLeftX, frameDepthEnd),
-                    y: lerp(topY, topBackY, frameDepthEnd)
+                    y: lerp(frameTopY, frameTopBackY, frameDepthEnd)
                 };
-                const backBottom = {
+                const frameBackBottom = {
                     x: lerp(frontLeftX, backLeftX, frameDepthEnd),
-                    y: lerp(bottomY, bottomBackY, frameDepthEnd)
+                    y: lerp(frameBottomY, frameBottomBackY, frameDepthEnd)
                 };
-                const frontBottom = {
+                const frameFrontBottom = {
                     x: lerp(frontLeftX, backLeftX, frameDepthStart),
-                    y: lerp(bottomY, bottomBackY, frameDepthStart)
+                    y: lerp(frameBottomY, frameBottomBackY, frameDepthStart)
                 };
 
-                // Draw dark background fill for frame
+                // Step 3: Draw dark background for frame
                 ctx.beginPath();
-                ctx.moveTo(frontTop.x, frontTop.y);
-                ctx.lineTo(backTop.x, backTop.y);
-                ctx.lineTo(backBottom.x, backBottom.y);
-                ctx.lineTo(frontBottom.x, frontBottom.y);
+                ctx.moveTo(frameFrontTop.x, frameFrontTop.y);
+                ctx.lineTo(frameBackTop.x, frameBackTop.y);
+                ctx.lineTo(frameBackBottom.x, frameBackBottom.y);
+                ctx.lineTo(frameFrontBottom.x, frameFrontBottom.y);
                 ctx.closePath();
                 ctx.fillStyle = 'rgba(5, 10, 25, 0.85)';
                 ctx.fill();
 
-                // Draw CS:GO poster image - fill entire frame with small margin
+                // Step 4: Draw CS:GO poster image
                 if (csgoImageLoaded) {
                     ctx.save();
 
-                    // Small margin for visual separation from neon border
-                    const margin = 0.02; // 2% margin
-
-                    // Calculate image area with margin
-                    const imgDepthStart = frameDepthStart + margin * frameWidthRatio;
-                    const imgDepthEnd = frameDepthEnd - margin * frameWidthRatio;
-                    const imgTopRatio = frameTopRatio + margin * frameHeightRatio;
-                    const imgBottomRatio = frameBottomRatio - margin * frameHeightRatio;
-
-                    const imgTopY = lerp(frontCeilingY, frontFloorY, imgTopRatio);
-                    const imgTopBackY = lerp(backCeilingY, backFloorY, imgTopRatio);
-                    const imgBottomY = lerp(frontCeilingY, frontFloorY, imgBottomRatio);
-                    const imgBottomBackY = lerp(backCeilingY, backFloorY, imgBottomRatio);
-
-                    const imgFrontTop = {
-                        x: lerp(frontLeftX, backLeftX, imgDepthStart),
-                        y: lerp(imgTopY, imgTopBackY, imgDepthStart)
-                    };
-                    const imgBackTop = {
-                        x: lerp(frontLeftX, backLeftX, imgDepthEnd),
-                        y: lerp(imgTopY, imgTopBackY, imgDepthEnd)
-                    };
-                    const imgBackBottom = {
-                        x: lerp(frontLeftX, backLeftX, imgDepthEnd),
-                        y: lerp(imgBottomY, imgBottomBackY, imgDepthEnd)
-                    };
-                    const imgFrontBottom = {
-                        x: lerp(frontLeftX, backLeftX, imgDepthStart),
-                        y: lerp(imgBottomY, imgBottomBackY, imgDepthStart)
-                    };
-
-                    // Create clipping path for the image area
+                    // Create clipping path for the poster area
                     ctx.beginPath();
-                    ctx.moveTo(imgFrontTop.x, imgFrontTop.y);
-                    ctx.lineTo(imgBackTop.x, imgBackTop.y);
-                    ctx.lineTo(imgBackBottom.x, imgBackBottom.y);
-                    ctx.lineTo(imgFrontBottom.x, imgFrontBottom.y);
+                    ctx.moveTo(posterFrontTop.x, posterFrontTop.y);
+                    ctx.lineTo(posterBackTop.x, posterBackTop.y);
+                    ctx.lineTo(posterBackBottom.x, posterBackBottom.y);
+                    ctx.lineTo(posterFrontBottom.x, posterFrontBottom.y);
                     ctx.closePath();
                     ctx.clip();
 
                     // Calculate bounding box and draw image to fill it completely
-                    const minX = Math.min(imgFrontTop.x, imgBackTop.x, imgBackBottom.x, imgFrontBottom.x);
-                    const maxX = Math.max(imgFrontTop.x, imgBackTop.x, imgBackBottom.x, imgFrontBottom.x);
-                    const minY = Math.min(imgFrontTop.y, imgBackTop.y, imgBackBottom.y, imgFrontBottom.y);
-                    const maxY = Math.max(imgFrontTop.y, imgBackTop.y, imgBackBottom.y, imgFrontBottom.y);
+                    const minX = Math.min(posterFrontTop.x, posterBackTop.x, posterBackBottom.x, posterFrontBottom.x);
+                    const maxX = Math.max(posterFrontTop.x, posterBackTop.x, posterBackBottom.x, posterFrontBottom.x);
+                    const minY = Math.min(posterFrontTop.y, posterBackTop.y, posterBackBottom.y, posterFrontBottom.y);
+                    const maxY = Math.max(posterFrontTop.y, posterBackTop.y, posterBackBottom.y, posterFrontBottom.y);
 
                     const boxWidth = maxX - minX;
                     const boxHeight = maxY - minY;
 
-                    // Use "cover" behavior - fill the entire box, may crop slightly
+                    // Use "cover" behavior - fill the entire box
                     const imageAspect = csgoImage.width / csgoImage.height;
                     const boxAspect = boxWidth / boxHeight;
 
@@ -2089,12 +2084,12 @@
                     ctx.restore();
                 }
 
-                // Draw neon cyan outline with stronger glow
+                // Step 5: Draw neon frame outline
                 ctx.beginPath();
-                ctx.moveTo(frontTop.x, frontTop.y);
-                ctx.lineTo(backTop.x, backTop.y);
-                ctx.lineTo(backBottom.x, backBottom.y);
-                ctx.lineTo(frontBottom.x, frontBottom.y);
+                ctx.moveTo(frameFrontTop.x, frameFrontTop.y);
+                ctx.lineTo(frameBackTop.x, frameBackTop.y);
+                ctx.lineTo(frameBackBottom.x, frameBackBottom.y);
+                ctx.lineTo(frameFrontBottom.x, frameFrontBottom.y);
                 ctx.closePath();
                 ctx.strokeStyle = 'rgba(140, 210, 255, 1.0)';
                 ctx.lineWidth = 5;
@@ -2105,96 +2100,90 @@
 
             // ========== RIGHT WALL FRAME (VALORANT POSTER) ==========
             {
-                // Calculate top edge of frame
-                const topY = lerp(frontCeilingY, frontFloorY, frameTopRatio);
-                const topBackY = lerp(backCeilingY, backFloorY, frameTopRatio);
+                // Step 1: Define POSTER area (no margin yet)
+                const posterTopY = lerp(frontCeilingY, frontFloorY, posterTopRatio);
+                const posterTopBackY = lerp(backCeilingY, backFloorY, posterTopRatio);
+                const posterBottomY = lerp(frontCeilingY, frontFloorY, posterBottomRatio);
+                const posterBottomBackY = lerp(backCeilingY, backFloorY, posterBottomRatio);
 
-                // Calculate bottom edge of frame
-                const bottomY = lerp(frontCeilingY, frontFloorY, frameBottomRatio);
-                const bottomBackY = lerp(backCeilingY, backFloorY, frameBottomRatio);
+                const posterFrontTop = {
+                    x: lerp(frontRightX, backRightX, posterDepthStart),
+                    y: lerp(posterTopY, posterTopBackY, posterDepthStart)
+                };
+                const posterBackTop = {
+                    x: lerp(frontRightX, backRightX, posterDepthEnd),
+                    y: lerp(posterTopY, posterTopBackY, posterDepthEnd)
+                };
+                const posterBackBottom = {
+                    x: lerp(frontRightX, backRightX, posterDepthEnd),
+                    y: lerp(posterBottomY, posterBottomBackY, posterDepthEnd)
+                };
+                const posterFrontBottom = {
+                    x: lerp(frontRightX, backRightX, posterDepthStart),
+                    y: lerp(posterBottomY, posterBottomBackY, posterDepthStart)
+                };
 
-                // Four corners of the frame (front to back along wall)
-                const frontTop = {
+                // Step 2: Build FRAME around poster with margin
+                const frameDepthStart = posterDepthStart - FRAME_MARGIN_RATIO;
+                const frameDepthEnd = posterDepthEnd + FRAME_MARGIN_RATIO;
+                const frameTopRatio = posterTopRatio - FRAME_MARGIN_RATIO;
+                const frameBottomRatio = posterBottomRatio + FRAME_MARGIN_RATIO;
+
+                const frameTopY = lerp(frontCeilingY, frontFloorY, frameTopRatio);
+                const frameTopBackY = lerp(backCeilingY, backFloorY, frameTopRatio);
+                const frameBottomY = lerp(frontCeilingY, frontFloorY, frameBottomRatio);
+                const frameBottomBackY = lerp(backCeilingY, backFloorY, frameBottomRatio);
+
+                const frameFrontTop = {
                     x: lerp(frontRightX, backRightX, frameDepthStart),
-                    y: lerp(topY, topBackY, frameDepthStart)
+                    y: lerp(frameTopY, frameTopBackY, frameDepthStart)
                 };
-                const backTop = {
+                const frameBackTop = {
                     x: lerp(frontRightX, backRightX, frameDepthEnd),
-                    y: lerp(topY, topBackY, frameDepthEnd)
+                    y: lerp(frameTopY, frameTopBackY, frameDepthEnd)
                 };
-                const backBottom = {
+                const frameBackBottom = {
                     x: lerp(frontRightX, backRightX, frameDepthEnd),
-                    y: lerp(bottomY, bottomBackY, frameDepthEnd)
+                    y: lerp(frameBottomY, frameBottomBackY, frameDepthEnd)
                 };
-                const frontBottom = {
+                const frameFrontBottom = {
                     x: lerp(frontRightX, backRightX, frameDepthStart),
-                    y: lerp(bottomY, bottomBackY, frameDepthStart)
+                    y: lerp(frameBottomY, frameBottomBackY, frameDepthStart)
                 };
 
-                // Draw dark background fill for frame
+                // Step 3: Draw dark background for frame
                 ctx.beginPath();
-                ctx.moveTo(frontTop.x, frontTop.y);
-                ctx.lineTo(backTop.x, backTop.y);
-                ctx.lineTo(backBottom.x, backBottom.y);
-                ctx.lineTo(frontBottom.x, frontBottom.y);
+                ctx.moveTo(frameFrontTop.x, frameFrontTop.y);
+                ctx.lineTo(frameBackTop.x, frameBackTop.y);
+                ctx.lineTo(frameBackBottom.x, frameBackBottom.y);
+                ctx.lineTo(frameFrontBottom.x, frameFrontBottom.y);
                 ctx.closePath();
                 ctx.fillStyle = 'rgba(5, 10, 25, 0.85)';
                 ctx.fill();
 
-                // Draw Valorant poster image - fill entire frame with small margin
+                // Step 4: Draw Valorant poster image
                 if (valorantImageLoaded) {
                     ctx.save();
 
-                    // Small margin for visual separation from neon border
-                    const margin = 0.02; // 2% margin
-
-                    // Calculate image area with margin
-                    const imgDepthStart = frameDepthStart + margin * frameWidthRatio;
-                    const imgDepthEnd = frameDepthEnd - margin * frameWidthRatio;
-                    const imgTopRatio = frameTopRatio + margin * frameHeightRatio;
-                    const imgBottomRatio = frameBottomRatio - margin * frameHeightRatio;
-
-                    const imgTopY = lerp(frontCeilingY, frontFloorY, imgTopRatio);
-                    const imgTopBackY = lerp(backCeilingY, backFloorY, imgTopRatio);
-                    const imgBottomY = lerp(frontCeilingY, frontFloorY, imgBottomRatio);
-                    const imgBottomBackY = lerp(backCeilingY, backFloorY, imgBottomRatio);
-
-                    const imgFrontTop = {
-                        x: lerp(frontRightX, backRightX, imgDepthStart),
-                        y: lerp(imgTopY, imgTopBackY, imgDepthStart)
-                    };
-                    const imgBackTop = {
-                        x: lerp(frontRightX, backRightX, imgDepthEnd),
-                        y: lerp(imgTopY, imgTopBackY, imgDepthEnd)
-                    };
-                    const imgBackBottom = {
-                        x: lerp(frontRightX, backRightX, imgDepthEnd),
-                        y: lerp(imgBottomY, imgBottomBackY, imgDepthEnd)
-                    };
-                    const imgFrontBottom = {
-                        x: lerp(frontRightX, backRightX, imgDepthStart),
-                        y: lerp(imgBottomY, imgBottomBackY, imgDepthStart)
-                    };
-
-                    // Create clipping path for the image area
+                    // Create clipping path for the poster area
                     ctx.beginPath();
-                    ctx.moveTo(imgFrontTop.x, imgFrontTop.y);
-                    ctx.lineTo(imgBackTop.x, imgBackTop.y);
-                    ctx.lineTo(imgBackBottom.x, imgBackBottom.y);
-                    ctx.lineTo(imgFrontBottom.x, imgFrontBottom.y);
+                    ctx.moveTo(posterFrontTop.x, posterFrontTop.y);
+                    ctx.lineTo(posterBackTop.x, posterBackTop.y);
+                    ctx.lineTo(posterBackBottom.x, posterBackBottom.y);
+                    ctx.lineTo(posterFrontBottom.x, posterFrontBottom.y);
                     ctx.closePath();
                     ctx.clip();
 
                     // Calculate bounding box and draw image to fill it completely
-                    const minX = Math.min(imgFrontTop.x, imgBackTop.x, imgBackBottom.x, imgFrontBottom.x);
-                    const maxX = Math.max(imgFrontTop.x, imgBackTop.x, imgBackBottom.x, imgFrontBottom.x);
-                    const minY = Math.min(imgFrontTop.y, imgBackTop.y, imgBackBottom.y, imgFrontBottom.y);
-                    const maxY = Math.max(imgFrontTop.y, imgBackTop.y, imgBackBottom.y, imgFrontBottom.y);
+                    const minX = Math.min(posterFrontTop.x, posterBackTop.x, posterBackBottom.x, posterFrontBottom.x);
+                    const maxX = Math.max(posterFrontTop.x, posterBackTop.x, posterBackBottom.x, posterFrontBottom.x);
+                    const minY = Math.min(posterFrontTop.y, posterBackTop.y, posterBackBottom.y, posterFrontBottom.y);
+                    const maxY = Math.max(posterFrontTop.y, posterBackTop.y, posterBackBottom.y, posterFrontBottom.y);
 
                     const boxWidth = maxX - minX;
                     const boxHeight = maxY - minY;
 
-                    // Use "cover" behavior - fill the entire box, may crop slightly
+                    // Use "cover" behavior - fill the entire box
                     const imageAspect = valorantImage.width / valorantImage.height;
                     const boxAspect = boxWidth / boxHeight;
 
@@ -2217,12 +2206,12 @@
                     ctx.restore();
                 }
 
-                // Draw neon cyan outline with stronger glow
+                // Step 5: Draw neon frame outline
                 ctx.beginPath();
-                ctx.moveTo(frontTop.x, frontTop.y);
-                ctx.lineTo(backTop.x, backTop.y);
-                ctx.lineTo(backBottom.x, backBottom.y);
-                ctx.lineTo(frontBottom.x, frontBottom.y);
+                ctx.moveTo(frameFrontTop.x, frameFrontTop.y);
+                ctx.lineTo(frameBackTop.x, frameBackTop.y);
+                ctx.lineTo(frameBackBottom.x, frameBackBottom.y);
+                ctx.lineTo(frameFrontBottom.x, frameFrontBottom.y);
                 ctx.closePath();
                 ctx.strokeStyle = 'rgba(140, 210, 255, 1.0)';
                 ctx.lineWidth = 5;
