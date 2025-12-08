@@ -2570,7 +2570,7 @@
                     };
                     break;
 
-                case 3: // Memory Cards
+                case 3: { // Memory Cards - use block scope for const variables
                     gameData = {
                         cards: [],
                         flipped: [],
@@ -2581,15 +2581,30 @@
                     const colors = ['#f44336', '#2196f3', '#4caf50', '#ffeb3b', '#9c27b0', '#ff9800', '#00bcd4', '#e91e63'];
                     const pairs = [...colors, ...colors];
                     pairs.sort(() => Math.random() - 0.5);
+
+                    // Center the 4×4 grid
+                    const cardCols = 4;
+                    const cardRows = 4;
+                    const cardSize = 100;
+                    const cardGap = 20;
+                    const gridW = cardCols * cardSize + (cardCols - 1) * cardGap;
+                    const gridH = cardRows * cardSize + (cardRows - 1) * cardGap;
+                    const startX = canvas.width / 2 - gridW / 2;
+                    const startY = canvas.height / 2 - gridH / 2 + 20;
+
                     for (let i = 0; i < 16; i++) {
+                        const col = i % 4;
+                        const row = Math.floor(i / 4);
                         gameData.cards.push({
-                            x: 350 + (i % 4) * 120,
-                            y: 200 + Math.floor(i / 4) * 120,
+                            x: startX + col * (cardSize + cardGap) + cardSize / 2,
+                            y: startY + row * (cardSize + cardGap) + cardSize / 2,
+                            size: cardSize,
                             color: pairs[i],
                             index: i
                         });
                     }
                     break;
+                }
 
                 case 4: // Space Dodge
                     gameData = {
@@ -3258,18 +3273,25 @@
 
             // Gradual difficulty increase
             const difficultyLevel = Math.floor(gameData.timeSinceStart / 20000);
-            gameData.spawnInterval = Math.max(400, 1200 - difficultyLevel * 150);
+            gameData.spawnInterval = Math.max(600, 1400 - difficultyLevel * 120);
 
             // Spawn fruits with timer-based approach
             if (gameData.spawnTimer >= gameData.spawnInterval) {
                 gameData.spawnTimer = 0;
                 const isBomb = Math.random() < 0.2;
                 const fruitColors = ['#ff6b6b', '#4caf50', '#ffeb3b', '#ff9800', '#9c27b0'];
+
+                // Calculate physics for proper arc
+                const grav = 0.3;
+                const startY = canvas.height + 40;
+                const peakY = canvas.height * (0.3 + Math.random() * 0.2);
+                const speed = Math.sqrt(2 * grav * (startY - peakY));
+
                 gameData.fruits.push({
                     x: Math.random() * (canvas.width * 0.8) + canvas.width * 0.1,
-                    y: canvas.height + 30,
-                    vx: (Math.random() - 0.5) * 4,
-                    vy: -(10 + Math.random() * 4), // Shoot upwards
+                    y: startY,
+                    vx: (Math.random() - 0.5) * 5,
+                    vy: -speed,
                     isBomb: isBomb,
                     size: 28,
                     color: fruitColors[Math.floor(Math.random() * fruitColors.length)],
@@ -3471,9 +3493,10 @@
             // Draw cards
             gameData.cards.forEach(card => {
                 const flipped = gameData.flipped.includes(card.index) || gameData.matched.includes(card.index);
+                const half = card.size / 2;
 
                 ctx.fillStyle = flipped ? card.color : '#444';
-                roundRect_hub(ctx, card.x - 50, card.y - 50, 100, 100, 10);
+                roundRect_hub(ctx, card.x - half, card.y - half, card.size, card.size, 10);
                 ctx.fill();
 
                 ctx.strokeStyle = '#fff';
@@ -3481,7 +3504,7 @@
                 ctx.stroke();
 
                 // Click handling
-                if (gameHubMouseJustPressed && pointInRect_hub(gameHubMouseX, gameHubMouseY, card.x - 50, card.y - 50, 100, 100) &&
+                if (gameHubMouseJustPressed && pointInRect_hub(gameHubMouseX, gameHubMouseY, card.x - half, card.y - half, card.size, card.size) &&
                     gameData.canFlip && !gameData.matched.includes(card.index) && !gameData.flipped.includes(card.index)) {
 
                     gameData.flipped.push(card.index);
