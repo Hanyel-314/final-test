@@ -179,6 +179,19 @@
             console.error('Failed to load gaming room image');
         };
 
+        // Song page image for audio room screen
+        // 音频室屏幕的歌曲页图片
+        const songPageImage = new Image();
+        let songPageImageLoaded = false;
+        songPageImage.src = '歌曲页.png';
+        songPageImage.onload = () => {
+            songPageImageLoaded = true;
+            console.log('Song page image loaded successfully');
+        };
+        songPageImage.onerror = () => {
+            console.error('Failed to load song page image');
+        };
+
         // ========== 游戏中心全局状态 Game Hub Global State ==========
         // Mini Game Hub state (appears in monitor view)
         // 迷你游戏中心状态（在显示器视角中显示）
@@ -3055,39 +3068,74 @@
             ctx.strokeRect(screenX, screenY, screenWidth, screenHeight);
             ctx.restore();
 
-            // Inner display content (animated waveform or pattern) - brighter
-            const time = Date.now() * 0.001;
-            ctx.save();
-            ctx.strokeStyle = 'rgba(79, 212, 255, 0.9)';
-            ctx.lineWidth = 3;
-            ctx.shadowColor = 'rgba(79, 212, 255, 0.6)';
-            ctx.shadowBlur = 10;
+            // Display song page image if loaded, otherwise show waveform
+            if (songPageImageLoaded) {
+                ctx.save();
 
-            // Simple audio waveform visualization
-            const wavePoints = 30;
-            ctx.beginPath();
-            for (let i = 0; i <= wavePoints; i++) {
-                const x = screenX + 20 + (screenWidth - 40) * (i / wavePoints);
-                const wave1 = Math.sin(i * 0.5 + time * 2) * 15;
-                const wave2 = Math.sin(i * 0.3 - time * 1.5) * 10;
-                const y = screenY + screenHeight / 2 + wave1 + wave2;
+                // Create clipping region for screen content
+                ctx.beginPath();
+                ctx.rect(screenX + 5, screenY + 5, screenWidth - 10, screenHeight - 10);
+                ctx.clip();
 
-                if (i === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
+                // Calculate image dimensions to fill screen with cover behavior
+                const imageAspect = songPageImage.width / songPageImage.height;
+                const screenAspect = screenWidth / screenHeight;
+
+                let drawWidth, drawHeight, drawX, drawY;
+
+                if (imageAspect > screenAspect) {
+                    // Image is wider - fit to height
+                    drawHeight = screenHeight;
+                    drawWidth = drawHeight * imageAspect;
+                    drawY = screenY;
+                    drawX = screenX + (screenWidth - drawWidth) / 2;
+                } else {
+                    // Image is taller - fit to width
+                    drawWidth = screenWidth;
+                    drawHeight = drawWidth / imageAspect;
+                    drawX = screenX;
+                    drawY = screenY + (screenHeight - drawHeight) / 2;
+                }
+
+                // Draw the song page image
+                ctx.drawImage(songPageImage, drawX, drawY, drawWidth, drawHeight);
+
+                ctx.restore();
+            } else {
+                // Fallback: animated waveform if image not loaded
+                const time = Date.now() * 0.001;
+                ctx.save();
+                ctx.strokeStyle = 'rgba(79, 212, 255, 0.9)';
+                ctx.lineWidth = 3;
+                ctx.shadowColor = 'rgba(79, 212, 255, 0.6)';
+                ctx.shadowBlur = 10;
+
+                // Simple audio waveform visualization
+                const wavePoints = 30;
+                ctx.beginPath();
+                for (let i = 0; i <= wavePoints; i++) {
+                    const x = screenX + 20 + (screenWidth - 40) * (i / wavePoints);
+                    const wave1 = Math.sin(i * 0.5 + time * 2) * 15;
+                    const wave2 = Math.sin(i * 0.3 - time * 1.5) * 10;
+                    const y = screenY + screenHeight / 2 + wave1 + wave2;
+
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+                ctx.restore();
+
+                // Screen title text - brighter
+                ctx.save();
+                ctx.fillStyle = 'rgba(120, 220, 255, 1.0)';
+                ctx.font = 'bold 18px monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.shadowColor = 'rgba(79, 212, 255, 0.8)';
+                ctx.shadowBlur = 12;
+                ctx.fillText('AUDIO SYSTEM', screenX + screenWidth / 2, screenY + 22);
+                ctx.restore();
             }
-            ctx.stroke();
-            ctx.restore();
-
-            // Screen title text - brighter
-            ctx.save();
-            ctx.fillStyle = 'rgba(120, 220, 255, 1.0)';
-            ctx.font = 'bold 18px monospace';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.shadowColor = 'rgba(79, 212, 255, 0.8)';
-            ctx.shadowBlur = 12;
-            ctx.fillText('AUDIO SYSTEM', screenX + screenWidth / 2, screenY + 22);
-            ctx.restore();
         }
 
         // ========== Audio Room Speakers (3D Box Speakers) ==========
