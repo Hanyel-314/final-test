@@ -2013,50 +2013,18 @@
                 ctx.fillStyle = 'rgba(5, 10, 25, 0.85)';
                 ctx.fill();
 
-                // Draw CS:GO poster image inside frame with "contain" behavior
+                // Draw CS:GO poster image - fill entire frame with small margin
                 if (csgoImageLoaded) {
-                    // Work in local frame space first
-                    // Calculate frame dimensions in local space (before perspective)
-                    const localFrameWidth = 1.0;  // normalized width
-                    const localFrameHeight = frameHeightRatio / frameWidthRatio; // aspect ratio
+                    ctx.save();
 
-                    // Calculate poster aspect ratio
-                    const posterAspect = csgoImage.width / csgoImage.height;
-                    const frameAspect = localFrameWidth / localFrameHeight;
+                    // Small margin for visual separation from neon border
+                    const margin = 0.02; // 2% margin
 
-                    // Very small margin between image and neon border (in local space)
-                    const marginRatio = 0.015; // ~1.5% minimal margin
-
-                    // Step 1: Fit poster inside frame with "contain" behavior
-                    let innerWidth, innerHeight;
-                    if (posterAspect > frameAspect) {
-                        // Poster is wider than frame - fit to width
-                        innerWidth = localFrameWidth;
-                        innerHeight = innerWidth / posterAspect;
-                    } else {
-                        // Poster is taller than frame - fit to height
-                        innerHeight = localFrameHeight;
-                        innerWidth = innerHeight * posterAspect;
-                    }
-
-                    // Step 2: Scale to 98% to maximize size while keeping full image visible
-                    innerWidth *= 0.98;
-                    innerHeight *= 0.98;
-
-                    // Step 3: Apply minimal margin
-                    innerWidth -= marginRatio * 2;
-                    innerHeight -= marginRatio * 2;
-
-                    // Step 4: Center perfectly inside frame rectangle
-                    const innerX = (localFrameWidth - innerWidth) / 2;
-                    const innerY = (localFrameHeight - innerHeight) / 2;
-
-                    // Convert local rectangle to perspective-correct corners
-                    // Map innerX, innerY, innerWidth, innerHeight to wall coordinates
-                    const imgDepthStart = frameDepthStart + innerX * frameWidthRatio;
-                    const imgDepthEnd = frameDepthStart + (innerX + innerWidth) * frameWidthRatio;
-                    const imgTopRatio = frameTopRatio + innerY * frameHeightRatio;
-                    const imgBottomRatio = frameTopRatio + (innerY + innerHeight) * frameHeightRatio;
+                    // Calculate image area with margin
+                    const imgDepthStart = frameDepthStart + margin * frameWidthRatio;
+                    const imgDepthEnd = frameDepthEnd - margin * frameWidthRatio;
+                    const imgTopRatio = frameTopRatio + margin * frameHeightRatio;
+                    const imgBottomRatio = frameBottomRatio - margin * frameHeightRatio;
 
                     const imgTopY = lerp(frontCeilingY, frontFloorY, imgTopRatio);
                     const imgTopBackY = lerp(backCeilingY, backFloorY, imgTopRatio);
@@ -2080,9 +2048,6 @@
                         y: lerp(imgBottomY, imgBottomBackY, imgDepthStart)
                     };
 
-                    // Draw image using perspective transform
-                    ctx.save();
-
                     // Create clipping path for the image area
                     ctx.beginPath();
                     ctx.moveTo(imgFrontTop.x, imgFrontTop.y);
@@ -2092,13 +2057,35 @@
                     ctx.closePath();
                     ctx.clip();
 
-                    // Calculate bounding box for simple drawImage
+                    // Calculate bounding box and draw image to fill it completely
                     const minX = Math.min(imgFrontTop.x, imgBackTop.x, imgBackBottom.x, imgFrontBottom.x);
                     const maxX = Math.max(imgFrontTop.x, imgBackTop.x, imgBackBottom.x, imgFrontBottom.x);
                     const minY = Math.min(imgFrontTop.y, imgBackTop.y, imgBackBottom.y, imgFrontBottom.y);
                     const maxY = Math.max(imgFrontTop.y, imgBackTop.y, imgBackBottom.y, imgFrontBottom.y);
 
-                    ctx.drawImage(csgoImage, minX, minY, maxX - minX, maxY - minY);
+                    const boxWidth = maxX - minX;
+                    const boxHeight = maxY - minY;
+
+                    // Use "cover" behavior - fill the entire box, may crop slightly
+                    const imageAspect = csgoImage.width / csgoImage.height;
+                    const boxAspect = boxWidth / boxHeight;
+
+                    let drawWidth, drawHeight, drawX, drawY;
+                    if (imageAspect > boxAspect) {
+                        // Image is wider - fit to height, crop width
+                        drawHeight = boxHeight;
+                        drawWidth = drawHeight * imageAspect;
+                        drawY = minY;
+                        drawX = minX - (drawWidth - boxWidth) / 2;
+                    } else {
+                        // Image is taller - fit to width, crop height
+                        drawWidth = boxWidth;
+                        drawHeight = drawWidth / imageAspect;
+                        drawX = minX;
+                        drawY = minY - (drawHeight - boxHeight) / 2;
+                    }
+
+                    ctx.drawImage(csgoImage, drawX, drawY, drawWidth, drawHeight);
                     ctx.restore();
                 }
 
@@ -2154,50 +2141,18 @@
                 ctx.fillStyle = 'rgba(5, 10, 25, 0.85)';
                 ctx.fill();
 
-                // Draw Valorant poster image inside frame with "contain" behavior
+                // Draw Valorant poster image - fill entire frame with small margin
                 if (valorantImageLoaded) {
-                    // Work in local frame space first
-                    // Calculate frame dimensions in local space (before perspective)
-                    const localFrameWidth = 1.0;  // normalized width
-                    const localFrameHeight = frameHeightRatio / frameWidthRatio; // aspect ratio
+                    ctx.save();
 
-                    // Calculate poster aspect ratio
-                    const posterAspect = valorantImage.width / valorantImage.height;
-                    const frameAspect = localFrameWidth / localFrameHeight;
+                    // Small margin for visual separation from neon border
+                    const margin = 0.02; // 2% margin
 
-                    // Very small margin between image and neon border (in local space)
-                    const marginRatio = 0.015; // ~1.5% minimal margin
-
-                    // Step 1: Fit poster inside frame with "contain" behavior
-                    let innerWidth, innerHeight;
-                    if (posterAspect > frameAspect) {
-                        // Poster is wider than frame - fit to width
-                        innerWidth = localFrameWidth;
-                        innerHeight = innerWidth / posterAspect;
-                    } else {
-                        // Poster is taller than frame - fit to height
-                        innerHeight = localFrameHeight;
-                        innerWidth = innerHeight * posterAspect;
-                    }
-
-                    // Step 2: Scale to 98% to maximize size while keeping full image visible
-                    innerWidth *= 0.98;
-                    innerHeight *= 0.98;
-
-                    // Step 3: Apply minimal margin
-                    innerWidth -= marginRatio * 2;
-                    innerHeight -= marginRatio * 2;
-
-                    // Step 4: Center perfectly inside frame rectangle
-                    const innerX = (localFrameWidth - innerWidth) / 2;
-                    const innerY = (localFrameHeight - innerHeight) / 2;
-
-                    // Convert local rectangle to perspective-correct corners
-                    // Map innerX, innerY, innerWidth, innerHeight to wall coordinates
-                    const imgDepthStart = frameDepthStart + innerX * frameWidthRatio;
-                    const imgDepthEnd = frameDepthStart + (innerX + innerWidth) * frameWidthRatio;
-                    const imgTopRatio = frameTopRatio + innerY * frameHeightRatio;
-                    const imgBottomRatio = frameTopRatio + (innerY + innerHeight) * frameHeightRatio;
+                    // Calculate image area with margin
+                    const imgDepthStart = frameDepthStart + margin * frameWidthRatio;
+                    const imgDepthEnd = frameDepthEnd - margin * frameWidthRatio;
+                    const imgTopRatio = frameTopRatio + margin * frameHeightRatio;
+                    const imgBottomRatio = frameBottomRatio - margin * frameHeightRatio;
 
                     const imgTopY = lerp(frontCeilingY, frontFloorY, imgTopRatio);
                     const imgTopBackY = lerp(backCeilingY, backFloorY, imgTopRatio);
@@ -2221,9 +2176,6 @@
                         y: lerp(imgBottomY, imgBottomBackY, imgDepthStart)
                     };
 
-                    // Draw image using perspective transform
-                    ctx.save();
-
                     // Create clipping path for the image area
                     ctx.beginPath();
                     ctx.moveTo(imgFrontTop.x, imgFrontTop.y);
@@ -2233,13 +2185,35 @@
                     ctx.closePath();
                     ctx.clip();
 
-                    // Calculate bounding box for simple drawImage
+                    // Calculate bounding box and draw image to fill it completely
                     const minX = Math.min(imgFrontTop.x, imgBackTop.x, imgBackBottom.x, imgFrontBottom.x);
                     const maxX = Math.max(imgFrontTop.x, imgBackTop.x, imgBackBottom.x, imgFrontBottom.x);
                     const minY = Math.min(imgFrontTop.y, imgBackTop.y, imgBackBottom.y, imgFrontBottom.y);
                     const maxY = Math.max(imgFrontTop.y, imgBackTop.y, imgBackBottom.y, imgFrontBottom.y);
 
-                    ctx.drawImage(valorantImage, minX, minY, maxX - minX, maxY - minY);
+                    const boxWidth = maxX - minX;
+                    const boxHeight = maxY - minY;
+
+                    // Use "cover" behavior - fill the entire box, may crop slightly
+                    const imageAspect = valorantImage.width / valorantImage.height;
+                    const boxAspect = boxWidth / boxHeight;
+
+                    let drawWidth, drawHeight, drawX, drawY;
+                    if (imageAspect > boxAspect) {
+                        // Image is wider - fit to height, crop width
+                        drawHeight = boxHeight;
+                        drawWidth = drawHeight * imageAspect;
+                        drawY = minY;
+                        drawX = minX - (drawWidth - boxWidth) / 2;
+                    } else {
+                        // Image is taller - fit to width, crop height
+                        drawWidth = boxWidth;
+                        drawHeight = drawWidth / imageAspect;
+                        drawX = minX;
+                        drawY = minY - (drawHeight - boxHeight) / 2;
+                    }
+
+                    ctx.drawImage(valorantImage, drawX, drawY, drawWidth, drawHeight);
                     ctx.restore();
                 }
 
