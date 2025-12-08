@@ -1932,14 +1932,14 @@
             frontCeilingY, backCeilingY,
             frontFloorY, backFloorY
         ) {
-            // LARGER FRAMES - increased size to match reference red boxes
-            // Frame depth along the wall (increased to ~55% of wall depth)
-            const frameDepthStart = 0.20;  // Start 20% from front
-            const frameDepthEnd = 0.75;    // End 75% from front (55% width)
+            // MUCH LARGER FRAMES - scaled to match reference red boxes
+            // Frame depth along the wall (~75% of wall depth, 2.5x scale from original)
+            const frameDepthStart = 0.10;  // Start 10% from front
+            const frameDepthEnd = 0.85;    // End 85% from front (75% width)
 
-            // Frame vertical placement (direct positioning for larger height)
-            const frameTopRatio = 0.45;    // Top edge at 45% between ceiling and floor
-            const frameBottomRatio = 0.60; // Bottom edge at 60% (15% height)
+            // Frame vertical placement (2x taller height, ~30% of wall height)
+            const frameTopRatio = 0.35;    // Top edge at 35% between ceiling and floor
+            const frameBottomRatio = 0.65; // Bottom edge at 65% (30% height)
 
             ctx.save();
 
@@ -1985,9 +1985,9 @@
 
                 // THICKER, BRIGHTER neon cyan outline with stronger glow
                 ctx.strokeStyle = 'rgba(140, 210, 255, 1.0)';
-                ctx.lineWidth = 5;
+                ctx.lineWidth = 6;
                 ctx.shadowColor = 'rgba(140, 210, 255, 1.0)';
-                ctx.shadowBlur = 25;
+                ctx.shadowBlur = 28;
                 ctx.stroke();
             }
 
@@ -2033,9 +2033,9 @@
 
                 // THICKER, BRIGHTER neon cyan outline with stronger glow (same color for consistency)
                 ctx.strokeStyle = 'rgba(140, 210, 255, 1.0)';
-                ctx.lineWidth = 5;
+                ctx.lineWidth = 6;
                 ctx.shadowColor = 'rgba(140, 210, 255, 1.0)';
-                ctx.shadowBlur = 25;
+                ctx.shadowBlur = 28;
                 ctx.stroke();
             }
 
