@@ -3306,51 +3306,77 @@
                 ctx.restore();
             }
 
-            // === Explicit speaker positions using canvas dimensions ===
+            // === Explicit speaker positions using room perspective (scales with walkProgress) ===
 
-            // BOTTOM LEFT speaker (large floor speaker)
-            const bottomLeftX = W * 0.22;
-            const bottomLeftY = H * 0.78;
-            const bottomWidth = W * 0.11;   // 11% of canvas width
-            const bottomHeight = H * 0.24;  // 24% of canvas height
+            // Calculate speaker positions relative to room geometry, not fixed canvas coords
+            // This makes speakers move/scale as you walk forward, just like Floor 1 objects
+
+            // BOTTOM LEFT speaker (large floor speaker) - positioned on left wall near floor
+            const bottomLeftDepth = 0.35;  // How far along the left wall (0=back, 1=front)
+            const bottomLeftHeight = 0.78; // Height ratio (0=ceiling, 1=floor)
+
+            // Interpolate position based on room perspective
+            const bottomLeftX = lerp(backLeftX, frontLeftX, bottomLeftDepth);
+            const bottomLeftYTop = lerp(backCeilingY, backFloorY, bottomLeftHeight - 0.12);
+            const bottomLeftYBottom = lerp(backCeilingY, backFloorY, bottomLeftHeight + 0.12);
+            const bottomLeftY = (bottomLeftYTop + bottomLeftYBottom) / 2;
+
+            // Scale speakers based on depth - closer = bigger
+            const bottomLeftScale = 1.0 + (bottomLeftDepth * 0.5);  // 1.0 to 1.5x scale
+            const bottomWidth = (W * 0.11) * bottomLeftScale;
+            const bottomHeight = (H * 0.24) * bottomLeftScale;
 
             drawSpeaker3D(ctx, bottomLeftX, bottomLeftY, bottomWidth, bottomHeight, "right");
 
             // Floor shadow under bottom left speaker
             ctx.save();
             const shadowGrad1 = ctx.createRadialGradient(
-                bottomLeftX, H, 0,
-                bottomLeftX, H, bottomWidth * 0.8
+                bottomLeftX, frontFloorY, 0,
+                bottomLeftX, frontFloorY, bottomWidth * 0.8
             );
             shadowGrad1.addColorStop(0, 'rgba(0, 0, 0, 0.6)');
             shadowGrad1.addColorStop(1, 'rgba(0, 0, 0, 0)');
             ctx.fillStyle = shadowGrad1;
-            ctx.fillRect(bottomLeftX - bottomWidth, H - 30, bottomWidth * 2, 30);
+            ctx.fillRect(bottomLeftX - bottomWidth, frontFloorY - 30, bottomWidth * 2, 30);
             ctx.restore();
 
-            // BOTTOM RIGHT speaker (large floor speaker)
-            const bottomRightX = W * 0.78;
-            const bottomRightY = H * 0.78;
+            // BOTTOM RIGHT speaker (large floor speaker) - mirrored position
+            const bottomRightDepth = 0.35;
+            const bottomRightHeight = 0.78;
+
+            const bottomRightX = lerp(backRightX, frontRightX, bottomRightDepth);
+            const bottomRightYTop = lerp(backCeilingY, backFloorY, bottomRightHeight - 0.12);
+            const bottomRightYBottom = lerp(backCeilingY, backFloorY, bottomRightHeight + 0.12);
+            const bottomRightY = (bottomRightYTop + bottomRightYBottom) / 2;
+
+            const bottomRightScale = 1.0 + (bottomRightDepth * 0.5);
 
             drawSpeaker3D(ctx, bottomRightX, bottomRightY, bottomWidth, bottomHeight, "left");
 
             // Floor shadow under bottom right speaker
             ctx.save();
             const shadowGrad2 = ctx.createRadialGradient(
-                bottomRightX, H, 0,
-                bottomRightX, H, bottomWidth * 0.8
+                bottomRightX, frontFloorY, 0,
+                bottomRightX, frontFloorY, bottomWidth * 0.8
             );
             shadowGrad2.addColorStop(0, 'rgba(0, 0, 0, 0.6)');
             shadowGrad2.addColorStop(1, 'rgba(0, 0, 0, 0)');
             ctx.fillStyle = shadowGrad2;
-            ctx.fillRect(bottomRightX - bottomWidth, H - 30, bottomWidth * 2, 30);
+            ctx.fillRect(bottomRightX - bottomWidth, frontFloorY - 30, bottomWidth * 2, 30);
             ctx.restore();
 
-            // TOP LEFT speaker (wall-mounted)
-            const topLeftX = W * 0.22;
-            const topLeftY = H * 0.30;
-            const topWidth = W * 0.09;    // 9% of canvas width
-            const topHeight = H * 0.16;   // 16% of canvas height
+            // TOP LEFT speaker (wall-mounted) - higher on the wall
+            const topLeftDepth = 0.38;
+            const topLeftHeight = 0.30;
+
+            const topLeftX = lerp(backLeftX, frontLeftX, topLeftDepth);
+            const topLeftYTop = lerp(backCeilingY, backFloorY, topLeftHeight - 0.08);
+            const topLeftYBottom = lerp(backCeilingY, backFloorY, topLeftHeight + 0.08);
+            const topLeftY = (topLeftYTop + topLeftYBottom) / 2;
+
+            const topLeftScale = 1.0 + (topLeftDepth * 0.5);
+            const topWidth = (W * 0.09) * topLeftScale;
+            const topHeight = (H * 0.16) * topLeftScale;
 
             drawSpeaker3D(ctx, topLeftX, topLeftY, topWidth, topHeight, "right");
 
@@ -3366,9 +3392,16 @@
             ctx.fillRect(topLeftX - topWidth/2, topLeftY + topHeight/2, topWidth, 40);
             ctx.restore();
 
-            // TOP RIGHT speaker (wall-mounted)
-            const topRightX = W * 0.78;
-            const topRightY = H * 0.30;
+            // TOP RIGHT speaker (wall-mounted) - mirrored position
+            const topRightDepth = 0.38;
+            const topRightHeight = 0.30;
+
+            const topRightX = lerp(backRightX, frontRightX, topRightDepth);
+            const topRightYTop = lerp(backCeilingY, backFloorY, topRightHeight - 0.08);
+            const topRightYBottom = lerp(backCeilingY, backFloorY, topRightHeight + 0.08);
+            const topRightY = (topRightYTop + topRightYBottom) / 2;
+
+            const topRightScale = 1.0 + (topRightDepth * 0.5);
 
             drawSpeaker3D(ctx, topRightX, topRightY, topWidth, topHeight, "left");
 
