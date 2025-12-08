@@ -1543,6 +1543,17 @@
                         // Draw fullscreen monitor view (no head-bob)
                         drawMonitorViewFullscreen(ctx);
                     }
+                } else if (sceneState === 'audioroom') {
+                    if (viewMode === 'corridor') {
+                        // 应用FPS头部晃动到音频室场景 Apply FPS head-bob to audio room scene
+                        ctx.save();
+                        ctx.translate(headBobOffsetX, headBobOffsetY);
+                        drawAudioRoomScene();
+                        ctx.restore();
+
+                        // Draw "Back to Elevator" button (no head-bob for UI)
+                        drawBackToElevatorButton(ctx);
+                    }
                 }
             }
         }
@@ -2749,6 +2760,487 @@
 
             // Removed: Soft floor shadow under desk (per user request)
             // 移除：桌子下方地板阴影（根据用户要求）
+        }
+
+        // ========== FLOOR 2: AUDIO ROOM SCENE ==========
+        // Futuristic audio / speaker room with same geometry as Floor 1 gaming room
+        // 未来风格的音频/扬声器房间，与1楼游戏室使用相同的几何结构
+        function drawAudioRoomScene() {
+            // Use same perspective geometry as corridor1
+            const t = walkProgress;
+
+            // Back wall horizontal: slightly wider when closer
+            const backLeftX  = lerp(CORRIDOR_BACK_LEFT_X_FAR,  CORRIDOR_BACK_LEFT_X_NEAR,  t);
+            const backRightX = lerp(CORRIDOR_BACK_RIGHT_X_FAR, CORRIDOR_BACK_RIGHT_X_NEAR, t);
+
+            // Back wall vertical: floor line moves down a bit when closer
+            const backFloorY   = lerp(CORRIDOR_BACK_FLOOR_Y_FAR, CORRIDOR_BACK_FLOOR_Y_NEAR, t);
+            const backCeilingY = CORRIDOR_BACK_CEILING_Y;
+
+            // Front edges of side walls: FIXED
+            const frontLeftX    = CORRIDOR_FRONT_LEFT_X;
+            const frontRightX   = CORRIDOR_FRONT_RIGHT_X;
+            const frontCeilingY = CORRIDOR_FRONT_CEILING_Y;
+            const frontFloorY   = CORRIDOR_FRONT_FLOOR_Y;
+
+            // === DRAW FLOOR ===
+            ctx.fillStyle = '#050716';  // Dark blue floor
+            ctx.beginPath();
+            ctx.moveTo(frontLeftX, frontFloorY);
+            ctx.lineTo(frontRightX, frontFloorY);
+            ctx.lineTo(backRightX, backFloorY);
+            ctx.lineTo(backLeftX, backFloorY);
+            ctx.closePath();
+            ctx.fill();
+
+            // Floor grid scrolling (same as gaming room)
+            const tileSize = TILE_SIZE;
+            const offset = floorScroll % tileSize;
+
+            ctx.save();
+            ctx.strokeStyle = 'rgba(79, 212, 255, 0.12)';
+            ctx.lineWidth = 1;
+
+            const numHLines = Math.ceil((frontFloorY - backFloorY) / tileSize) + 2;
+            for (let i = 0; i < numHLines; i++) {
+                const y = backFloorY + (i * tileSize) + offset;
+                if (y < backFloorY || y > frontFloorY) continue;
+
+                const tLine = (y - backFloorY) / (frontFloorY - backFloorY);
+                const leftX = lerp(backLeftX, frontLeftX, tLine);
+                const rightX = lerp(backRightX, frontRightX, tLine);
+
+                ctx.beginPath();
+                ctx.moveTo(leftX, y);
+                ctx.lineTo(rightX, y);
+                ctx.stroke();
+            }
+
+            const numVLines = 8;
+            for (let i = 0; i <= numVLines; i++) {
+                const tLine = i / numVLines;
+                const frontX = lerp(frontLeftX, frontRightX, tLine);
+                const backX = lerp(backLeftX, backRightX, tLine);
+
+                ctx.beginPath();
+                ctx.moveTo(frontX, frontFloorY);
+                ctx.lineTo(backX, backFloorY);
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            // === DRAW LEFT WALL ===
+            const leftWallGrad = ctx.createLinearGradient(frontLeftX, 0, backLeftX, 0);
+            leftWallGrad.addColorStop(0, '#101427');
+            leftWallGrad.addColorStop(0.5, '#1a1e3a');
+            leftWallGrad.addColorStop(1, '#101427');
+
+            ctx.fillStyle = leftWallGrad;
+            ctx.beginPath();
+            ctx.moveTo(frontLeftX, frontCeilingY);
+            ctx.lineTo(backLeftX, backCeilingY);
+            ctx.lineTo(backLeftX, backFloorY);
+            ctx.lineTo(frontLeftX, frontFloorY);
+            ctx.closePath();
+            ctx.fill();
+
+            // === DRAW RIGHT WALL ===
+            const rightWallGrad = ctx.createLinearGradient(backRightX, 0, frontRightX, 0);
+            rightWallGrad.addColorStop(0, '#101427');
+            rightWallGrad.addColorStop(0.5, '#1a1e3a');
+            rightWallGrad.addColorStop(1, '#101427');
+
+            ctx.fillStyle = rightWallGrad;
+            ctx.beginPath();
+            ctx.moveTo(frontRightX, frontCeilingY);
+            ctx.lineTo(backRightX, backCeilingY);
+            ctx.lineTo(backRightX, backFloorY);
+            ctx.lineTo(frontRightX, frontFloorY);
+            ctx.closePath();
+            ctx.fill();
+
+            // === DRAW CEILING ===
+            ctx.fillStyle = '#050716';
+            ctx.beginPath();
+            ctx.moveTo(frontLeftX, frontCeilingY);
+            ctx.lineTo(frontRightX, frontCeilingY);
+            ctx.lineTo(backRightX, backCeilingY);
+            ctx.lineTo(backLeftX, backCeilingY);
+            ctx.closePath();
+            ctx.fill();
+
+            // Ceiling grid (purple accent)
+            ctx.save();
+            ctx.strokeStyle = 'rgba(197, 84, 255, 0.08)';
+            ctx.lineWidth = 1;
+            const ceilingOffset = ceilingScroll % 80;
+            const numCLines = Math.ceil((backCeilingY - frontCeilingY) / 80) + 2;
+            for (let i = 0; i < numCLines; i++) {
+                const y = frontCeilingY + (i * 80) + ceilingOffset - 80;
+                if (y < frontCeilingY || y > backCeilingY) continue;
+
+                const tLine = (y - frontCeilingY) / (backCeilingY - frontCeilingY);
+                const leftX = lerp(frontLeftX, backLeftX, tLine);
+                const rightX = lerp(frontRightX, backRightX, tLine);
+
+                ctx.beginPath();
+                ctx.moveTo(leftX, y);
+                ctx.lineTo(rightX, y);
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            // === DRAW BACK WALL ===
+            const wallGrad = ctx.createLinearGradient(0, backCeilingY, 0, backFloorY);
+            wallGrad.addColorStop(0, '#101427');
+            wallGrad.addColorStop(1, '#050716');
+            ctx.fillStyle = wallGrad;
+            ctx.fillRect(backLeftX, backCeilingY, backRightX - backLeftX, backFloorY - backCeilingY);
+
+            // === DRAW NEON LINES (same as gaming room) ===
+            drawAudioRoomNeon(frontLeftX, frontRightX, backLeftX, backRightX,
+                              frontCeilingY, backCeilingY, frontFloorY, backFloorY);
+
+            // === DRAW CENTRAL DISPLAY SCREEN ===
+            drawAudioRoomCentralScreen(backLeftX, backRightX, backCeilingY, backFloorY);
+
+            // === DRAW SPEAKERS ===
+            drawAudioRoomSpeakers(frontLeftX, frontRightX, backLeftX, backRightX,
+                                  frontCeilingY, backCeilingY, frontFloorY, backFloorY);
+
+            // Update "Back to Elevator" button position
+            backButton.y = H - backButton.h - 20;
+        }
+
+        // ========== Audio Room Neon Lines ==========
+        function drawAudioRoomNeon(frontLeftX, frontRightX, backLeftX, backRightX,
+                                   frontCeilingY, backCeilingY, frontFloorY, backFloorY) {
+            // --- CEILING NEON ---
+            ctx.save();
+            ctx.shadowColor = "rgba(120, 120, 255, 0.9)";
+            ctx.shadowBlur  = 26;
+            ctx.strokeStyle = "#7fddff";
+            ctx.lineWidth   = 3;
+
+            const offset = 6;
+
+            // Left ceiling edge
+            ctx.beginPath();
+            ctx.moveTo(frontLeftX + offset,  frontCeilingY + offset);
+            ctx.lineTo(backLeftX  + offset,  backCeilingY  + offset);
+            ctx.stroke();
+
+            // Right ceiling edge
+            ctx.beginPath();
+            ctx.moveTo(frontRightX - offset, frontCeilingY + offset);
+            ctx.lineTo(backRightX - offset,  backCeilingY  + offset);
+            ctx.stroke();
+            ctx.restore();
+
+            // --- Back floor neon ---
+            ctx.save();
+            ctx.shadowColor = "rgba(80, 140, 255, 0.9)";
+            ctx.shadowBlur  = 22;
+            ctx.strokeStyle = "#4f8dff";
+            ctx.lineWidth   = 3;
+            ctx.beginPath();
+            ctx.moveTo(backLeftX,  backFloorY + 1);
+            ctx.lineTo(backRightX, backFloorY + 1);
+            ctx.stroke();
+            ctx.restore();
+
+            // --- Back wall neon frame ---
+            ctx.save();
+            ctx.shadowColor = "rgba(120, 180, 255, 0.9)";
+            ctx.shadowBlur  = 26;
+            ctx.strokeStyle = "#6fd8ff";
+            ctx.lineWidth   = 3;
+
+            const backWallOffset = 3;
+
+            // Left vertical edge
+            ctx.beginPath();
+            ctx.moveTo(backLeftX + backWallOffset, backCeilingY + backWallOffset);
+            ctx.lineTo(backLeftX + backWallOffset, backFloorY - backWallOffset);
+            ctx.stroke();
+
+            // Right vertical edge
+            ctx.beginPath();
+            ctx.moveTo(backRightX - backWallOffset, backCeilingY + backWallOffset);
+            ctx.lineTo(backRightX - backWallOffset, backFloorY - backWallOffset);
+            ctx.stroke();
+
+            // Top horizontal edge
+            ctx.beginPath();
+            ctx.moveTo(backLeftX + backWallOffset, backCeilingY + backWallOffset);
+            ctx.lineTo(backRightX - backWallOffset, backCeilingY + backWallOffset);
+            ctx.stroke();
+            ctx.restore();
+
+            // --- DIAGONAL PURPLE STRIPS on side walls ---
+            ctx.save();
+            ctx.shadowColor = "rgba(200, 80, 255, 0.9)";
+            ctx.shadowBlur  = 26;
+            ctx.strokeStyle = "#c554ff";
+            ctx.lineWidth   = 3;
+
+            function lerpWallLeft(t) {
+                const x = frontLeftX + (backLeftX - frontLeftX) * t;
+                const y = frontCeilingY + (backFloorY - frontCeilingY) * t;
+                return { x, y };
+            }
+
+            function lerpWallRight(t) {
+                const x = frontRightX + (backRightX - frontRightX) * t;
+                const y = frontCeilingY + (backFloorY - frontCeilingY) * t;
+                return { x, y };
+            }
+
+            const tStart = 0.20;
+            const tEnd   = 0.85;
+
+            // LEFT wall diagonal
+            const L0 = lerpWallLeft(tStart);
+            const L1 = lerpWallLeft(tEnd);
+            ctx.beginPath();
+            ctx.moveTo(L0.x + 4, L0.y);
+            ctx.lineTo(L1.x + 4, L1.y);
+            ctx.stroke();
+
+            // RIGHT wall diagonal
+            const R0 = lerpWallRight(tStart);
+            const R1 = lerpWallRight(tEnd);
+            ctx.beginPath();
+            ctx.moveTo(R0.x - 4, R0.y);
+            ctx.lineTo(R1.x - 4, R1.y);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        // ========== Audio Room Central Display Screen ==========
+        function drawAudioRoomCentralScreen(backLeftX, backRightX, backCeilingY, backFloorY) {
+            // Large LED-style screen on the back wall, centered
+            const screenWidth = (backRightX - backLeftX) * 0.50;  // 50% of back wall width
+            const screenHeight = (backFloorY - backCeilingY) * 0.28;  // 28% of wall height
+
+            const screenX = backLeftX + (backRightX - backLeftX - screenWidth) / 2;
+            const screenY = backCeilingY + (backFloorY - backCeilingY) * 0.35;  // Positioned at eye level
+
+            // Screen background (dark with subtle glow)
+            ctx.fillStyle = '#0a0a15';
+            ctx.fillRect(screenX, screenY, screenWidth, screenHeight);
+
+            // Screen border with cyan glow
+            ctx.save();
+            ctx.shadowColor = 'rgba(79, 212, 255, 0.8)';
+            ctx.shadowBlur = 20;
+            ctx.strokeStyle = '#4fd4ff';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(screenX, screenY, screenWidth, screenHeight);
+            ctx.restore();
+
+            // Inner display content (animated waveform or pattern)
+            const time = Date.now() * 0.001;
+            ctx.save();
+            ctx.strokeStyle = 'rgba(79, 212, 255, 0.6)';
+            ctx.lineWidth = 2;
+
+            // Simple audio waveform visualization
+            const wavePoints = 30;
+            ctx.beginPath();
+            for (let i = 0; i <= wavePoints; i++) {
+                const x = screenX + 20 + (screenWidth - 40) * (i / wavePoints);
+                const wave1 = Math.sin(i * 0.5 + time * 2) * 15;
+                const wave2 = Math.sin(i * 0.3 - time * 1.5) * 10;
+                const y = screenY + screenHeight / 2 + wave1 + wave2;
+
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            ctx.restore();
+
+            // Screen title text
+            ctx.save();
+            ctx.fillStyle = 'rgba(79, 212, 255, 0.9)';
+            ctx.font = 'bold 16px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('AUDIO SYSTEM', screenX + screenWidth / 2, screenY + 20);
+            ctx.restore();
+        }
+
+        // ========== Audio Room Speakers ==========
+        function drawAudioRoomSpeakers(frontLeftX, frontRightX, backLeftX, backRightX,
+                                       frontCeilingY, backCeilingY, frontFloorY, backFloorY) {
+            // Helper to calculate wall points with perspective
+            function getWallPoint(isLeft, depthRatio, heightRatio) {
+                const wallHeight = backFloorY - backCeilingY;
+                const y = backCeilingY + wallHeight * heightRatio;
+
+                if (isLeft) {
+                    // Left wall perspective
+                    const frontY = frontCeilingY + (frontFloorY - frontCeilingY) * heightRatio;
+                    const x = lerp(backLeftX, frontLeftX, depthRatio);
+                    const actualY = lerp(y, frontY, depthRatio);
+                    return { x, y: actualY };
+                } else {
+                    // Right wall perspective
+                    const frontY = frontCeilingY + (frontFloorY - frontCeilingY) * heightRatio;
+                    const x = lerp(backRightX, frontRightX, depthRatio);
+                    const actualY = lerp(y, frontY, depthRatio);
+                    return { x, y: actualY };
+                }
+            }
+
+            // === LEFT WALL SPEAKERS ===
+
+            // 1. Bottom floor-standing speaker (large, near floor)
+            const leftBottomDepthStart = 0.25;
+            const leftBottomDepthEnd = 0.45;
+            const leftBottomHeightStart = 0.62;  // Top of speaker
+            const leftBottomHeightEnd = 0.95;    // Bottom of speaker
+
+            const LB_TL = getWallPoint(true, leftBottomDepthStart, leftBottomHeightStart);  // Top-left
+            const LB_TR = getWallPoint(true, leftBottomDepthEnd, leftBottomHeightStart);    // Top-right
+            const LB_BR = getWallPoint(true, leftBottomDepthEnd, leftBottomHeightEnd);      // Bottom-right
+            const LB_BL = getWallPoint(true, leftBottomDepthStart, leftBottomHeightEnd);    // Bottom-left
+
+            // Draw speaker body
+            ctx.fillStyle = '#0a0a15';
+            ctx.beginPath();
+            ctx.moveTo(LB_TL.x, LB_TL.y);
+            ctx.lineTo(LB_TR.x, LB_TR.y);
+            ctx.lineTo(LB_BR.x, LB_BR.y);
+            ctx.lineTo(LB_BL.x, LB_BL.y);
+            ctx.closePath();
+            ctx.fill();
+
+            // Neon cyan outline with glow
+            ctx.save();
+            ctx.shadowColor = 'rgba(79, 212, 255, 0.9)';
+            ctx.shadowBlur = 20;
+            ctx.strokeStyle = '#4fd4ff';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.restore();
+
+            // Floor glow reflection under speaker
+            ctx.save();
+            const glowGrad = ctx.createRadialGradient(
+                (LB_BL.x + LB_BR.x) / 2, LB_BL.y,
+                0,
+                (LB_BL.x + LB_BR.x) / 2, LB_BL.y,
+                80
+            );
+            glowGrad.addColorStop(0, 'rgba(79, 212, 255, 0.3)');
+            glowGrad.addColorStop(1, 'rgba(79, 212, 255, 0)');
+            ctx.fillStyle = glowGrad;
+            ctx.fillRect((LB_BL.x + LB_BR.x) / 2 - 80, LB_BL.y, 160, 40);
+            ctx.restore();
+
+            // 2. Upper wall-mounted speaker (narrower, higher on wall)
+            const leftTopDepthStart = 0.30;
+            const leftTopDepthEnd = 0.52;
+            const leftTopHeightStart = 0.28;
+            const leftTopHeightEnd = 0.42;
+
+            const LT_TL = getWallPoint(true, leftTopDepthStart, leftTopHeightStart);
+            const LT_TR = getWallPoint(true, leftTopDepthEnd, leftTopHeightStart);
+            const LT_BR = getWallPoint(true, leftTopDepthEnd, leftTopHeightEnd);
+            const LT_BL = getWallPoint(true, leftTopDepthStart, leftTopHeightEnd);
+
+            // Draw speaker body
+            ctx.fillStyle = '#0a0a15';
+            ctx.beginPath();
+            ctx.moveTo(LT_TL.x, LT_TL.y);
+            ctx.lineTo(LT_TR.x, LT_TR.y);
+            ctx.lineTo(LT_BR.x, LT_BR.y);
+            ctx.lineTo(LT_BL.x, LT_BL.y);
+            ctx.closePath();
+            ctx.fill();
+
+            // Neon purple outline with glow
+            ctx.save();
+            ctx.shadowColor = 'rgba(197, 84, 255, 0.9)';
+            ctx.shadowBlur = 20;
+            ctx.strokeStyle = '#c554ff';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.restore();
+
+            // === RIGHT WALL SPEAKERS (mirrored) ===
+
+            // 1. Bottom floor-standing speaker
+            const rightBottomDepthStart = 0.25;
+            const rightBottomDepthEnd = 0.45;
+            const rightBottomHeightStart = 0.62;
+            const rightBottomHeightEnd = 0.95;
+
+            const RB_TL = getWallPoint(false, rightBottomDepthEnd, rightBottomHeightStart);
+            const RB_TR = getWallPoint(false, rightBottomDepthStart, rightBottomHeightStart);
+            const RB_BR = getWallPoint(false, rightBottomDepthStart, rightBottomHeightEnd);
+            const RB_BL = getWallPoint(false, rightBottomDepthEnd, rightBottomHeightEnd);
+
+            ctx.fillStyle = '#0a0a15';
+            ctx.beginPath();
+            ctx.moveTo(RB_TL.x, RB_TL.y);
+            ctx.lineTo(RB_TR.x, RB_TR.y);
+            ctx.lineTo(RB_BR.x, RB_BR.y);
+            ctx.lineTo(RB_BL.x, RB_BL.y);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.save();
+            ctx.shadowColor = 'rgba(79, 212, 255, 0.9)';
+            ctx.shadowBlur = 20;
+            ctx.strokeStyle = '#4fd4ff';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.restore();
+
+            // Floor glow reflection
+            ctx.save();
+            const glowGradR = ctx.createRadialGradient(
+                (RB_BL.x + RB_BR.x) / 2, RB_BL.y,
+                0,
+                (RB_BL.x + RB_BR.x) / 2, RB_BL.y,
+                80
+            );
+            glowGradR.addColorStop(0, 'rgba(79, 212, 255, 0.3)');
+            glowGradR.addColorStop(1, 'rgba(79, 212, 255, 0)');
+            ctx.fillStyle = glowGradR;
+            ctx.fillRect((RB_BL.x + RB_BR.x) / 2 - 80, RB_BL.y, 160, 40);
+            ctx.restore();
+
+            // 2. Upper wall-mounted speaker
+            const rightTopDepthStart = 0.30;
+            const rightTopDepthEnd = 0.52;
+            const rightTopHeightStart = 0.28;
+            const rightTopHeightEnd = 0.42;
+
+            const RT_TL = getWallPoint(false, rightTopDepthEnd, rightTopHeightStart);
+            const RT_TR = getWallPoint(false, rightTopDepthStart, rightTopHeightStart);
+            const RT_BR = getWallPoint(false, rightTopDepthStart, rightTopHeightEnd);
+            const RT_BL = getWallPoint(false, rightTopDepthEnd, rightTopHeightEnd);
+
+            ctx.fillStyle = '#0a0a15';
+            ctx.beginPath();
+            ctx.moveTo(RT_TL.x, RT_TL.y);
+            ctx.lineTo(RT_TR.x, RT_TR.y);
+            ctx.lineTo(RT_BR.x, RT_BR.y);
+            ctx.lineTo(RT_BL.x, RT_BL.y);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.save();
+            ctx.shadowColor = 'rgba(197, 84, 255, 0.9)';
+            ctx.shadowBlur = 20;
+            ctx.strokeStyle = '#c554ff';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.restore();
         }
 
         // ========== "Back to Elevator" 按钮绘制 Button Drawing ==========
@@ -4575,6 +5067,31 @@
             console.log('Entered Corridor 1 scene');
         }
 
+        // === 进入音频室函数 Enter Audio Room Function ===
+        // Floor 2: Futuristic audio/speaker room
+        // 二层电梯外的音频室场景
+        function enterAudioRoom() {
+            sceneState = 'audioroom';
+            viewMode = 'corridor';  // Use corridor view mode for consistency
+
+            // 重置走路状态 Reset walking state
+            walkProgress = 0;
+            walkVelocity = 0;
+            floorScroll = 0;
+            wallScroll = 0;
+            ceilingScroll = 0;
+
+            // 重置头部晃动 Reset head-bob
+            headBobPhase = 0;
+            headBobOffsetX = 0;
+            headBobOffsetY = 0;
+
+            readyToEnter = false;
+            enterHintPhase = 0;
+
+            console.log('Entered Audio Room scene');
+        }
+
         // === 点击进入事件 Click to Enter Event ===
         // 当玩家走到门前并点击时，触发进入下一场景的动画
         // When player is at door and clicks, trigger entering next scene animation
@@ -4584,15 +5101,21 @@
             const my = e.clientY - rect.top;
 
             if (sceneState === 'elevator') {
-                // Only enter corridor on floor 1 when clicking INSIDE the door hitbox
-                // 只有在1层且点击门内部时才能进入走廊
-                if (readyToEnter && scene.elevator.currentFloor === 1) {
+                // Enter different scenes based on current floor
+                if (readyToEnter) {
                     const hb = elevatorDoorHitbox;
                     const insideDoor = mx >= hb.x && mx <= hb.x + hb.w &&
                                        my >= hb.y && my <= hb.y + hb.h;
 
                     if (insideDoor) {
-                        enterCorridor1();
+                        // Floor 1: Gaming room (corridor1)
+                        if (scene.elevator.currentFloor === 1) {
+                            enterCorridor1();
+                        }
+                        // Floor 2: Audio room
+                        else if (scene.elevator.currentFloor === 2) {
+                            enterAudioRoom();
+                        }
                     }
                 }
             } else if (sceneState === 'corridor1') {
@@ -4640,6 +5163,29 @@
                 // 注意：在监视器视角中，使用ESC键返回走廊（在keydown事件中处理）
                 // Future: add computer interaction when player is at the end
                 // 未来：当玩家到达尽头时添加电脑交互
+            } else if (sceneState === 'audioroom') {
+                if (viewMode === 'corridor') {
+                    // Check if "Back to Elevator" button was clicked
+                    // 检查是否点击了"返回电梯"按钮
+                    if (
+                        mx >= backButton.x &&
+                        mx <= backButton.x + backButton.w &&
+                        my >= backButton.y &&
+                        my <= backButton.y + backButton.h
+                    ) {
+                        // Return to elevator scene
+                        // 返回电梯场景
+                        sceneState = 'elevator';
+                        walkProgress = 0;
+                        walkVelocity = 0;
+                        floorScroll = 0;
+                        wallScroll = 0;
+                        ceilingScroll = 0;
+                        readyToEnter = false;
+                        enterHintPhase = 0;
+                        viewMode = 'corridor';  // Reset view mode
+                    }
+                }
             }
         });
 
@@ -4721,6 +5267,9 @@
                 } else if (sceneState === 'corridor1' && viewMode === 'corridor') {
                     // 走廊内：只在正常走廊视角时可以走 Corridor: only allow walking in corridor view
                     walkVelocity = 1;
+                } else if (sceneState === 'audioroom' && viewMode === 'corridor') {
+                    // 音频室内：只在正常视角时可以走 Audio room: only allow walking in corridor view
+                    walkVelocity = 1;
                 }
             }
 
@@ -4728,6 +5277,8 @@
             if (key === 'ArrowDown' || key === 's' || key === 'S') {
                 if (sceneState === 'corridor1' && viewMode === 'corridor') {
                     walkVelocity = -1;  // 持续向后 Continuous backward (only in corridor view)
+                } else if (sceneState === 'audioroom' && viewMode === 'corridor') {
+                    walkVelocity = -1;  // 持续向后 Continuous backward (only in audio room view)
                 } else if (sceneState === 'elevator') {
                     walkVelocity = -1;  // 电梯内也可以后退 Also allow backward in elevator
                 }
@@ -4748,6 +5299,8 @@
             if (key === 'ArrowUp' || key === 'w' || key === 'W') {
                 if (sceneState === 'corridor1' && viewMode === 'corridor') {
                     if (walkVelocity > 0) walkVelocity = 0;  // 停止前进 Stop forward
+                } else if (sceneState === 'audioroom' && viewMode === 'corridor') {
+                    if (walkVelocity > 0) walkVelocity = 0;  // 停止前进 Stop forward
                 } else if (sceneState === 'elevator') {
                     if (walkVelocity > 0) walkVelocity = 0;  // 停止前进 Stop forward
                 }
@@ -4755,6 +5308,8 @@
 
             if (key === 'ArrowDown' || key === 's' || key === 'S') {
                 if (sceneState === 'corridor1' && viewMode === 'corridor') {
+                    if (walkVelocity < 0) walkVelocity = 0;  // 停止后退 Stop backward
+                } else if (sceneState === 'audioroom' && viewMode === 'corridor') {
                     if (walkVelocity < 0) walkVelocity = 0;  // 停止后退 Stop backward
                 } else if (sceneState === 'elevator') {
                     if (walkVelocity < 0) walkVelocity = 0;  // 停止后退 Stop backward
