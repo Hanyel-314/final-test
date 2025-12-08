@@ -1932,27 +1932,26 @@
             frontCeilingY, backCeilingY,
             frontFloorY, backFloorY
         ) {
-            // Frame vertical placement ratio (0.43 = ~eye level between ceiling and floor)
-            const frameYRatio = 0.43;
+            // LARGER FRAMES - increased size to match reference red boxes
+            // Frame depth along the wall (increased to ~55% of wall depth)
+            const frameDepthStart = 0.20;  // Start 20% from front
+            const frameDepthEnd = 0.75;    // End 75% from front (55% width)
 
-            // Frame depth along the wall (how far it extends into the wall perspective)
-            const frameDepthStart = 0.25;  // Start 25% from front
-            const frameDepthEnd = 0.60;    // End 60% from front (35% width)
-
-            // Frame height ratio (narrower for horizontal rectangle)
-            const frameHeightRatio = 0.12; // 12% of wall height
+            // Frame vertical placement (direct positioning for larger height)
+            const frameTopRatio = 0.45;    // Top edge at 45% between ceiling and floor
+            const frameBottomRatio = 0.60; // Bottom edge at 60% (15% height)
 
             ctx.save();
 
             // ========== LEFT WALL FRAME ==========
             {
                 // Calculate top edge of frame
-                const topY = lerp(frontCeilingY, frontFloorY, frameYRatio - frameHeightRatio / 2);
-                const topBackY = lerp(backCeilingY, backFloorY, frameYRatio - frameHeightRatio / 2);
+                const topY = lerp(frontCeilingY, frontFloorY, frameTopRatio);
+                const topBackY = lerp(backCeilingY, backFloorY, frameTopRatio);
 
                 // Calculate bottom edge of frame
-                const bottomY = lerp(frontCeilingY, frontFloorY, frameYRatio + frameHeightRatio / 2);
-                const bottomBackY = lerp(backCeilingY, backFloorY, frameYRatio + frameHeightRatio / 2);
+                const bottomY = lerp(frontCeilingY, frontFloorY, frameBottomRatio);
+                const bottomBackY = lerp(backCeilingY, backFloorY, frameBottomRatio);
 
                 // Four corners of the frame (front to back along wall)
                 const frontTop = {
@@ -1972,7 +1971,7 @@
                     y: lerp(bottomY, bottomBackY, frameDepthStart)
                 };
 
-                // Draw outer frame with neon glow
+                // Draw polygon with fill first
                 ctx.beginPath();
                 ctx.moveTo(frontTop.x, frontTop.y);
                 ctx.lineTo(backTop.x, backTop.y);
@@ -1980,27 +1979,27 @@
                 ctx.lineTo(frontBottom.x, frontBottom.y);
                 ctx.closePath();
 
-                // Inner dark fill
-                ctx.fillStyle = 'rgba(10, 15, 30, 0.8)';
+                // Inner dark fill (darker than before)
+                ctx.fillStyle = 'rgba(5, 10, 25, 0.85)';
                 ctx.fill();
 
-                // Neon cyan outline with glow
-                ctx.strokeStyle = 'rgba(120, 180, 255, 0.9)';
-                ctx.lineWidth = 3;
-                ctx.shadowColor = 'rgba(120, 180, 255, 0.8)';
-                ctx.shadowBlur = 18;
+                // THICKER, BRIGHTER neon cyan outline with stronger glow
+                ctx.strokeStyle = 'rgba(140, 210, 255, 1.0)';
+                ctx.lineWidth = 5;
+                ctx.shadowColor = 'rgba(140, 210, 255, 1.0)';
+                ctx.shadowBlur = 25;
                 ctx.stroke();
             }
 
             // ========== RIGHT WALL FRAME ==========
             {
                 // Calculate top edge of frame
-                const topY = lerp(frontCeilingY, frontFloorY, frameYRatio - frameHeightRatio / 2);
-                const topBackY = lerp(backCeilingY, backFloorY, frameYRatio - frameHeightRatio / 2);
+                const topY = lerp(frontCeilingY, frontFloorY, frameTopRatio);
+                const topBackY = lerp(backCeilingY, backFloorY, frameTopRatio);
 
                 // Calculate bottom edge of frame
-                const bottomY = lerp(frontCeilingY, frontFloorY, frameYRatio + frameHeightRatio / 2);
-                const bottomBackY = lerp(backCeilingY, backFloorY, frameYRatio + frameHeightRatio / 2);
+                const bottomY = lerp(frontCeilingY, frontFloorY, frameBottomRatio);
+                const bottomBackY = lerp(backCeilingY, backFloorY, frameBottomRatio);
 
                 // Four corners of the frame (front to back along wall)
                 const frontTop = {
@@ -2020,7 +2019,7 @@
                     y: lerp(bottomY, bottomBackY, frameDepthStart)
                 };
 
-                // Draw outer frame with neon glow
+                // Draw polygon with fill first
                 ctx.beginPath();
                 ctx.moveTo(frontTop.x, frontTop.y);
                 ctx.lineTo(backTop.x, backTop.y);
@@ -2028,15 +2027,15 @@
                 ctx.lineTo(frontBottom.x, frontBottom.y);
                 ctx.closePath();
 
-                // Inner dark fill
-                ctx.fillStyle = 'rgba(10, 15, 30, 0.8)';
+                // Inner dark fill (darker than before)
+                ctx.fillStyle = 'rgba(5, 10, 25, 0.85)';
                 ctx.fill();
 
-                // Neon purple outline with glow (alternate color for variety)
-                ctx.strokeStyle = 'rgba(197, 84, 255, 0.9)';
-                ctx.lineWidth = 3;
-                ctx.shadowColor = 'rgba(197, 84, 255, 0.8)';
-                ctx.shadowBlur = 18;
+                // THICKER, BRIGHTER neon cyan outline with stronger glow (same color for consistency)
+                ctx.strokeStyle = 'rgba(140, 210, 255, 1.0)';
+                ctx.lineWidth = 5;
+                ctx.shadowColor = 'rgba(140, 210, 255, 1.0)';
+                ctx.shadowBlur = 25;
                 ctx.stroke();
             }
 
