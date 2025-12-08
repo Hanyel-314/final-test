@@ -166,6 +166,19 @@
             console.error('Failed to load Valorant poster');
         };
 
+        // Gaming room image for elevator lobby
+        // 电梯大厅游戏室图片
+        const gamingRoomImage = new Image();
+        let gamingRoomImageLoaded = false;
+        gamingRoomImage.src = 'gaming room.jpg';
+        gamingRoomImage.onload = () => {
+            gamingRoomImageLoaded = true;
+            console.log('Gaming room image loaded successfully');
+        };
+        gamingRoomImage.onerror = () => {
+            console.error('Failed to load gaming room image');
+        };
+
         // ========== 游戏中心全局状态 Game Hub Global State ==========
         // Mini Game Hub state (appears in monitor view)
         // 迷你游戏中心状态（在显示器视角中显示）
@@ -1009,19 +1022,62 @@
 
             // 绘制外部场景装饰
             drawExteriorScene(floor, doorY, doorHeight) {
-                ctx.fillStyle = '#666';
-                ctx.font = 'bold 24px Arial';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-
                 switch(floor) {
                     case 1:
-                        ctx.fillText('LOBBY', VP_X, doorY + doorHeight * 0.3);
+                        // Display gaming room image - fill entire visible area with cover behavior
+                        if (gamingRoomImageLoaded) {
+                            const geo = getCabinGeometry();
+
+                            // Define the rectangular area to fill (the door opening)
+                            const imgX = geo.doorLeft;
+                            const imgY = doorY;
+                            const imgWidth = geo.doorWidth;
+                            const imgHeight = doorHeight;
+
+                            // Calculate aspect ratios
+                            const imageAspect = gamingRoomImage.width / gamingRoomImage.height;
+                            const boxAspect = imgWidth / imgHeight;
+
+                            let drawWidth, drawHeight, drawX, drawY;
+
+                            // Use "cover" behavior - fill entire box without white borders
+                            if (imageAspect > boxAspect) {
+                                // Image is wider - fit to height, crop sides
+                                drawHeight = imgHeight;
+                                drawWidth = drawHeight * imageAspect;
+                                drawY = imgY;
+                                drawX = imgX - (drawWidth - imgWidth) / 2;
+                            } else {
+                                // Image is taller - fit to width, crop top/bottom
+                                drawWidth = imgWidth;
+                                drawHeight = drawWidth / imageAspect;
+                                drawX = imgX;
+                                drawY = imgY - (drawHeight - imgHeight) / 2;
+                            }
+
+                            // Create clipping path for the door area
+                            ctx.save();
+                            ctx.beginPath();
+                            ctx.rect(imgX, imgY, imgWidth, imgHeight);
+                            ctx.clip();
+
+                            // Draw the image
+                            ctx.drawImage(gamingRoomImage, drawX, drawY, drawWidth, drawHeight);
+                            ctx.restore();
+                        }
                         break;
                     case 2:
+                        ctx.fillStyle = '#666';
+                        ctx.font = 'bold 24px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
                         ctx.fillText('OFFICE', VP_X, doorY + doorHeight * 0.3);
                         break;
                     case 3:
+                        ctx.fillStyle = '#666';
+                        ctx.font = 'bold 24px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
                         ctx.fillText('ROOFTOP', VP_X, doorY + doorHeight * 0.3);
                         break;
                 }
@@ -1454,7 +1510,7 @@
 
                     // 在门的中央偏下位置显示提示 Show hint in center-lower area of door
                     const hintY = geo.doorTop + geo.doorHeight * 0.6;
-                    ctx.fillText('点击进入', VP_X, hintY);
+                    ctx.fillText('Click to Enter', VP_X, hintY);
 
                     ctx.restore();
                 }
