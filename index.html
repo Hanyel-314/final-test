@@ -2024,24 +2024,32 @@
                     const posterAspect = csgoImage.width / csgoImage.height;
                     const frameAspect = localFrameWidth / localFrameHeight;
 
-                    // Margin between image and neon border
-                    const margin = 0.05; // 5% margin in local space
+                    // Margin between image and neon border (in local space)
+                    const marginRatio = 0.04; // ~4% margin for 12px equivalent
 
-                    // Fit poster inside frame with "contain" behavior
-                    let innerWidth, innerHeight, innerX, innerY;
+                    // Step 1: Fit poster inside frame with "contain" behavior
+                    let innerWidth, innerHeight;
                     if (posterAspect > frameAspect) {
                         // Poster is wider than frame - fit to width
-                        innerWidth = localFrameWidth - margin * 2;
+                        innerWidth = localFrameWidth;
                         innerHeight = innerWidth / posterAspect;
-                        innerX = margin;
-                        innerY = (localFrameHeight - innerHeight) / 2; // center vertically
                     } else {
                         // Poster is taller than frame - fit to height
-                        innerHeight = localFrameHeight - margin * 2;
+                        innerHeight = localFrameHeight;
                         innerWidth = innerHeight * posterAspect;
-                        innerY = margin;
-                        innerX = (localFrameWidth - innerWidth) / 2; // center horizontally
                     }
+
+                    // Step 2: Scale to 90% for larger appearance
+                    innerWidth *= 0.90;
+                    innerHeight *= 0.90;
+
+                    // Step 3: Apply margin
+                    innerWidth -= marginRatio * 2;
+                    innerHeight -= marginRatio * 2;
+
+                    // Step 4: Center perfectly inside frame rectangle
+                    const innerX = (localFrameWidth - innerWidth) / 2;
+                    const innerY = (localFrameHeight - innerHeight) / 2;
 
                     // Convert local rectangle to perspective-correct corners
                     // Map innerX, innerY, innerWidth, innerHeight to wall coordinates
@@ -2157,24 +2165,32 @@
                     const posterAspect = valorantImage.width / valorantImage.height;
                     const frameAspect = localFrameWidth / localFrameHeight;
 
-                    // Margin between image and neon border
-                    const margin = 0.05; // 5% margin in local space
+                    // Margin between image and neon border (in local space)
+                    const marginRatio = 0.04; // ~4% margin for 12px equivalent
 
-                    // Fit poster inside frame with "contain" behavior
-                    let innerWidth, innerHeight, innerX, innerY;
+                    // Step 1: Fit poster inside frame with "contain" behavior
+                    let innerWidth, innerHeight;
                     if (posterAspect > frameAspect) {
                         // Poster is wider than frame - fit to width
-                        innerWidth = localFrameWidth - margin * 2;
+                        innerWidth = localFrameWidth;
                         innerHeight = innerWidth / posterAspect;
-                        innerX = margin;
-                        innerY = (localFrameHeight - innerHeight) / 2; // center vertically
                     } else {
                         // Poster is taller than frame - fit to height
-                        innerHeight = localFrameHeight - margin * 2;
+                        innerHeight = localFrameHeight;
                         innerWidth = innerHeight * posterAspect;
-                        innerY = margin;
-                        innerX = (localFrameWidth - innerWidth) / 2; // center horizontally
                     }
+
+                    // Step 2: Scale to 90% for larger appearance
+                    innerWidth *= 0.90;
+                    innerHeight *= 0.90;
+
+                    // Step 3: Apply margin
+                    innerWidth -= marginRatio * 2;
+                    innerHeight -= marginRatio * 2;
+
+                    // Step 4: Center perfectly inside frame rectangle
+                    const innerX = (localFrameWidth - innerWidth) / 2;
+                    const innerY = (localFrameHeight - innerHeight) / 2;
 
                     // Convert local rectangle to perspective-correct corners
                     // Map innerX, innerY, innerWidth, innerHeight to wall coordinates
