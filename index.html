@@ -2024,8 +2024,8 @@
                     const posterAspect = csgoImage.width / csgoImage.height;
                     const frameAspect = localFrameWidth / localFrameHeight;
 
-                    // Margin between image and neon border (in local space)
-                    const marginRatio = 0.04; // ~4% margin for 12px equivalent
+                    // Very small margin between image and neon border (in local space)
+                    const marginRatio = 0.015; // ~1.5% minimal margin
 
                     // Step 1: Fit poster inside frame with "contain" behavior
                     let innerWidth, innerHeight;
@@ -2039,11 +2039,11 @@
                         innerWidth = innerHeight * posterAspect;
                     }
 
-                    // Step 2: Scale to 90% for larger appearance
-                    innerWidth *= 0.90;
-                    innerHeight *= 0.90;
+                    // Step 2: Scale to 98% to maximize size while keeping full image visible
+                    innerWidth *= 0.98;
+                    innerHeight *= 0.98;
 
-                    // Step 3: Apply margin
+                    // Step 3: Apply minimal margin
                     innerWidth -= marginRatio * 2;
                     innerHeight -= marginRatio * 2;
 
@@ -2165,8 +2165,8 @@
                     const posterAspect = valorantImage.width / valorantImage.height;
                     const frameAspect = localFrameWidth / localFrameHeight;
 
-                    // Margin between image and neon border (in local space)
-                    const marginRatio = 0.04; // ~4% margin for 12px equivalent
+                    // Very small margin between image and neon border (in local space)
+                    const marginRatio = 0.015; // ~1.5% minimal margin
 
                     // Step 1: Fit poster inside frame with "contain" behavior
                     let innerWidth, innerHeight;
@@ -2180,11 +2180,11 @@
                         innerWidth = innerHeight * posterAspect;
                     }
 
-                    // Step 2: Scale to 90% for larger appearance
-                    innerWidth *= 0.90;
-                    innerHeight *= 0.90;
+                    // Step 2: Scale to 98% to maximize size while keeping full image visible
+                    innerWidth *= 0.98;
+                    innerHeight *= 0.98;
 
-                    // Step 3: Apply margin
+                    // Step 3: Apply minimal margin
                     innerWidth -= marginRatio * 2;
                     innerHeight -= marginRatio * 2;
 
