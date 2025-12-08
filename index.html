@@ -1667,6 +1667,12 @@
                 frontCeilingY, backCeilingY, frontFloorY, backFloorY
             );
 
+            // 绘制侧墙霓虹相框 Draw neon wall frames on side walls
+            drawWallFrames(
+                ctx, frontLeftX, frontRightX, backLeftX, backRightX,
+                frontCeilingY, backCeilingY, frontFloorY, backFloorY
+            );
+
             // 绘制地板纹理 Draw floor texture (plush gaming rug)
             drawFloorTexture(frontLeftX, frontRightX, backLeftX, backRightX, frontFloorY, backFloorY);
 
@@ -1912,6 +1918,127 @@
             ctx.strokeStyle = '#c554ff';
             ctx.lineWidth = 2;
             ctx.strokeRect(panelX, panelY, 45, 60);
+
+            ctx.restore();
+        }
+
+        // ========== 侧墙霓虹相框 Wall Neon Frames ==========
+        // Draws horizontal neon-framed displays on left and right walls at eye level
+        // 在左右侧墙上绘制水平霓虹相框（视线高度）
+        function drawWallFrames(
+            ctx,
+            frontLeftX, frontRightX,
+            backLeftX, backRightX,
+            frontCeilingY, backCeilingY,
+            frontFloorY, backFloorY
+        ) {
+            // Frame vertical placement ratio (0.43 = ~eye level between ceiling and floor)
+            const frameYRatio = 0.43;
+
+            // Frame depth along the wall (how far it extends into the wall perspective)
+            const frameDepthStart = 0.25;  // Start 25% from front
+            const frameDepthEnd = 0.60;    // End 60% from front (35% width)
+
+            // Frame height ratio (narrower for horizontal rectangle)
+            const frameHeightRatio = 0.12; // 12% of wall height
+
+            ctx.save();
+
+            // ========== LEFT WALL FRAME ==========
+            {
+                // Calculate top edge of frame
+                const topY = lerp(frontCeilingY, frontFloorY, frameYRatio - frameHeightRatio / 2);
+                const topBackY = lerp(backCeilingY, backFloorY, frameYRatio - frameHeightRatio / 2);
+
+                // Calculate bottom edge of frame
+                const bottomY = lerp(frontCeilingY, frontFloorY, frameYRatio + frameHeightRatio / 2);
+                const bottomBackY = lerp(backCeilingY, backFloorY, frameYRatio + frameHeightRatio / 2);
+
+                // Four corners of the frame (front to back along wall)
+                const frontTop = {
+                    x: lerp(frontLeftX, backLeftX, frameDepthStart),
+                    y: lerp(topY, topBackY, frameDepthStart)
+                };
+                const backTop = {
+                    x: lerp(frontLeftX, backLeftX, frameDepthEnd),
+                    y: lerp(topY, topBackY, frameDepthEnd)
+                };
+                const backBottom = {
+                    x: lerp(frontLeftX, backLeftX, frameDepthEnd),
+                    y: lerp(bottomY, bottomBackY, frameDepthEnd)
+                };
+                const frontBottom = {
+                    x: lerp(frontLeftX, backLeftX, frameDepthStart),
+                    y: lerp(bottomY, bottomBackY, frameDepthStart)
+                };
+
+                // Draw outer frame with neon glow
+                ctx.beginPath();
+                ctx.moveTo(frontTop.x, frontTop.y);
+                ctx.lineTo(backTop.x, backTop.y);
+                ctx.lineTo(backBottom.x, backBottom.y);
+                ctx.lineTo(frontBottom.x, frontBottom.y);
+                ctx.closePath();
+
+                // Inner dark fill
+                ctx.fillStyle = 'rgba(10, 15, 30, 0.8)';
+                ctx.fill();
+
+                // Neon cyan outline with glow
+                ctx.strokeStyle = 'rgba(120, 180, 255, 0.9)';
+                ctx.lineWidth = 3;
+                ctx.shadowColor = 'rgba(120, 180, 255, 0.8)';
+                ctx.shadowBlur = 18;
+                ctx.stroke();
+            }
+
+            // ========== RIGHT WALL FRAME ==========
+            {
+                // Calculate top edge of frame
+                const topY = lerp(frontCeilingY, frontFloorY, frameYRatio - frameHeightRatio / 2);
+                const topBackY = lerp(backCeilingY, backFloorY, frameYRatio - frameHeightRatio / 2);
+
+                // Calculate bottom edge of frame
+                const bottomY = lerp(frontCeilingY, frontFloorY, frameYRatio + frameHeightRatio / 2);
+                const bottomBackY = lerp(backCeilingY, backFloorY, frameYRatio + frameHeightRatio / 2);
+
+                // Four corners of the frame (front to back along wall)
+                const frontTop = {
+                    x: lerp(frontRightX, backRightX, frameDepthStart),
+                    y: lerp(topY, topBackY, frameDepthStart)
+                };
+                const backTop = {
+                    x: lerp(frontRightX, backRightX, frameDepthEnd),
+                    y: lerp(topY, topBackY, frameDepthEnd)
+                };
+                const backBottom = {
+                    x: lerp(frontRightX, backRightX, frameDepthEnd),
+                    y: lerp(bottomY, bottomBackY, frameDepthEnd)
+                };
+                const frontBottom = {
+                    x: lerp(frontRightX, backRightX, frameDepthStart),
+                    y: lerp(bottomY, bottomBackY, frameDepthStart)
+                };
+
+                // Draw outer frame with neon glow
+                ctx.beginPath();
+                ctx.moveTo(frontTop.x, frontTop.y);
+                ctx.lineTo(backTop.x, backTop.y);
+                ctx.lineTo(backBottom.x, backBottom.y);
+                ctx.lineTo(frontBottom.x, frontBottom.y);
+                ctx.closePath();
+
+                // Inner dark fill
+                ctx.fillStyle = 'rgba(10, 15, 30, 0.8)';
+                ctx.fill();
+
+                // Neon purple outline with glow (alternate color for variety)
+                ctx.strokeStyle = 'rgba(197, 84, 255, 0.9)';
+                ctx.lineWidth = 3;
+                ctx.shadowColor = 'rgba(197, 84, 255, 0.8)';
+                ctx.shadowBlur = 18;
+                ctx.stroke();
+            }
 
             ctx.restore();
         }
