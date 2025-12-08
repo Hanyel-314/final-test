@@ -142,6 +142,30 @@
             console.error('Failed to load floor texture from:', FLOOR_IMAGE_URL);
         };
 
+        // Wall poster images for gaming room frames
+        // 游戏室墙面海报图片
+        const csgoImage = new Image();
+        let csgoImageLoaded = false;
+        csgoImage.src = 'csgo.jpg';
+        csgoImage.onload = () => {
+            csgoImageLoaded = true;
+            console.log('CS:GO poster loaded successfully');
+        };
+        csgoImage.onerror = () => {
+            console.error('Failed to load CS:GO poster');
+        };
+
+        const valorantImage = new Image();
+        let valorantImageLoaded = false;
+        valorantImage.src = 'Valorant.jpg';
+        valorantImage.onload = () => {
+            valorantImageLoaded = true;
+            console.log('Valorant poster loaded successfully');
+        };
+        valorantImage.onerror = () => {
+            console.error('Failed to load Valorant poster');
+        };
+
         // ========== 游戏中心全局状态 Game Hub Global State ==========
         // Mini Game Hub state (appears in monitor view)
         // 迷你游戏中心状态（在显示器视角中显示）
@@ -1932,18 +1956,26 @@
             frontCeilingY, backCeilingY,
             frontFloorY, backFloorY
         ) {
-            // MUCH LARGER FRAMES - scaled to match reference red boxes
-            // Frame depth along the wall (~75% of wall depth, 2.5x scale from original)
-            const frameDepthStart = 0.10;  // Start 10% from front
-            const frameDepthEnd = 0.85;    // End 85% from front (75% width)
+            // LARGE FRAMES with 16:9 aspect ratio for poster images
+            // Frame width: ~55% of wall depth
+            const frameDepthStart = 0.15;  // Start 15% from front
+            const frameDepthEnd = 0.70;    // End 70% from front (55% width)
 
-            // Frame vertical placement (2x taller height, ~30% of wall height)
-            const frameTopRatio = 0.35;    // Top edge at 35% between ceiling and floor
-            const frameBottomRatio = 0.65; // Bottom edge at 65% (30% height)
+            // Calculate frame center position
+            const frameCenterDepth = (frameDepthStart + frameDepthEnd) / 2;
+            const frameCenterY = 0.50; // Centered vertically at 50%
+
+            // Frame dimensions with 16:9 aspect ratio
+            // Width spans 55% of wall, height calculated to maintain 16:9
+            const frameWidthRatio = frameDepthEnd - frameDepthStart; // 0.55
+            const frameHeightRatio = frameWidthRatio * 0.56;  // ~16:9 aspect ratio (9/16 = 0.5625)
+
+            const frameTopRatio = frameCenterY - frameHeightRatio / 2;
+            const frameBottomRatio = frameCenterY + frameHeightRatio / 2;
 
             ctx.save();
 
-            // ========== LEFT WALL FRAME ==========
+            // ========== LEFT WALL FRAME (CS:GO POSTER) ==========
             {
                 // Calculate top edge of frame
                 const topY = lerp(frontCeilingY, frontFloorY, frameTopRatio);
@@ -1971,7 +2003,7 @@
                     y: lerp(bottomY, bottomBackY, frameDepthStart)
                 };
 
-                // Draw polygon with fill first
+                // Create frame polygon path
                 ctx.beginPath();
                 ctx.moveTo(frontTop.x, frontTop.y);
                 ctx.lineTo(backTop.x, backTop.y);
@@ -1979,19 +2011,56 @@
                 ctx.lineTo(frontBottom.x, frontBottom.y);
                 ctx.closePath();
 
-                // Inner dark fill (darker than before)
-                ctx.fillStyle = 'rgba(5, 10, 25, 0.85)';
-                ctx.fill();
+                // Draw CS:GO poster image inside frame
+                if (csgoImageLoaded) {
+                    ctx.save();
+                    ctx.clip(); // Clip to frame polygon
+
+                    // Calculate bounding box of the frame
+                    const minX = Math.min(frontTop.x, backTop.x, backBottom.x, frontBottom.x);
+                    const maxX = Math.max(frontTop.x, backTop.x, backBottom.x, frontBottom.x);
+                    const minY = Math.min(frontTop.y, backTop.y, backBottom.y, frontBottom.y);
+                    const maxY = Math.max(frontTop.y, backTop.y, backBottom.y, frontBottom.y);
+
+                    const frameWidth = maxX - minX;
+                    const frameHeight = maxY - minY;
+
+                    // Calculate scaling to fill frame while maintaining aspect ratio
+                    const imageAspect = csgoImage.width / csgoImage.height;
+                    const frameAspect = frameWidth / frameHeight;
+
+                    let drawWidth, drawHeight, drawX, drawY;
+                    if (imageAspect > frameAspect) {
+                        // Image is wider - fit to height
+                        drawHeight = frameHeight;
+                        drawWidth = drawHeight * imageAspect;
+                        drawX = minX - (drawWidth - frameWidth) / 2;
+                        drawY = minY;
+                    } else {
+                        // Image is taller - fit to width
+                        drawWidth = frameWidth;
+                        drawHeight = drawWidth / imageAspect;
+                        drawX = minX;
+                        drawY = minY - (drawHeight - frameHeight) / 2;
+                    }
+
+                    ctx.drawImage(csgoImage, drawX, drawY, drawWidth, drawHeight);
+                    ctx.restore();
+                } else {
+                    // Fallback: dark fill if image not loaded
+                    ctx.fillStyle = 'rgba(5, 10, 25, 0.85)';
+                    ctx.fill();
+                }
 
                 // THICKER, BRIGHTER neon cyan outline with stronger glow
                 ctx.strokeStyle = 'rgba(140, 210, 255, 1.0)';
-                ctx.lineWidth = 6;
+                ctx.lineWidth = 5;
                 ctx.shadowColor = 'rgba(140, 210, 255, 1.0)';
-                ctx.shadowBlur = 28;
+                ctx.shadowBlur = 25;
                 ctx.stroke();
             }
 
-            // ========== RIGHT WALL FRAME ==========
+            // ========== RIGHT WALL FRAME (VALORANT POSTER) ==========
             {
                 // Calculate top edge of frame
                 const topY = lerp(frontCeilingY, frontFloorY, frameTopRatio);
@@ -2019,7 +2088,7 @@
                     y: lerp(bottomY, bottomBackY, frameDepthStart)
                 };
 
-                // Draw polygon with fill first
+                // Create frame polygon path
                 ctx.beginPath();
                 ctx.moveTo(frontTop.x, frontTop.y);
                 ctx.lineTo(backTop.x, backTop.y);
@@ -2027,15 +2096,52 @@
                 ctx.lineTo(frontBottom.x, frontBottom.y);
                 ctx.closePath();
 
-                // Inner dark fill (darker than before)
-                ctx.fillStyle = 'rgba(5, 10, 25, 0.85)';
-                ctx.fill();
+                // Draw Valorant poster image inside frame
+                if (valorantImageLoaded) {
+                    ctx.save();
+                    ctx.clip(); // Clip to frame polygon
+
+                    // Calculate bounding box of the frame
+                    const minX = Math.min(frontTop.x, backTop.x, backBottom.x, frontBottom.x);
+                    const maxX = Math.max(frontTop.x, backTop.x, backBottom.x, frontBottom.x);
+                    const minY = Math.min(frontTop.y, backTop.y, backBottom.y, frontBottom.y);
+                    const maxY = Math.max(frontTop.y, backTop.y, backBottom.y, frontBottom.y);
+
+                    const frameWidth = maxX - minX;
+                    const frameHeight = maxY - minY;
+
+                    // Calculate scaling to fill frame while maintaining aspect ratio
+                    const imageAspect = valorantImage.width / valorantImage.height;
+                    const frameAspect = frameWidth / frameHeight;
+
+                    let drawWidth, drawHeight, drawX, drawY;
+                    if (imageAspect > frameAspect) {
+                        // Image is wider - fit to height
+                        drawHeight = frameHeight;
+                        drawWidth = drawHeight * imageAspect;
+                        drawX = minX - (drawWidth - frameWidth) / 2;
+                        drawY = minY;
+                    } else {
+                        // Image is taller - fit to width
+                        drawWidth = frameWidth;
+                        drawHeight = drawWidth / imageAspect;
+                        drawX = minX;
+                        drawY = minY - (drawHeight - frameHeight) / 2;
+                    }
+
+                    ctx.drawImage(valorantImage, drawX, drawY, drawWidth, drawHeight);
+                    ctx.restore();
+                } else {
+                    // Fallback: dark fill if image not loaded
+                    ctx.fillStyle = 'rgba(5, 10, 25, 0.85)';
+                    ctx.fill();
+                }
 
                 // THICKER, BRIGHTER neon cyan outline with stronger glow (same color for consistency)
                 ctx.strokeStyle = 'rgba(140, 210, 255, 1.0)';
-                ctx.lineWidth = 6;
+                ctx.lineWidth = 5;
                 ctx.shadowColor = 'rgba(140, 210, 255, 1.0)';
-                ctx.shadowBlur = 28;
+                ctx.shadowBlur = 25;
                 ctx.stroke();
             }
 
