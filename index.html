@@ -1504,12 +1504,12 @@
                     ctx.globalAlpha = enterHintOpacity;
 
                     ctx.fillStyle = 'rgba(255, 255, 255, 1.0)';  // 更亮的白色 Brighter white
-                    ctx.font = 'bold 32px sans-serif';  // 更粗更大的字体 Bolder and larger font
+                    ctx.font = 'bold 48px sans-serif';  // 更大的字体 Larger font
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
 
-                    // 在门的中央偏下位置显示提示 Show hint in center-lower area of door
-                    const hintY = geo.doorTop + geo.doorHeight * 0.6;
+                    // 在门的正中央显示提示 Show hint in center of door
+                    const hintY = geo.doorTop + geo.doorHeight * 0.5;
                     ctx.fillText('Click to Enter', VP_X, hintY);
 
                     ctx.restore();
