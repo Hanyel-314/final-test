@@ -2003,56 +2003,104 @@
                     y: lerp(bottomY, bottomBackY, frameDepthStart)
                 };
 
-                // Create frame polygon path
+                // Draw dark background fill for frame
                 ctx.beginPath();
                 ctx.moveTo(frontTop.x, frontTop.y);
                 ctx.lineTo(backTop.x, backTop.y);
                 ctx.lineTo(backBottom.x, backBottom.y);
                 ctx.lineTo(frontBottom.x, frontBottom.y);
                 ctx.closePath();
+                ctx.fillStyle = 'rgba(5, 10, 25, 0.85)';
+                ctx.fill();
 
-                // Draw CS:GO poster image inside frame
+                // Draw CS:GO poster image inside frame with "contain" behavior
                 if (csgoImageLoaded) {
-                    ctx.save();
-                    ctx.clip(); // Clip to frame polygon
+                    // Work in local frame space first
+                    // Calculate frame dimensions in local space (before perspective)
+                    const localFrameWidth = 1.0;  // normalized width
+                    const localFrameHeight = frameHeightRatio / frameWidthRatio; // aspect ratio
 
-                    // Calculate bounding box of the frame
-                    const minX = Math.min(frontTop.x, backTop.x, backBottom.x, frontBottom.x);
-                    const maxX = Math.max(frontTop.x, backTop.x, backBottom.x, frontBottom.x);
-                    const minY = Math.min(frontTop.y, backTop.y, backBottom.y, frontBottom.y);
-                    const maxY = Math.max(frontTop.y, backTop.y, backBottom.y, frontBottom.y);
+                    // Calculate poster aspect ratio
+                    const posterAspect = csgoImage.width / csgoImage.height;
+                    const frameAspect = localFrameWidth / localFrameHeight;
 
-                    const frameWidth = maxX - minX;
-                    const frameHeight = maxY - minY;
+                    // Margin between image and neon border
+                    const margin = 0.05; // 5% margin in local space
 
-                    // Calculate scaling to fill frame while maintaining aspect ratio
-                    const imageAspect = csgoImage.width / csgoImage.height;
-                    const frameAspect = frameWidth / frameHeight;
-
-                    let drawWidth, drawHeight, drawX, drawY;
-                    if (imageAspect > frameAspect) {
-                        // Image is wider - fit to height
-                        drawHeight = frameHeight;
-                        drawWidth = drawHeight * imageAspect;
-                        drawX = minX - (drawWidth - frameWidth) / 2;
-                        drawY = minY;
+                    // Fit poster inside frame with "contain" behavior
+                    let innerWidth, innerHeight, innerX, innerY;
+                    if (posterAspect > frameAspect) {
+                        // Poster is wider than frame - fit to width
+                        innerWidth = localFrameWidth - margin * 2;
+                        innerHeight = innerWidth / posterAspect;
+                        innerX = margin;
+                        innerY = (localFrameHeight - innerHeight) / 2; // center vertically
                     } else {
-                        // Image is taller - fit to width
-                        drawWidth = frameWidth;
-                        drawHeight = drawWidth / imageAspect;
-                        drawX = minX;
-                        drawY = minY - (drawHeight - frameHeight) / 2;
+                        // Poster is taller than frame - fit to height
+                        innerHeight = localFrameHeight - margin * 2;
+                        innerWidth = innerHeight * posterAspect;
+                        innerY = margin;
+                        innerX = (localFrameWidth - innerWidth) / 2; // center horizontally
                     }
 
-                    ctx.drawImage(csgoImage, drawX, drawY, drawWidth, drawHeight);
+                    // Convert local rectangle to perspective-correct corners
+                    // Map innerX, innerY, innerWidth, innerHeight to wall coordinates
+                    const imgDepthStart = frameDepthStart + innerX * frameWidthRatio;
+                    const imgDepthEnd = frameDepthStart + (innerX + innerWidth) * frameWidthRatio;
+                    const imgTopRatio = frameTopRatio + innerY * frameHeightRatio;
+                    const imgBottomRatio = frameTopRatio + (innerY + innerHeight) * frameHeightRatio;
+
+                    const imgTopY = lerp(frontCeilingY, frontFloorY, imgTopRatio);
+                    const imgTopBackY = lerp(backCeilingY, backFloorY, imgTopRatio);
+                    const imgBottomY = lerp(frontCeilingY, frontFloorY, imgBottomRatio);
+                    const imgBottomBackY = lerp(backCeilingY, backFloorY, imgBottomRatio);
+
+                    const imgFrontTop = {
+                        x: lerp(frontLeftX, backLeftX, imgDepthStart),
+                        y: lerp(imgTopY, imgTopBackY, imgDepthStart)
+                    };
+                    const imgBackTop = {
+                        x: lerp(frontLeftX, backLeftX, imgDepthEnd),
+                        y: lerp(imgTopY, imgTopBackY, imgDepthEnd)
+                    };
+                    const imgBackBottom = {
+                        x: lerp(frontLeftX, backLeftX, imgDepthEnd),
+                        y: lerp(imgBottomY, imgBottomBackY, imgDepthEnd)
+                    };
+                    const imgFrontBottom = {
+                        x: lerp(frontLeftX, backLeftX, imgDepthStart),
+                        y: lerp(imgBottomY, imgBottomBackY, imgDepthStart)
+                    };
+
+                    // Draw image using perspective transform
+                    ctx.save();
+
+                    // Create clipping path for the image area
+                    ctx.beginPath();
+                    ctx.moveTo(imgFrontTop.x, imgFrontTop.y);
+                    ctx.lineTo(imgBackTop.x, imgBackTop.y);
+                    ctx.lineTo(imgBackBottom.x, imgBackBottom.y);
+                    ctx.lineTo(imgFrontBottom.x, imgFrontBottom.y);
+                    ctx.closePath();
+                    ctx.clip();
+
+                    // Calculate bounding box for simple drawImage
+                    const minX = Math.min(imgFrontTop.x, imgBackTop.x, imgBackBottom.x, imgFrontBottom.x);
+                    const maxX = Math.max(imgFrontTop.x, imgBackTop.x, imgBackBottom.x, imgFrontBottom.x);
+                    const minY = Math.min(imgFrontTop.y, imgBackTop.y, imgBackBottom.y, imgFrontBottom.y);
+                    const maxY = Math.max(imgFrontTop.y, imgBackTop.y, imgBackBottom.y, imgFrontBottom.y);
+
+                    ctx.drawImage(csgoImage, minX, minY, maxX - minX, maxY - minY);
                     ctx.restore();
-                } else {
-                    // Fallback: dark fill if image not loaded
-                    ctx.fillStyle = 'rgba(5, 10, 25, 0.85)';
-                    ctx.fill();
                 }
 
-                // THICKER, BRIGHTER neon cyan outline with stronger glow
+                // Draw neon cyan outline with stronger glow
+                ctx.beginPath();
+                ctx.moveTo(frontTop.x, frontTop.y);
+                ctx.lineTo(backTop.x, backTop.y);
+                ctx.lineTo(backBottom.x, backBottom.y);
+                ctx.lineTo(frontBottom.x, frontBottom.y);
+                ctx.closePath();
                 ctx.strokeStyle = 'rgba(140, 210, 255, 1.0)';
                 ctx.lineWidth = 5;
                 ctx.shadowColor = 'rgba(140, 210, 255, 1.0)';
@@ -2088,56 +2136,104 @@
                     y: lerp(bottomY, bottomBackY, frameDepthStart)
                 };
 
-                // Create frame polygon path
+                // Draw dark background fill for frame
                 ctx.beginPath();
                 ctx.moveTo(frontTop.x, frontTop.y);
                 ctx.lineTo(backTop.x, backTop.y);
                 ctx.lineTo(backBottom.x, backBottom.y);
                 ctx.lineTo(frontBottom.x, frontBottom.y);
                 ctx.closePath();
+                ctx.fillStyle = 'rgba(5, 10, 25, 0.85)';
+                ctx.fill();
 
-                // Draw Valorant poster image inside frame
+                // Draw Valorant poster image inside frame with "contain" behavior
                 if (valorantImageLoaded) {
-                    ctx.save();
-                    ctx.clip(); // Clip to frame polygon
+                    // Work in local frame space first
+                    // Calculate frame dimensions in local space (before perspective)
+                    const localFrameWidth = 1.0;  // normalized width
+                    const localFrameHeight = frameHeightRatio / frameWidthRatio; // aspect ratio
 
-                    // Calculate bounding box of the frame
-                    const minX = Math.min(frontTop.x, backTop.x, backBottom.x, frontBottom.x);
-                    const maxX = Math.max(frontTop.x, backTop.x, backBottom.x, frontBottom.x);
-                    const minY = Math.min(frontTop.y, backTop.y, backBottom.y, frontBottom.y);
-                    const maxY = Math.max(frontTop.y, backTop.y, backBottom.y, frontBottom.y);
+                    // Calculate poster aspect ratio
+                    const posterAspect = valorantImage.width / valorantImage.height;
+                    const frameAspect = localFrameWidth / localFrameHeight;
 
-                    const frameWidth = maxX - minX;
-                    const frameHeight = maxY - minY;
+                    // Margin between image and neon border
+                    const margin = 0.05; // 5% margin in local space
 
-                    // Calculate scaling to fill frame while maintaining aspect ratio
-                    const imageAspect = valorantImage.width / valorantImage.height;
-                    const frameAspect = frameWidth / frameHeight;
-
-                    let drawWidth, drawHeight, drawX, drawY;
-                    if (imageAspect > frameAspect) {
-                        // Image is wider - fit to height
-                        drawHeight = frameHeight;
-                        drawWidth = drawHeight * imageAspect;
-                        drawX = minX - (drawWidth - frameWidth) / 2;
-                        drawY = minY;
+                    // Fit poster inside frame with "contain" behavior
+                    let innerWidth, innerHeight, innerX, innerY;
+                    if (posterAspect > frameAspect) {
+                        // Poster is wider than frame - fit to width
+                        innerWidth = localFrameWidth - margin * 2;
+                        innerHeight = innerWidth / posterAspect;
+                        innerX = margin;
+                        innerY = (localFrameHeight - innerHeight) / 2; // center vertically
                     } else {
-                        // Image is taller - fit to width
-                        drawWidth = frameWidth;
-                        drawHeight = drawWidth / imageAspect;
-                        drawX = minX;
-                        drawY = minY - (drawHeight - frameHeight) / 2;
+                        // Poster is taller than frame - fit to height
+                        innerHeight = localFrameHeight - margin * 2;
+                        innerWidth = innerHeight * posterAspect;
+                        innerY = margin;
+                        innerX = (localFrameWidth - innerWidth) / 2; // center horizontally
                     }
 
-                    ctx.drawImage(valorantImage, drawX, drawY, drawWidth, drawHeight);
+                    // Convert local rectangle to perspective-correct corners
+                    // Map innerX, innerY, innerWidth, innerHeight to wall coordinates
+                    const imgDepthStart = frameDepthStart + innerX * frameWidthRatio;
+                    const imgDepthEnd = frameDepthStart + (innerX + innerWidth) * frameWidthRatio;
+                    const imgTopRatio = frameTopRatio + innerY * frameHeightRatio;
+                    const imgBottomRatio = frameTopRatio + (innerY + innerHeight) * frameHeightRatio;
+
+                    const imgTopY = lerp(frontCeilingY, frontFloorY, imgTopRatio);
+                    const imgTopBackY = lerp(backCeilingY, backFloorY, imgTopRatio);
+                    const imgBottomY = lerp(frontCeilingY, frontFloorY, imgBottomRatio);
+                    const imgBottomBackY = lerp(backCeilingY, backFloorY, imgBottomRatio);
+
+                    const imgFrontTop = {
+                        x: lerp(frontRightX, backRightX, imgDepthStart),
+                        y: lerp(imgTopY, imgTopBackY, imgDepthStart)
+                    };
+                    const imgBackTop = {
+                        x: lerp(frontRightX, backRightX, imgDepthEnd),
+                        y: lerp(imgTopY, imgTopBackY, imgDepthEnd)
+                    };
+                    const imgBackBottom = {
+                        x: lerp(frontRightX, backRightX, imgDepthEnd),
+                        y: lerp(imgBottomY, imgBottomBackY, imgDepthEnd)
+                    };
+                    const imgFrontBottom = {
+                        x: lerp(frontRightX, backRightX, imgDepthStart),
+                        y: lerp(imgBottomY, imgBottomBackY, imgDepthStart)
+                    };
+
+                    // Draw image using perspective transform
+                    ctx.save();
+
+                    // Create clipping path for the image area
+                    ctx.beginPath();
+                    ctx.moveTo(imgFrontTop.x, imgFrontTop.y);
+                    ctx.lineTo(imgBackTop.x, imgBackTop.y);
+                    ctx.lineTo(imgBackBottom.x, imgBackBottom.y);
+                    ctx.lineTo(imgFrontBottom.x, imgFrontBottom.y);
+                    ctx.closePath();
+                    ctx.clip();
+
+                    // Calculate bounding box for simple drawImage
+                    const minX = Math.min(imgFrontTop.x, imgBackTop.x, imgBackBottom.x, imgFrontBottom.x);
+                    const maxX = Math.max(imgFrontTop.x, imgBackTop.x, imgBackBottom.x, imgFrontBottom.x);
+                    const minY = Math.min(imgFrontTop.y, imgBackTop.y, imgBackBottom.y, imgFrontBottom.y);
+                    const maxY = Math.max(imgFrontTop.y, imgBackTop.y, imgBackBottom.y, imgFrontBottom.y);
+
+                    ctx.drawImage(valorantImage, minX, minY, maxX - minX, maxY - minY);
                     ctx.restore();
-                } else {
-                    // Fallback: dark fill if image not loaded
-                    ctx.fillStyle = 'rgba(5, 10, 25, 0.85)';
-                    ctx.fill();
                 }
 
-                // THICKER, BRIGHTER neon cyan outline with stronger glow (same color for consistency)
+                // Draw neon cyan outline with stronger glow
+                ctx.beginPath();
+                ctx.moveTo(frontTop.x, frontTop.y);
+                ctx.lineTo(backTop.x, backTop.y);
+                ctx.lineTo(backBottom.x, backBottom.y);
+                ctx.lineTo(frontBottom.x, frontBottom.y);
+                ctx.closePath();
                 ctx.strokeStyle = 'rgba(140, 210, 255, 1.0)';
                 ctx.lineWidth = 5;
                 ctx.shadowColor = 'rgba(140, 210, 255, 1.0)';
