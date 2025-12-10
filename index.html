@@ -3210,26 +3210,32 @@
                 ctx.clip();
 
                 // Calculate image dimensions to fill screen with cover behavior
+                // 计算图片尺寸以覆盖屏幕（放大显示）
                 const imageAspect = songPageImage.width / songPageImage.height;
                 const screenAspect = screenWidth / screenHeight;
+
+                // Scale factor for zooming in the image (1.0 = no zoom, 1.5 = 50% larger)
+                // 图片缩放因子（1.0 = 不缩放，1.5 = 放大50%）
+                const zoomFactor = 1.5;
 
                 let drawWidth, drawHeight, drawX, drawY;
 
                 if (imageAspect > screenAspect) {
                     // Image is wider - fit to height
-                    drawHeight = screenHeight;
+                    drawHeight = screenHeight * zoomFactor;
                     drawWidth = drawHeight * imageAspect;
-                    drawY = screenY;
+                    drawY = screenY + (screenHeight - drawHeight) / 2;
                     drawX = screenX + (screenWidth - drawWidth) / 2;
                 } else {
                     // Image is taller - fit to width
-                    drawWidth = screenWidth;
+                    drawWidth = screenWidth * zoomFactor;
                     drawHeight = drawWidth / imageAspect;
-                    drawX = screenX;
+                    drawX = screenX + (screenWidth - drawWidth) / 2;
                     drawY = screenY + (screenHeight - drawHeight) / 2;
                 }
 
-                // Draw the song page image
+                // Draw the song page image (zoomed in)
+                // 绘制歌单图片（放大显示）
                 ctx.drawImage(songPageImage, drawX, drawY, drawWidth, drawHeight);
 
                 ctx.restore();
