@@ -192,6 +192,130 @@
             console.error('Failed to load song page image');
         };
 
+        // ========== 音频播放器 Audio Player ==========
+        // Tracks array - 5 songs mapping to GitHub audio files
+        // 歌曲数组 - 5首歌对应GitHub音频文件
+        const tracks = [
+            { id: 1, title: "PASSO BEM SOLTO", fileName: "PASSO BEM SOLTO.MP3", url: "URL_FOR_PASSO_BEM_SOLTO" },
+            { id: 2, title: "Water",          fileName: "Water",               url: "URL_FOR_WATER" },
+            { id: 3, title: "Nada Tropica",   fileName: "Nada Tropica",        url: "URL_FOR_NADA_TROPICA" },
+            { id: 4, title: "Fell Down",      fileName: "Fell Down",           url: "URL_FOR_FELL_DOWN" },
+            { id: 5, title: "Miau",           fileName: "Miau",                url: "URL_FOR_MIAU" }
+        ];
+
+        // Global audio element - one instance for all tracks
+        // 全局音频元素 - 所有歌曲共用一个实例
+        let audio = new Audio();
+        let currentTrackIndex = -1;  // -1 means no track selected
+        let isPlaying = false;
+        let currentTime = 0;
+        let duration = 0;
+        let seekBarValue = 0;  // 0 to 1
+
+        // Audio event listeners
+        // 音频事件监听器
+        audio.addEventListener('loadedmetadata', () => {
+            duration = audio.duration;
+            console.log('Audio loaded, duration:', duration);
+        });
+
+        audio.addEventListener('timeupdate', () => {
+            currentTime = audio.currentTime;
+            if (duration > 0) {
+                seekBarValue = currentTime / duration;
+            }
+        });
+
+        audio.addEventListener('play', () => {
+            isPlaying = true;
+        });
+
+        audio.addEventListener('pause', () => {
+            isPlaying = false;
+        });
+
+        audio.addEventListener('ended', () => {
+            isPlaying = false;
+            currentTime = 0;
+            seekBarValue = 0;
+        });
+
+        // Play track by index (0-4)
+        // 按索引播放歌曲（0-4）
+        function playTrack(index) {
+            if (index < 0 || index >= tracks.length) return;
+
+            const track = tracks[index];
+
+            // If switching to a new track, load new source
+            // 如果切换到新歌曲，加载新音源
+            if (currentTrackIndex !== index) {
+                audio.src = track.url;
+                currentTrackIndex = index;
+                audio.load();
+            }
+
+            audio.play().catch(err => {
+                console.error('Failed to play audio:', err);
+            });
+        }
+
+        // Toggle play/pause for current track
+        // 切换当前歌曲的播放/暂停
+        function togglePlayPause() {
+            if (currentTrackIndex === -1) {
+                // No track selected, play first track
+                // 没有选中歌曲，播放第一首
+                playTrack(0);
+                return;
+            }
+
+            if (isPlaying) {
+                audio.pause();
+            } else {
+                audio.play().catch(err => {
+                    console.error('Failed to play audio:', err);
+                });
+            }
+        }
+
+        // Seek to position (0 to 1)
+        // 拖动到指定位置（0到1）
+        function seekToPosition(position) {
+            if (duration > 0) {
+                audio.currentTime = position * duration;
+            }
+        }
+
+        // Format time as mm:ss
+        // 格式化时间为 mm:ss
+        function formatTime(seconds) {
+            if (!isFinite(seconds)) return "00:00";
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // Store screen bounds for click detection
+        // 存储屏幕边界以便点击检测
+        let audioScreenBounds = {
+            screenX: 0,
+            screenY: 0,
+            screenWidth: 0,
+            screenHeight: 0,
+            playlistY: 0,
+            playlistHeight: 0,
+            playerY: 0,
+            playerHeight: 0,
+            playButtonX: 0,
+            playButtonY: 0,
+            playButtonSize: 0,
+            seekBarX: 0,
+            seekBarY: 0,
+            seekBarWidth: 0,
+            seekBarHeight: 0
+        };
+
         // ========== 游戏中心全局状态 Game Hub Global State ==========
         // Mini Game Hub state (appears in monitor view)
         // 迷你游戏中心状态（在显示器视角中显示）
@@ -3040,6 +3164,13 @@
             const screenX = backLeftX + (backRightX - backLeftX - screenWidth) / 2;
             const screenY = backCeilingY + (backFloorY - backCeilingY) * 0.35;  // Positioned at eye level
 
+            // Store bounds for click detection
+            // 存储边界用于点击检测
+            audioScreenBounds.screenX = screenX;
+            audioScreenBounds.screenY = screenY;
+            audioScreenBounds.screenWidth = screenWidth;
+            audioScreenBounds.screenHeight = screenHeight;
+
             // Screen background (brighter with stronger glow)
             const bgGrad = ctx.createLinearGradient(screenX, screenY, screenX, screenY + screenHeight);
             bgGrad.addColorStop(0, '#0f0f1f');
@@ -3068,7 +3199,8 @@
             ctx.strokeRect(screenX, screenY, screenWidth, screenHeight);
             ctx.restore();
 
-            // Display song page image if loaded, otherwise show waveform
+            // Display song page image with interactive playlist and player controls
+            // 显示歌单图片并添加交互式播放列表和播放器控制条
             if (songPageImageLoaded) {
                 ctx.save();
 
@@ -3099,6 +3231,206 @@
 
                 // Draw the song page image
                 ctx.drawImage(songPageImage, drawX, drawY, drawWidth, drawHeight);
+
+                ctx.restore();
+
+                // === Draw playlist interactive highlights ===
+                // 绘制歌单交互高亮
+                ctx.save();
+
+                // Playlist area (approximate based on image layout)
+                // 歌单区域（根据图片布局估算）
+                const playlistStartY = screenY + screenHeight * 0.25;  // Playlist starts ~25% down
+                const playlistHeight = screenHeight * 0.50;  // Playlist takes ~50% of screen
+                const rowHeight = playlistHeight / 5;  // 5 rows
+
+                audioScreenBounds.playlistY = playlistStartY;
+                audioScreenBounds.playlistHeight = playlistHeight;
+
+                // Highlight current playing track
+                // 高亮当前播放的歌曲
+                if (currentTrackIndex >= 0 && currentTrackIndex < 5) {
+                    const highlightY = playlistStartY + rowHeight * currentTrackIndex;
+
+                    // Glowing highlight bar
+                    // 发光高亮条
+                    const highlightGrad = ctx.createLinearGradient(
+                        screenX + 10, highlightY,
+                        screenX + screenWidth - 10, highlightY
+                    );
+                    highlightGrad.addColorStop(0, 'rgba(79, 212, 255, 0)');
+                    highlightGrad.addColorStop(0.5, 'rgba(79, 212, 255, 0.3)');
+                    highlightGrad.addColorStop(1, 'rgba(79, 212, 255, 0)');
+                    ctx.fillStyle = highlightGrad;
+                    ctx.fillRect(screenX + 10, highlightY, screenWidth - 20, rowHeight);
+
+                    // Bottom accent line
+                    // 底部强调线
+                    ctx.save();
+                    ctx.strokeStyle = '#4fd4ff';
+                    ctx.lineWidth = 2;
+                    ctx.shadowColor = 'rgba(79, 212, 255, 1)';
+                    ctx.shadowBlur = 8;
+                    ctx.beginPath();
+                    ctx.moveTo(screenX + 30, highlightY + rowHeight - 2);
+                    ctx.lineTo(screenX + screenWidth - 30, highlightY + rowHeight - 2);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+
+                ctx.restore();
+
+                // === Draw player control bar (below playlist) ===
+                // 绘制播放器控制条（在歌单下方）
+                const playerY = screenY + screenHeight * 0.78;  // Start at 78% down
+                const playerHeight = screenHeight * 0.18;  // Takes remaining space
+                const playerPadding = 15;
+
+                audioScreenBounds.playerY = playerY;
+                audioScreenBounds.playerHeight = playerHeight;
+
+                ctx.save();
+
+                // Player background with subtle gradient
+                // 播放器背景带轻微渐变
+                const playerBgGrad = ctx.createLinearGradient(
+                    screenX, playerY,
+                    screenX, playerY + playerHeight
+                );
+                playerBgGrad.addColorStop(0, 'rgba(10, 10, 20, 0.8)');
+                playerBgGrad.addColorStop(1, 'rgba(15, 15, 30, 0.9)');
+                ctx.fillStyle = playerBgGrad;
+                ctx.fillRect(screenX + 10, playerY, screenWidth - 20, playerHeight - 10);
+
+                // Player border with cyan glow
+                // 播放器边框带青色光晕
+                ctx.strokeStyle = 'rgba(79, 212, 255, 0.6)';
+                ctx.lineWidth = 1.5;
+                ctx.shadowColor = 'rgba(79, 212, 255, 0.4)';
+                ctx.shadowBlur = 6;
+                ctx.strokeRect(screenX + 10, playerY, screenWidth - 20, playerHeight - 10);
+
+                // === Play/Pause Button ===
+                // 播放/暂停按钮
+                const buttonSize = playerHeight * 0.4;
+                const buttonX = screenX + playerPadding + buttonSize/2 + 10;
+                const buttonY = playerY + playerHeight/2 - 5;
+
+                audioScreenBounds.playButtonX = buttonX;
+                audioScreenBounds.playButtonY = buttonY;
+                audioScreenBounds.playButtonSize = buttonSize;
+
+                // Button circle background
+                // 按钮圆形背景
+                ctx.save();
+                ctx.fillStyle = isPlaying ? 'rgba(79, 212, 255, 0.2)' : 'rgba(79, 212, 255, 0.15)';
+                ctx.shadowColor = 'rgba(79, 212, 255, 0.6)';
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.arc(buttonX, buttonY, buttonSize/2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+
+                // Button icon (play ▶ or pause ⏸)
+                // 按钮图标（播放或暂停）
+                ctx.save();
+                ctx.fillStyle = '#4fd4ff';
+                ctx.shadowColor = 'rgba(79, 212, 255, 1)';
+                ctx.shadowBlur = 8;
+
+                if (isPlaying) {
+                    // Pause icon (two vertical bars)
+                    // 暂停图标（两条竖线）
+                    const barWidth = buttonSize * 0.15;
+                    const barHeight = buttonSize * 0.5;
+                    const barGap = buttonSize * 0.15;
+                    ctx.fillRect(buttonX - barGap - barWidth, buttonY - barHeight/2, barWidth, barHeight);
+                    ctx.fillRect(buttonX + barGap, buttonY - barHeight/2, barWidth, barHeight);
+                } else {
+                    // Play icon (triangle pointing right)
+                    // 播放图标（指向右的三角形）
+                    ctx.beginPath();
+                    ctx.moveTo(buttonX - buttonSize * 0.15, buttonY - buttonSize * 0.25);
+                    ctx.lineTo(buttonX + buttonSize * 0.25, buttonY);
+                    ctx.lineTo(buttonX - buttonSize * 0.15, buttonY + buttonSize * 0.25);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+                ctx.restore();
+
+                // === Seek Bar (Progress Bar) ===
+                // 进度条
+                const seekBarX = buttonX + buttonSize/2 + 20;
+                const seekBarY = playerY + playerHeight/2 - 5;
+                const seekBarWidth = screenWidth - (seekBarX - screenX) - playerPadding - 100;  // Leave space for time
+                const seekBarHeight = 6;
+
+                audioScreenBounds.seekBarX = seekBarX;
+                audioScreenBounds.seekBarY = seekBarY;
+                audioScreenBounds.seekBarWidth = seekBarWidth;
+                audioScreenBounds.seekBarHeight = seekBarHeight + 10;  // Add some vertical tolerance
+
+                // Seek bar background (track)
+                // 进度条背景（轨道）
+                ctx.save();
+                ctx.fillStyle = 'rgba(79, 212, 255, 0.15)';
+                ctx.fillRect(seekBarX, seekBarY - seekBarHeight/2, seekBarWidth, seekBarHeight);
+                ctx.restore();
+
+                // Seek bar progress (filled portion)
+                // 进度条已播放部分（填充部分）
+                const progressWidth = seekBarWidth * seekBarValue;
+                if (progressWidth > 0) {
+                    ctx.save();
+                    const progressGrad = ctx.createLinearGradient(
+                        seekBarX, seekBarY,
+                        seekBarX + progressWidth, seekBarY
+                    );
+                    progressGrad.addColorStop(0, '#4fd4ff');
+                    progressGrad.addColorStop(1, '#9966ff');
+                    ctx.fillStyle = progressGrad;
+                    ctx.shadowColor = 'rgba(79, 212, 255, 0.8)';
+                    ctx.shadowBlur = 8;
+                    ctx.fillRect(seekBarX, seekBarY - seekBarHeight/2, progressWidth, seekBarHeight);
+                    ctx.restore();
+
+                    // Progress knob (draggable handle)
+                    // 进度滑块（可拖动的手柄）
+                    ctx.save();
+                    ctx.fillStyle = '#6fddff';
+                    ctx.shadowColor = 'rgba(79, 212, 255, 1)';
+                    ctx.shadowBlur = 12;
+                    ctx.beginPath();
+                    ctx.arc(seekBarX + progressWidth, seekBarY, seekBarHeight * 1.5, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+
+                // === Time Display ===
+                // 时间显示
+                const timeX = seekBarX + seekBarWidth + 15;
+                const timeY = seekBarY;
+
+                ctx.save();
+                ctx.fillStyle = 'rgba(79, 212, 255, 0.9)';
+                ctx.font = '10px monospace';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`${formatTime(currentTime)} / ${formatTime(duration)}`, timeX, timeY);
+                ctx.restore();
+
+                // Current track title (if playing)
+                // 当前歌曲标题（如果正在播放）
+                if (currentTrackIndex >= 0 && currentTrackIndex < tracks.length) {
+                    ctx.save();
+                    ctx.fillStyle = 'rgba(120, 220, 255, 0.8)';
+                    ctx.font = 'bold 9px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'top';
+                    const titleText = `♪ ${tracks[currentTrackIndex].title}`;
+                    ctx.fillText(titleText, screenX + screenWidth/2, playerY + 5);
+                    ctx.restore();
+                }
 
                 ctx.restore();
             } else {
@@ -5745,6 +6077,53 @@
                         readyToEnter = false;
                         enterHintPhase = 0;
                         viewMode = 'corridor';  // Reset view mode
+                    }
+                    // === Check if playlist or player controls were clicked ===
+                    // 检查是否点击了歌单或播放器控制
+                    else if (songPageImageLoaded && audioScreenBounds.screenWidth > 0) {
+                        const bounds = audioScreenBounds;
+
+                        // Check if click is within screen area
+                        // 检查点击是否在屏幕区域内
+                        if (mx >= bounds.screenX && mx <= bounds.screenX + bounds.screenWidth &&
+                            my >= bounds.screenY && my <= bounds.screenY + bounds.screenHeight) {
+
+                            // === Playlist row click detection ===
+                            // 歌单行点击检测
+                            if (my >= bounds.playlistY && my < bounds.playlistY + bounds.playlistHeight) {
+                                const rowHeight = bounds.playlistHeight / 5;
+                                const clickedRow = Math.floor((my - bounds.playlistY) / rowHeight);
+
+                                if (clickedRow >= 0 && clickedRow < 5) {
+                                    console.log(`Clicked playlist row ${clickedRow + 1}: ${tracks[clickedRow].title}`);
+                                    playTrack(clickedRow);
+                                }
+                            }
+                            // === Player controls click detection ===
+                            // 播放器控制点击检测
+                            else if (my >= bounds.playerY && my < bounds.playerY + bounds.playerHeight) {
+                                // Check Play/Pause button
+                                // 检查播放/暂停按钮
+                                const dx = mx - bounds.playButtonX;
+                                const dy = my - bounds.playButtonY;
+                                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                                if (dist <= bounds.playButtonSize / 2) {
+                                    console.log('Play/Pause button clicked');
+                                    togglePlayPause();
+                                }
+                                // Check Seek Bar
+                                // 检查进度条
+                                else if (mx >= bounds.seekBarX &&
+                                         mx <= bounds.seekBarX + bounds.seekBarWidth &&
+                                         my >= bounds.seekBarY - bounds.seekBarHeight/2 &&
+                                         my <= bounds.seekBarY + bounds.seekBarHeight/2) {
+                                    const seekPosition = (mx - bounds.seekBarX) / bounds.seekBarWidth;
+                                    console.log(`Seek to ${(seekPosition * 100).toFixed(1)}%`);
+                                    seekToPosition(seekPosition);
+                                }
+                            }
+                        }
                     }
                 }
             }
