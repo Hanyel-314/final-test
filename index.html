@@ -334,6 +334,10 @@
             screenY: 0,
             screenWidth: 0,
             screenHeight: 0,
+            imageX: 0,
+            imageY: 0,
+            imageWidth: 0,
+            imageHeight: 0,
             playlistY: 0,
             playlistHeight: 0,
             playerY: 0,
@@ -3188,12 +3192,13 @@
 
         // ========== Audio Room Central Display Screen ==========
         function drawAudioRoomCentralScreen(backLeftX, backRightX, backCeilingY, backFloorY) {
-            // Large LED-style screen on the back wall, centered
-            const screenWidth = (backRightX - backLeftX) * 0.50;  // 50% of back wall width
-            const screenHeight = (backFloorY - backCeilingY) * 0.28;  // 28% of wall height
+            // Full-wall screen - covers most of the back wall
+            // 全墙屏幕 - 覆盖大部分背景墙
+            const screenWidth = (backRightX - backLeftX) * 0.85;  // 85% of back wall width
+            const screenHeight = (backFloorY - backCeilingY) * 0.70;  // 70% of wall height
 
             const screenX = backLeftX + (backRightX - backLeftX - screenWidth) / 2;
-            const screenY = backCeilingY + (backFloorY - backCeilingY) * 0.35;  // Positioned at eye level
+            const screenY = backCeilingY + (backFloorY - backCeilingY) * 0.15;  // Start at 15% from top
 
             // Store bounds for click detection
             // 存储边界用于点击检测
@@ -3240,35 +3245,41 @@
                 ctx.rect(screenX + 5, screenY + 5, screenWidth - 10, screenHeight - 10);
                 ctx.clip();
 
-                // Calculate image dimensions with uniform scale (1.8x zoom)
-                // 计算图片尺寸，统一缩放1.8倍
+                // Calculate image dimensions with "contain" behavior
+                // 计算图片尺寸，使用"contain"模式（显示全部内容，不裁剪，不变形）
                 const imageAspect = songPageImage.width / songPageImage.height;
+                const screenAspect = screenWidth / screenHeight;
 
-                // Uniform scale factor: 1.8x for both width and height
-                // 统一缩放因子：宽度和高度都是1.8倍
-                const uniformScale = 1.8;
+                let drawWidth, drawHeight, drawX, drawY;
 
-                // Playlist width = 80% of main screen width
-                // 歌单宽度 = 主屏幕宽度的80%
-                const playlistTargetWidth = screenWidth * 0.8;
+                // Contain behavior: fit entire image within screen, show all content
+                // Contain模式：让整张图片适配屏幕，显示全部内容
+                if (imageAspect > screenAspect) {
+                    // Image is wider than screen - fit to width
+                    // 图片比屏幕宽 - 以宽度为准
+                    drawWidth = screenWidth - 20;  // 留10px边距
+                    drawHeight = drawWidth / imageAspect;
+                    drawX = screenX + 10;
+                    drawY = screenY + (screenHeight - drawHeight) / 2;
+                } else {
+                    // Image is taller than screen - fit to height
+                    // 图片比屏幕高 - 以高度为准
+                    drawHeight = screenHeight - 20;  // 留10px边距
+                    drawWidth = drawHeight * imageAspect;
+                    drawX = screenX + (screenWidth - drawWidth) / 2;
+                    drawY = screenY + 10;
+                }
 
-                // Calculate height maintaining aspect ratio
-                // 计算高度，保持宽高比
-                const playlistTargetHeight = playlistTargetWidth / imageAspect;
-
-                // Apply uniform scale to both dimensions
-                // 对两个维度应用统一缩放
-                const drawWidth = playlistTargetWidth * uniformScale;
-                const drawHeight = playlistTargetHeight * uniformScale;
-
-                // Center horizontally and vertically
-                // 水平和垂直居中
-                const drawX = screenX + (screenWidth - drawWidth) / 2;
-                const drawY = screenY + (screenHeight - drawHeight) / 2;
-
-                // Draw the song page image (1.8x uniform scale, 80% width, centered)
-                // 绘制歌单图片（1.8倍统一缩放，80%宽度，居中）
+                // Draw the song page image (contain mode - full content visible, no distortion)
+                // 绘制歌单图片（contain模式 - 完整显示，无变形）
                 ctx.drawImage(songPageImage, drawX, drawY, drawWidth, drawHeight);
+
+                // Store image bounds for playlist/player positioning
+                // 存储图片边界以便歌单/播放器定位
+                audioScreenBounds.imageX = drawX;
+                audioScreenBounds.imageY = drawY;
+                audioScreenBounds.imageWidth = drawWidth;
+                audioScreenBounds.imageHeight = drawHeight;
 
                 ctx.restore();
 
@@ -3276,10 +3287,12 @@
                 // 绘制歌单交互高亮
                 ctx.save();
 
-                // Playlist area (approximate based on image layout)
-                // 歌单区域（根据图片布局估算）
-                const playlistStartY = screenY + screenHeight * 0.25;  // Playlist starts ~25% down
-                const playlistHeight = screenHeight * 0.50;  // Playlist takes ~50% of screen
+                // Playlist area (based on actual image position and size)
+                // 歌单区域（基于实际图片位置和尺寸）
+                // Adjust based on where the playlist appears in the image
+                // 根据图片中歌单的实际位置调整
+                const playlistStartY = drawY + drawHeight * 0.20;  // Playlist starts ~20% down in image
+                const playlistHeight = drawHeight * 0.55;  // Playlist takes ~55% of image height
                 const rowHeight = playlistHeight / 5;  // 5 rows
 
                 audioScreenBounds.playlistY = playlistStartY;
@@ -3290,17 +3303,17 @@
                 if (currentTrackIndex >= 0 && currentTrackIndex < 5) {
                     const highlightY = playlistStartY + rowHeight * currentTrackIndex;
 
-                    // Glowing highlight bar
-                    // 发光高亮条
+                    // Glowing highlight bar (based on actual image width)
+                    // 发光高亮条（基于实际图片宽度）
                     const highlightGrad = ctx.createLinearGradient(
-                        screenX + 10, highlightY,
-                        screenX + screenWidth - 10, highlightY
+                        drawX + 10, highlightY,
+                        drawX + drawWidth - 10, highlightY
                     );
                     highlightGrad.addColorStop(0, 'rgba(79, 212, 255, 0)');
                     highlightGrad.addColorStop(0.5, 'rgba(79, 212, 255, 0.3)');
                     highlightGrad.addColorStop(1, 'rgba(79, 212, 255, 0)');
                     ctx.fillStyle = highlightGrad;
-                    ctx.fillRect(screenX + 10, highlightY, screenWidth - 20, rowHeight);
+                    ctx.fillRect(drawX + 10, highlightY, drawWidth - 20, rowHeight);
 
                     // Bottom accent line
                     // 底部强调线
@@ -3310,8 +3323,8 @@
                     ctx.shadowColor = 'rgba(79, 212, 255, 1)';
                     ctx.shadowBlur = 8;
                     ctx.beginPath();
-                    ctx.moveTo(screenX + 30, highlightY + rowHeight - 2);
-                    ctx.lineTo(screenX + screenWidth - 30, highlightY + rowHeight - 2);
+                    ctx.moveTo(drawX + 30, highlightY + rowHeight - 2);
+                    ctx.lineTo(drawX + drawWidth - 30, highlightY + rowHeight - 2);
                     ctx.stroke();
                     ctx.restore();
                 }
@@ -3320,8 +3333,10 @@
 
                 // === Draw player control bar (below playlist) ===
                 // 绘制播放器控制条（在歌单下方）
-                const playerY = screenY + screenHeight * 0.78;  // Start at 78% down
-                const playerHeight = screenHeight * 0.18;  // Takes remaining space
+                // Position based on actual image dimensions
+                // 基于实际图片尺寸定位
+                const playerY = drawY + drawHeight * 0.78;  // Start at 78% down in image
+                const playerHeight = drawHeight * 0.18;  // Takes ~18% of image height
                 const playerPadding = 15;
 
                 audioScreenBounds.playerY = playerY;
@@ -3329,16 +3344,16 @@
 
                 ctx.save();
 
-                // Player background with subtle gradient
-                // 播放器背景带轻微渐变
+                // Player background with subtle gradient (based on image width)
+                // 播放器背景带轻微渐变（基于图片宽度）
                 const playerBgGrad = ctx.createLinearGradient(
-                    screenX, playerY,
-                    screenX, playerY + playerHeight
+                    drawX, playerY,
+                    drawX, playerY + playerHeight
                 );
                 playerBgGrad.addColorStop(0, 'rgba(10, 10, 20, 0.8)');
                 playerBgGrad.addColorStop(1, 'rgba(15, 15, 30, 0.9)');
                 ctx.fillStyle = playerBgGrad;
-                ctx.fillRect(screenX + 10, playerY, screenWidth - 20, playerHeight - 10);
+                ctx.fillRect(drawX + 10, playerY, drawWidth - 20, playerHeight - 10);
 
                 // Player border with cyan glow
                 // 播放器边框带青色光晕
@@ -3346,12 +3361,12 @@
                 ctx.lineWidth = 1.5;
                 ctx.shadowColor = 'rgba(79, 212, 255, 0.4)';
                 ctx.shadowBlur = 6;
-                ctx.strokeRect(screenX + 10, playerY, screenWidth - 20, playerHeight - 10);
+                ctx.strokeRect(drawX + 10, playerY, drawWidth - 20, playerHeight - 10);
 
                 // === Play/Pause Button ===
                 // 播放/暂停按钮
                 const buttonSize = playerHeight * 0.4;
-                const buttonX = screenX + playerPadding + buttonSize/2 + 10;
+                const buttonX = drawX + playerPadding + buttonSize/2 + 10;
                 const buttonY = playerY + playerHeight/2 - 5;
 
                 audioScreenBounds.playButtonX = buttonX;
@@ -3400,7 +3415,7 @@
                 // 进度条
                 const seekBarX = buttonX + buttonSize/2 + 20;
                 const seekBarY = playerY + playerHeight/2 - 5;
-                const seekBarWidth = screenWidth - (seekBarX - screenX) - playerPadding - 100;  // Leave space for time
+                const seekBarWidth = drawWidth - (seekBarX - drawX) - playerPadding - 100;  // Leave space for time
                 const seekBarHeight = 6;
 
                 audioScreenBounds.seekBarX = seekBarX;
@@ -3466,7 +3481,7 @@
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'top';
                     const titleText = `♪ ${tracks[currentTrackIndex].title}`;
-                    ctx.fillText(titleText, screenX + screenWidth/2, playerY + 5);
+                    ctx.fillText(titleText, drawX + drawWidth/2, playerY + 5);
                     ctx.restore();
                 }
 
