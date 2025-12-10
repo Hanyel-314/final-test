@@ -192,6 +192,19 @@
             console.error('Failed to load song page image');
         };
 
+        // Music room image for Floor 2 elevator lobby
+        // 二楼电梯大厅音乐室图片
+        const musicRoomImage = new Image();
+        let musicRoomImageLoaded = false;
+        musicRoomImage.src = 'music room.jpg';  // 请确保文件名正确
+        musicRoomImage.onload = () => {
+            musicRoomImageLoaded = true;
+            console.log('Music room image loaded successfully');
+        };
+        musicRoomImage.onerror = () => {
+            console.error('Failed to load music room image');
+        };
+
         // ========== 音频播放器 Audio Player ==========
         // Tracks array - 5 songs mapping to GitHub audio files
         // 歌曲数组 - 5首歌对应GitHub音频文件
@@ -1239,11 +1252,50 @@
                         }
                         break;
                     case 2:
-                        ctx.fillStyle = '#666';
-                        ctx.font = 'bold 24px Arial';
-                        ctx.textAlign = 'center';
-                        ctx.textBaseline = 'middle';
-                        ctx.fillText('OFFICE', VP_X, doorY + doorHeight * 0.3);
+                        // Display music room image - fill entire visible area with cover behavior
+                        // 显示音乐室图片 - 用cover模式填充整个可见区域
+                        if (musicRoomImageLoaded) {
+                            const geo = getCabinGeometry();
+
+                            // Define the rectangular area to fill (the door opening)
+                            const imgX = geo.doorLeft;
+                            const imgY = doorY;
+                            const imgWidth = geo.doorWidth;
+                            const imgHeight = doorHeight;
+
+                            // Calculate aspect ratios
+                            const imageAspect = musicRoomImage.width / musicRoomImage.height;
+                            const boxAspect = imgWidth / imgHeight;
+
+                            let drawWidth, drawHeight, drawX, drawY;
+
+                            // Use "cover" behavior - fill entire box without white borders
+                            if (imageAspect > boxAspect) {
+                                // Image is wider - fit to height, crop sides
+                                drawHeight = imgHeight;
+                                drawWidth = drawHeight * imageAspect;
+                                drawY = imgY;
+                                drawX = imgX - (drawWidth - imgWidth) / 2;
+                            } else {
+                                // Image is taller - fit to width, crop top/bottom
+                                drawWidth = imgWidth;
+                                drawHeight = drawWidth / imageAspect;
+                                drawX = imgX;
+                                drawY = imgY - (drawHeight - imgHeight) / 2;
+                            }
+
+                            // Create clipping path for the door area
+                            ctx.save();
+                            ctx.beginPath();
+                            ctx.rect(imgX, imgY, imgWidth, imgHeight);
+                            ctx.clip();
+
+                            // Draw the image
+                            ctx.drawImage(musicRoomImage, drawX, drawY, drawWidth, drawHeight);
+                            ctx.restore();
+                        }
+                        // No text displayed - OFFICE text removed
+                        // 不显示文字 - 已删除OFFICE文字
                         break;
                     case 3:
                         ctx.fillStyle = '#666';
