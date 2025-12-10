@@ -3142,168 +3142,554 @@
         function drawAudioRoomSpeakers(frontLeftX, frontRightX, backLeftX, backRightX,
                                        frontCeilingY, backCeilingY, frontFloorY, backFloorY) {
 
-            // Reusable function to draw a 3D speaker box
+            // Reusable function to draw a futuristic high-tech 3D speaker
             // facingSide: "left" or "right" to control which side shows depth
-            function drawSpeaker3D(ctx, centerX, centerY, width, height, facingSide) {
-                // Front face corners
-                const frontTopLeft = { x: centerX - width/2, y: centerY - height/2 };
-                const frontTopRight = { x: centerX + width/2, y: centerY - height/2 };
-                const frontBottomRight = { x: centerX + width/2, y: centerY + height/2 };
-                const frontBottomLeft = { x: centerX - width/2, y: centerY + height/2 };
+            // speakerType: "floor" or "wall" to control design details
+            function drawSpeaker3D(ctx, centerX, centerY, width, height, facingSide, speakerType) {
+                const isFloorSpeaker = (speakerType === "floor");
 
-                // Depth offsets for 3D effect
-                const depthX = width * 0.15;
-                const depthY = height * 0.03;
+                // Adjust proportions for floor speakers (taller, more angular)
+                if (isFloorSpeaker) {
+                    // Floor speakers have wider base, narrower top (perspective)
+                    const baseWidthMultiplier = 1.15;
+                    const topWidthMultiplier = 0.92;
 
-                // Side face corners (depending on orientation)
-                let sideTopNear, sideTopFar, sideBottomFar, sideBottomNear;
-                let sideFillColor = '#1a1a1f';  // Darker for side face
+                    // Front face corners with tapered design
+                    const frontTopLeft = { x: centerX - (width/2) * topWidthMultiplier, y: centerY - height/2 };
+                    const frontTopRight = { x: centerX + (width/2) * topWidthMultiplier, y: centerY - height/2 };
+                    const frontBottomRight = { x: centerX + (width/2) * baseWidthMultiplier, y: centerY + height/2 };
+                    const frontBottomLeft = { x: centerX - (width/2) * baseWidthMultiplier, y: centerY + height/2 };
 
-                if (facingSide === "left") {
-                    // Speaker faces LEFT (toward center from right wall)
-                    // Side face on LEFT edge
-                    sideTopNear = frontTopLeft;
-                    sideTopFar = { x: frontTopLeft.x - depthX, y: frontTopLeft.y + depthY };
-                    sideBottomFar = { x: frontBottomLeft.x - depthX, y: frontBottomLeft.y + depthY };
-                    sideBottomNear = frontBottomLeft;
-                } else {
-                    // Speaker faces RIGHT (toward center from left wall)
-                    // Side face on RIGHT edge
-                    sideTopNear = frontTopRight;
-                    sideTopFar = { x: frontTopRight.x + depthX, y: frontTopRight.y + depthY };
-                    sideBottomFar = { x: frontBottomRight.x + depthX, y: frontBottomRight.y + depthY };
-                    sideBottomNear = frontBottomRight;
-                }
+                    const actualWidth = width * baseWidthMultiplier;
+                    const depthX = actualWidth * 0.18;
+                    const depthY = height * 0.04;
 
-                // === Draw side face ===
-                ctx.fillStyle = sideFillColor;
-                ctx.beginPath();
-                ctx.moveTo(sideTopNear.x, sideTopNear.y);
-                ctx.lineTo(sideTopFar.x, sideTopFar.y);
-                ctx.lineTo(sideBottomFar.x, sideBottomFar.y);
-                ctx.lineTo(sideBottomNear.x, sideBottomNear.y);
-                ctx.closePath();
-                ctx.fill();
+                    // Side face corners
+                    let sideTopNear, sideTopFar, sideBottomFar, sideBottomNear;
 
-                // Side face neon edge (softer)
-                ctx.save();
-                ctx.strokeStyle = 'rgba(79, 212, 255, 0.4)';
-                ctx.lineWidth = 1.5;
-                ctx.shadowColor = 'rgba(79, 212, 255, 0.3)';
-                ctx.shadowBlur = 8;
-                ctx.stroke();
-                ctx.restore();
+                    if (facingSide === "left") {
+                        sideTopNear = frontTopLeft;
+                        sideTopFar = { x: frontTopLeft.x - depthX * 0.9, y: frontTopLeft.y + depthY };
+                        sideBottomFar = { x: frontBottomLeft.x - depthX, y: frontBottomLeft.y + depthY };
+                        sideBottomNear = frontBottomLeft;
+                    } else {
+                        sideTopNear = frontTopRight;
+                        sideTopFar = { x: frontTopRight.x + depthX * 0.9, y: frontTopRight.y + depthY };
+                        sideBottomFar = { x: frontBottomRight.x + depthX, y: frontBottomRight.y + depthY };
+                        sideBottomNear = frontBottomRight;
+                    }
 
-                // === Draw top face (small sliver) ===
-                ctx.fillStyle = '#252530';
-                ctx.beginPath();
-                if (facingSide === "left") {
-                    ctx.moveTo(frontTopLeft.x, frontTopLeft.y);
+                    // === Draw side face with metallic gradient ===
+                    const sideGrad = ctx.createLinearGradient(
+                        sideTopNear.x, sideTopNear.y,
+                        sideBottomNear.x, sideBottomNear.y
+                    );
+                    sideGrad.addColorStop(0, '#1a1a22');
+                    sideGrad.addColorStop(0.5, '#0f0f18');
+                    sideGrad.addColorStop(1, '#1a1a22');
+                    ctx.fillStyle = sideGrad;
+                    ctx.beginPath();
+                    ctx.moveTo(sideTopNear.x, sideTopNear.y);
                     ctx.lineTo(sideTopFar.x, sideTopFar.y);
-                    ctx.lineTo(sideTopFar.x + width, sideTopFar.y);
-                    ctx.lineTo(frontTopRight.x, frontTopRight.y);
-                } else {
+                    ctx.lineTo(sideBottomFar.x, sideBottomFar.y);
+                    ctx.lineTo(sideBottomNear.x, sideBottomNear.y);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // Geometric vent patterns on side
+                    ctx.save();
+                    ctx.strokeStyle = '#0a0a12';
+                    ctx.lineWidth = 1.5;
+                    for (let i = 0.2; i <= 0.8; i += 0.15) {
+                        const ventY = sideTopNear.y + (sideBottomNear.y - sideTopNear.y) * i;
+                        const ventStartX = sideTopNear.x + (sideTopFar.x - sideTopNear.x) * 0.1;
+                        const ventEndX = sideTopNear.x + (sideTopFar.x - sideTopNear.x) * 0.9;
+                        ctx.beginPath();
+                        ctx.moveTo(ventStartX, ventY);
+                        ctx.lineTo(ventEndX, ventY);
+                        ctx.stroke();
+                    }
+                    ctx.restore();
+
+                    // Neon trim on side edge
+                    ctx.save();
+                    ctx.strokeStyle = 'rgba(138, 43, 226, 0.6)'; // Purple accent
+                    ctx.lineWidth = 2;
+                    ctx.shadowColor = 'rgba(138, 43, 226, 0.5)';
+                    ctx.shadowBlur = 10;
+                    ctx.beginPath();
+                    ctx.moveTo(sideTopNear.x, sideTopNear.y);
+                    ctx.lineTo(sideTopFar.x, sideTopFar.y);
+                    ctx.lineTo(sideBottomFar.x, sideBottomFar.y);
+                    ctx.lineTo(sideBottomNear.x, sideBottomNear.y);
+                    ctx.stroke();
+                    ctx.restore();
+
+                    // === Draw top face ===
+                    const topGrad = ctx.createLinearGradient(
+                        frontTopLeft.x, frontTopLeft.y,
+                        frontTopRight.x, frontTopRight.y
+                    );
+                    topGrad.addColorStop(0, '#252530');
+                    topGrad.addColorStop(0.5, '#2a2a38');
+                    topGrad.addColorStop(1, '#252530');
+                    ctx.fillStyle = topGrad;
+                    ctx.beginPath();
+                    if (facingSide === "left") {
+                        ctx.moveTo(frontTopLeft.x, frontTopLeft.y);
+                        ctx.lineTo(sideTopFar.x, sideTopFar.y);
+                        ctx.lineTo(sideTopFar.x + (frontTopRight.x - frontTopLeft.x), sideTopFar.y);
+                        ctx.lineTo(frontTopRight.x, frontTopRight.y);
+                    } else {
+                        ctx.moveTo(frontTopLeft.x, frontTopLeft.y);
+                        ctx.lineTo(frontTopRight.x, frontTopRight.y);
+                        ctx.lineTo(sideTopFar.x, sideTopFar.y);
+                        ctx.lineTo(sideTopFar.x - (frontTopRight.x - frontTopLeft.x), sideTopFar.y);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // === Draw front face with beveled frame ===
+                    // Outer beveled frame
+                    const bevelSize = width * 0.04;
+                    const innerLeft = frontTopLeft.x + bevelSize;
+                    const innerRight = frontTopRight.x - bevelSize;
+                    const innerTop = frontTopLeft.y + bevelSize;
+                    const innerBottom = frontBottomLeft.y - bevelSize;
+
+                    // Bevel gradient (titanium look)
+                    const bevelGrad = ctx.createLinearGradient(
+                        frontTopLeft.x, centerY,
+                        frontTopRight.x, centerY
+                    );
+                    bevelGrad.addColorStop(0, '#3a3a48');
+                    bevelGrad.addColorStop(0.3, '#52526a');
+                    bevelGrad.addColorStop(0.5, '#5a5a75');
+                    bevelGrad.addColorStop(0.7, '#52526a');
+                    bevelGrad.addColorStop(1, '#3a3a48');
+                    ctx.fillStyle = bevelGrad;
+
+                    // Draw beveled frame (outline)
+                    ctx.beginPath();
                     ctx.moveTo(frontTopLeft.x, frontTopLeft.y);
                     ctx.lineTo(frontTopRight.x, frontTopRight.y);
+                    ctx.lineTo(frontBottomRight.x, frontBottomRight.y);
+                    ctx.lineTo(frontBottomLeft.x, frontBottomLeft.y);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // Inner matte black panel
+                    const innerGrad = ctx.createLinearGradient(
+                        innerLeft, centerY,
+                        innerRight, centerY
+                    );
+                    innerGrad.addColorStop(0, '#0f0f18');
+                    innerGrad.addColorStop(0.5, '#1a1a25');
+                    innerGrad.addColorStop(1, '#0f0f18');
+                    ctx.fillStyle = innerGrad;
+                    ctx.fillRect(innerLeft, innerTop, innerRight - innerLeft, innerBottom - innerTop);
+
+                    // Layered panel sections
+                    const panelTop = innerTop + (innerBottom - innerTop) * 0.18;
+                    const panelBottom = innerBottom - (innerBottom - innerTop) * 0.15;
+
+                    ctx.strokeStyle = '#252530';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(innerLeft, panelTop);
+                    ctx.lineTo(innerRight, panelTop);
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.moveTo(innerLeft, panelBottom);
+                    ctx.lineTo(innerRight, panelBottom);
+                    ctx.stroke();
+
+                    // === Draw speaker drivers with holographic glowing halos ===
+
+                    // Large woofer
+                    const wooferRadius = width * 0.26;
+                    const wooferCenterY = centerY + height * 0.1;
+
+                    // Glowing halo around woofer
+                    ctx.save();
+                    const haloGrad = ctx.createRadialGradient(
+                        centerX, wooferCenterY, wooferRadius * 0.7,
+                        centerX, wooferCenterY, wooferRadius * 1.4
+                    );
+                    haloGrad.addColorStop(0, 'rgba(79, 212, 255, 0.4)');
+                    haloGrad.addColorStop(0.5, 'rgba(79, 212, 255, 0.2)');
+                    haloGrad.addColorStop(1, 'rgba(79, 212, 255, 0)');
+                    ctx.fillStyle = haloGrad;
+                    ctx.beginPath();
+                    ctx.arc(centerX, wooferCenterY, wooferRadius * 1.4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+
+                    // Woofer ring (glowing)
+                    ctx.save();
+                    ctx.strokeStyle = '#4fd4ff';
+                    ctx.lineWidth = 3;
+                    ctx.shadowColor = 'rgba(79, 212, 255, 1)';
+                    ctx.shadowBlur = 20;
+                    ctx.beginPath();
+                    ctx.arc(centerX, wooferCenterY, wooferRadius, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.restore();
+
+                    // Inner woofer gradient
+                    const wooferGrad = ctx.createRadialGradient(
+                        centerX, wooferCenterY, 0,
+                        centerX, wooferCenterY, wooferRadius * 0.9
+                    );
+                    wooferGrad.addColorStop(0, '#2a2a38');
+                    wooferGrad.addColorStop(0.6, '#1a1a25');
+                    wooferGrad.addColorStop(1, '#0a0a12');
+                    ctx.fillStyle = wooferGrad;
+                    ctx.beginPath();
+                    ctx.arc(centerX, wooferCenterY, wooferRadius * 0.9, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Sensor-like center
+                    const centerGlow = ctx.createRadialGradient(
+                        centerX, wooferCenterY, 0,
+                        centerX, wooferCenterY, wooferRadius * 0.3
+                    );
+                    centerGlow.addColorStop(0, 'rgba(79, 212, 255, 0.8)');
+                    centerGlow.addColorStop(0.6, 'rgba(79, 212, 255, 0.3)');
+                    centerGlow.addColorStop(1, 'rgba(79, 212, 255, 0)');
+                    ctx.fillStyle = centerGlow;
+                    ctx.beginPath();
+                    ctx.arc(centerX, wooferCenterY, wooferRadius * 0.3, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Tweeter (smaller, on top)
+                    const tweeterCenterY = centerY - height * 0.22;
+                    const tweeterRadius = width * 0.1;
+
+                    // Tweeter halo
+                    ctx.save();
+                    const tweeterHalo = ctx.createRadialGradient(
+                        centerX, tweeterCenterY, tweeterRadius * 0.6,
+                        centerX, tweeterCenterY, tweeterRadius * 1.5
+                    );
+                    tweeterHalo.addColorStop(0, 'rgba(138, 43, 226, 0.4)');
+                    tweeterHalo.addColorStop(0.5, 'rgba(138, 43, 226, 0.2)');
+                    tweeterHalo.addColorStop(1, 'rgba(138, 43, 226, 0)');
+                    ctx.fillStyle = tweeterHalo;
+                    ctx.beginPath();
+                    ctx.arc(centerX, tweeterCenterY, tweeterRadius * 1.5, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+
+                    // Tweeter ring
+                    ctx.save();
+                    ctx.strokeStyle = '#9966ff';
+                    ctx.lineWidth = 2;
+                    ctx.shadowColor = 'rgba(138, 43, 226, 0.9)';
+                    ctx.shadowBlur = 15;
+                    ctx.beginPath();
+                    ctx.arc(centerX, tweeterCenterY, tweeterRadius, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.restore();
+
+                    ctx.fillStyle = '#1a1a25';
+                    ctx.beginPath();
+                    ctx.arc(centerX, tweeterCenterY, tweeterRadius * 0.8, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // === Vertical LED strips on sides ===
+                    const ledStripWidth = width * 0.015;
+                    const ledStripHeight = height * 0.5;
+                    const ledStripYStart = centerY - ledStripHeight/2;
+
+                    // Left LED strip
+                    const leftLedX = innerLeft + width * 0.08;
+                    const ledGrad1 = ctx.createLinearGradient(
+                        leftLedX, ledStripYStart,
+                        leftLedX, ledStripYStart + ledStripHeight
+                    );
+                    ledGrad1.addColorStop(0, 'rgba(79, 212, 255, 0)');
+                    ledGrad1.addColorStop(0.5, 'rgba(79, 212, 255, 0.8)');
+                    ledGrad1.addColorStop(1, 'rgba(79, 212, 255, 0)');
+                    ctx.save();
+                    ctx.shadowColor = 'rgba(79, 212, 255, 1)';
+                    ctx.shadowBlur = 15;
+                    ctx.fillStyle = ledGrad1;
+                    ctx.fillRect(leftLedX, ledStripYStart, ledStripWidth, ledStripHeight);
+                    ctx.restore();
+
+                    // Right LED strip
+                    const rightLedX = innerRight - width * 0.08;
+                    const ledGrad2 = ctx.createLinearGradient(
+                        rightLedX, ledStripYStart,
+                        rightLedX, ledStripYStart + ledStripHeight
+                    );
+                    ledGrad2.addColorStop(0, 'rgba(138, 43, 226, 0)');
+                    ledGrad2.addColorStop(0.5, 'rgba(138, 43, 226, 0.8)');
+                    ledGrad2.addColorStop(1, 'rgba(138, 43, 226, 0)');
+                    ctx.save();
+                    ctx.shadowColor = 'rgba(138, 43, 226, 1)';
+                    ctx.shadowBlur = 15;
+                    ctx.fillStyle = ledGrad2;
+                    ctx.fillRect(rightLedX, ledStripYStart, ledStripWidth, ledStripHeight);
+                    ctx.restore();
+
+                    // === Neon trim outline ===
+                    ctx.save();
+                    ctx.strokeStyle = '#4fd4ff';
+                    ctx.lineWidth = 2.5;
+                    ctx.shadowColor = 'rgba(79, 212, 255, 1)';
+                    ctx.shadowBlur = 18;
+                    ctx.beginPath();
+                    ctx.moveTo(frontTopLeft.x, frontTopLeft.y);
+                    ctx.lineTo(frontTopRight.x, frontTopRight.y);
+                    ctx.lineTo(frontBottomRight.x, frontBottomRight.y);
+                    ctx.lineTo(frontBottomLeft.x, frontBottomLeft.y);
+                    ctx.closePath();
+                    ctx.stroke();
+                    ctx.restore();
+
+                    // === LED light spill onto floor ===
+                    ctx.save();
+                    const floorSpill = ctx.createRadialGradient(
+                        centerX, centerY + height/2, 0,
+                        centerX, centerY + height/2, width * 0.8
+                    );
+                    floorSpill.addColorStop(0, 'rgba(79, 212, 255, 0.15)');
+                    floorSpill.addColorStop(0.7, 'rgba(79, 212, 255, 0.05)');
+                    floorSpill.addColorStop(1, 'rgba(79, 212, 255, 0)');
+                    ctx.fillStyle = floorSpill;
+                    ctx.fillRect(centerX - width, centerY + height/2, width * 2, height * 0.3);
+                    ctx.restore();
+
+                } else {
+                    // === WALL-MOUNTED SPEAKER (compact design) ===
+
+                    // Apply slight inward rotation (10-15 degrees)
+                    ctx.save();
+                    ctx.translate(centerX, centerY);
+                    const rotationAngle = (facingSide === "left") ? 0.2 : -0.2; // ~11 degrees
+                    ctx.rotate(rotationAngle);
+                    ctx.translate(-centerX, -centerY);
+
+                    // Front face corners
+                    const frontTopLeft = { x: centerX - width/2, y: centerY - height/2 };
+                    const frontTopRight = { x: centerX + width/2, y: centerY - height/2 };
+                    const frontBottomRight = { x: centerX + width/2, y: centerY + height/2 };
+                    const frontBottomLeft = { x: centerX - width/2, y: centerY + height/2 };
+
+                    const depthX = width * 0.12;
+                    const depthY = height * 0.02;
+
+                    // Side face
+                    let sideTopNear, sideTopFar, sideBottomFar, sideBottomNear;
+
+                    if (facingSide === "left") {
+                        sideTopNear = frontTopLeft;
+                        sideTopFar = { x: frontTopLeft.x - depthX, y: frontTopLeft.y + depthY };
+                        sideBottomFar = { x: frontBottomLeft.x - depthX, y: frontBottomLeft.y + depthY };
+                        sideBottomNear = frontBottomLeft;
+                    } else {
+                        sideTopNear = frontTopRight;
+                        sideTopFar = { x: frontTopRight.x + depthX, y: frontTopRight.y + depthY };
+                        sideBottomFar = { x: frontBottomRight.x + depthX, y: frontBottomRight.y + depthY };
+                        sideBottomNear = frontBottomRight;
+                    }
+
+                    // === Floating bracket (behind speaker) ===
+                    const bracketWidth = width * 0.6;
+                    const bracketHeight = height * 0.15;
+                    const bracketDepth = depthX * 1.5;
+
+                    ctx.fillStyle = '#1a1a22';
+                    ctx.fillRect(
+                        centerX - bracketWidth/2 + (facingSide === "left" ? -bracketDepth : bracketDepth),
+                        centerY - bracketHeight/2,
+                        bracketWidth,
+                        bracketHeight
+                    );
+
+                    // Bracket shadow on wall
+                    ctx.save();
+                    const bracketShadow = ctx.createRadialGradient(
+                        centerX + (facingSide === "left" ? -bracketDepth : bracketDepth),
+                        centerY, 0,
+                        centerX + (facingSide === "left" ? -bracketDepth : bracketDepth),
+                        centerY, width * 0.7
+                    );
+                    bracketShadow.addColorStop(0, 'rgba(0, 0, 0, 0.5)');
+                    bracketShadow.addColorStop(0.6, 'rgba(0, 0, 0, 0.2)');
+                    bracketShadow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                    ctx.fillStyle = bracketShadow;
+                    ctx.fillRect(
+                        centerX - width + (facingSide === "left" ? -bracketDepth : bracketDepth),
+                        centerY - height,
+                        width * 2,
+                        height * 2
+                    );
+                    ctx.restore();
+
+                    // === Draw side face ===
+                    const sideGrad = ctx.createLinearGradient(
+                        sideTopNear.x, sideTopNear.y,
+                        sideBottomNear.x, sideBottomNear.y
+                    );
+                    sideGrad.addColorStop(0, '#1a1a22');
+                    sideGrad.addColorStop(0.5, '#0f0f18');
+                    sideGrad.addColorStop(1, '#1a1a22');
+                    ctx.fillStyle = sideGrad;
+                    ctx.beginPath();
+                    ctx.moveTo(sideTopNear.x, sideTopNear.y);
                     ctx.lineTo(sideTopFar.x, sideTopFar.y);
-                    ctx.lineTo(sideTopFar.x - width, sideTopFar.y);
+                    ctx.lineTo(sideBottomFar.x, sideBottomFar.y);
+                    ctx.lineTo(sideBottomNear.x, sideBottomNear.y);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // === Draw top face ===
+                    ctx.fillStyle = '#252530';
+                    ctx.beginPath();
+                    if (facingSide === "left") {
+                        ctx.moveTo(frontTopLeft.x, frontTopLeft.y);
+                        ctx.lineTo(sideTopFar.x, sideTopFar.y);
+                        ctx.lineTo(sideTopFar.x + width, sideTopFar.y);
+                        ctx.lineTo(frontTopRight.x, frontTopRight.y);
+                    } else {
+                        ctx.moveTo(frontTopLeft.x, frontTopLeft.y);
+                        ctx.lineTo(frontTopRight.x, frontTopRight.y);
+                        ctx.lineTo(sideTopFar.x, sideTopFar.y);
+                        ctx.lineTo(sideTopFar.x - width, sideTopFar.y);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // === Draw front face with beveled frame ===
+                    const bevelSize = width * 0.05;
+
+                    // Beveled metallic frame
+                    const bevelGrad = ctx.createLinearGradient(
+                        frontTopLeft.x, centerY,
+                        frontTopRight.x, centerY
+                    );
+                    bevelGrad.addColorStop(0, '#3a3a48');
+                    bevelGrad.addColorStop(0.5, '#5a5a75');
+                    bevelGrad.addColorStop(1, '#3a3a48');
+                    ctx.fillStyle = bevelGrad;
+                    ctx.fillRect(frontTopLeft.x, frontTopLeft.y, width, height);
+
+                    // Inner matte black panel
+                    const innerGrad = ctx.createRadialGradient(
+                        centerX, centerY, 0,
+                        centerX, centerY, Math.max(width, height) * 0.5
+                    );
+                    innerGrad.addColorStop(0, '#1a1a25');
+                    innerGrad.addColorStop(1, '#0f0f18');
+                    ctx.fillStyle = innerGrad;
+                    ctx.fillRect(
+                        frontTopLeft.x + bevelSize,
+                        frontTopLeft.y + bevelSize,
+                        width - bevelSize * 2,
+                        height - bevelSize * 2
+                    );
+
+                    // === Single driver with glowing ring ===
+                    const driverRadius = width * 0.28;
+
+                    // Glowing halo
+                    ctx.save();
+                    const haloGrad = ctx.createRadialGradient(
+                        centerX, centerY, driverRadius * 0.7,
+                        centerX, centerY, driverRadius * 1.6
+                    );
+                    haloGrad.addColorStop(0, 'rgba(138, 43, 226, 0.4)');
+                    haloGrad.addColorStop(0.5, 'rgba(138, 43, 226, 0.2)');
+                    haloGrad.addColorStop(1, 'rgba(138, 43, 226, 0)');
+                    ctx.fillStyle = haloGrad;
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, driverRadius * 1.6, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+
+                    // Driver ring (glowing)
+                    ctx.save();
+                    ctx.strokeStyle = '#9966ff';
+                    ctx.lineWidth = 2.5;
+                    ctx.shadowColor = 'rgba(138, 43, 226, 1)';
+                    ctx.shadowBlur = 18;
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, driverRadius, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.restore();
+
+                    // Inner driver
+                    const driverGrad = ctx.createRadialGradient(
+                        centerX, centerY, 0,
+                        centerX, centerY, driverRadius * 0.9
+                    );
+                    driverGrad.addColorStop(0, '#2a2a38');
+                    driverGrad.addColorStop(0.6, '#1a1a25');
+                    driverGrad.addColorStop(1, '#0a0a12');
+                    ctx.fillStyle = driverGrad;
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, driverRadius * 0.9, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Center glow
+                    const centerGlow = ctx.createRadialGradient(
+                        centerX, centerY, 0,
+                        centerX, centerY, driverRadius * 0.35
+                    );
+                    centerGlow.addColorStop(0, 'rgba(138, 43, 226, 0.9)');
+                    centerGlow.addColorStop(0.6, 'rgba(138, 43, 226, 0.3)');
+                    centerGlow.addColorStop(1, 'rgba(138, 43, 226, 0)');
+                    ctx.fillStyle = centerGlow;
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, driverRadius * 0.35, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // === LED edge lights (thin strips on frame edges) ===
+                    ctx.save();
+                    ctx.strokeStyle = '#9966ff';
+                    ctx.lineWidth = 1.5;
+                    ctx.shadowColor = 'rgba(138, 43, 226, 1)';
+                    ctx.shadowBlur = 12;
+                    // Top edge
+                    ctx.beginPath();
+                    ctx.moveTo(frontTopLeft.x + bevelSize, frontTopLeft.y + bevelSize/2);
+                    ctx.lineTo(frontTopRight.x - bevelSize, frontTopRight.y + bevelSize/2);
+                    ctx.stroke();
+                    // Bottom edge
+                    ctx.beginPath();
+                    ctx.moveTo(frontBottomLeft.x + bevelSize, frontBottomLeft.y - bevelSize/2);
+                    ctx.lineTo(frontBottomRight.x - bevelSize, frontBottomRight.y - bevelSize/2);
+                    ctx.stroke();
+                    ctx.restore();
+
+                    // === Neon trim outline ===
+                    ctx.save();
+                    ctx.strokeStyle = '#9966ff';
+                    ctx.lineWidth = 2;
+                    ctx.shadowColor = 'rgba(138, 43, 226, 1)';
+                    ctx.shadowBlur = 15;
+                    ctx.strokeRect(frontTopLeft.x, frontTopLeft.y, width, height);
+                    ctx.restore();
+
+                    ctx.restore(); // Restore rotation
+
+                    // === LED light spill onto wall (draw outside rotation) ===
+                    ctx.save();
+                    const wallSpill = ctx.createRadialGradient(
+                        centerX, centerY, 0,
+                        centerX, centerY, width * 1.2
+                    );
+                    wallSpill.addColorStop(0, 'rgba(138, 43, 226, 0.12)');
+                    wallSpill.addColorStop(0.6, 'rgba(138, 43, 226, 0.04)');
+                    wallSpill.addColorStop(1, 'rgba(138, 43, 226, 0)');
+                    ctx.fillStyle = wallSpill;
+                    ctx.fillRect(centerX - width * 1.5, centerY - height * 1.5, width * 3, height * 3);
+                    ctx.restore();
                 }
-                ctx.closePath();
-                ctx.fill();
-
-                // === Draw front face ===
-                const frontGrad = ctx.createLinearGradient(
-                    frontTopLeft.x, centerY,
-                    frontTopRight.x, centerY
-                );
-                frontGrad.addColorStop(0, '#2a2a35');
-                frontGrad.addColorStop(0.5, '#35354a');
-                frontGrad.addColorStop(1, '#2a2a35');
-                ctx.fillStyle = frontGrad;
-                ctx.fillRect(frontTopLeft.x, frontTopLeft.y, width, height);
-
-                // === Draw speaker components on front face ===
-
-                // Large woofer
-                const wooferRadius = width * 0.30;
-                const wooferCenterY = centerY + height * 0.12;
-
-                // Woofer shadow/surround
-                const wooferShadowGrad = ctx.createRadialGradient(
-                    centerX, wooferCenterY, 0,
-                    centerX, wooferCenterY, wooferRadius
-                );
-                wooferShadowGrad.addColorStop(0, '#0a0a0f');
-                wooferShadowGrad.addColorStop(0.7, '#1a1a25');
-                wooferShadowGrad.addColorStop(1, '#0a0a0f');
-                ctx.fillStyle = wooferShadowGrad;
-                ctx.beginPath();
-                ctx.arc(centerX, wooferCenterY, wooferRadius, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Woofer cone (lighter center with gradient)
-                const coneGrad = ctx.createRadialGradient(
-                    centerX - wooferRadius * 0.3, wooferCenterY - wooferRadius * 0.3, 0,
-                    centerX, wooferCenterY, wooferRadius * 0.7
-                );
-                coneGrad.addColorStop(0, '#3a3a45');
-                coneGrad.addColorStop(1, '#1a1a25');
-                ctx.fillStyle = coneGrad;
-                ctx.beginPath();
-                ctx.arc(centerX, wooferCenterY, wooferRadius * 0.7, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Dust cap (center dot)
-                ctx.fillStyle = '#0f0f18';
-                ctx.beginPath();
-                ctx.arc(centerX, wooferCenterY, wooferRadius * 0.25, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Dust cap highlight
-                ctx.fillStyle = 'rgba(100, 100, 120, 0.3)';
-                ctx.beginPath();
-                ctx.arc(centerX - wooferRadius * 0.1, wooferCenterY - wooferRadius * 0.1, wooferRadius * 0.15, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Tweeter (smaller, on top)
-                const tweeterCenterY = centerY - height * 0.25;
-                const tweeterRadius = width * 0.12;
-
-                ctx.fillStyle = '#1a1a25';
-                ctx.beginPath();
-                ctx.arc(centerX, tweeterCenterY, tweeterRadius, 0, Math.PI * 2);
-                ctx.fill();
-
-                ctx.fillStyle = '#2a2a35';
-                ctx.beginPath();
-                ctx.arc(centerX, tweeterCenterY, tweeterRadius * 0.6, 0, Math.PI * 2);
-                ctx.fill();
-
-                ctx.fillStyle = '#0a0a0f';
-                ctx.beginPath();
-                ctx.arc(centerX, tweeterCenterY, tweeterRadius * 0.3, 0, Math.PI * 2);
-                ctx.fill();
-
-                // === Neon outline around front face ===
-                ctx.save();
-                ctx.strokeStyle = '#4fd4ff';
-                ctx.lineWidth = 2;
-                ctx.shadowColor = 'rgba(79, 212, 255, 0.9)';
-                ctx.shadowBlur = 15;
-                ctx.strokeRect(frontTopLeft.x, frontTopLeft.y, width, height);
-                ctx.restore();
-
-                // === Soft ambient glow around speaker ===
-                ctx.save();
-                const ambientGlow = ctx.createRadialGradient(
-                    centerX, centerY, 0,
-                    centerX, centerY, Math.max(width, height) * 0.9
-                );
-                ambientGlow.addColorStop(0, 'rgba(79, 212, 255, 0.12)');
-                ambientGlow.addColorStop(1, 'rgba(79, 212, 255, 0)');
-                ctx.fillStyle = ambientGlow;
-                ctx.fillRect(centerX - width, centerY - height, width * 2, height * 2);
-                ctx.restore();
             }
 
             // === Explicit speaker positions using room perspective (scales with walkProgress) ===
@@ -3326,7 +3712,7 @@
             const bottomWidth = (W * 0.11) * bottomLeftScale;
             const bottomHeight = (H * 0.24) * bottomLeftScale;
 
-            drawSpeaker3D(ctx, bottomLeftX, bottomLeftY, bottomWidth, bottomHeight, "right");
+            drawSpeaker3D(ctx, bottomLeftX, bottomLeftY, bottomWidth, bottomHeight, "right", "floor");
 
             // Floor shadow under bottom left speaker
             ctx.save();
@@ -3351,7 +3737,7 @@
 
             const bottomRightScale = 1.0 + (bottomRightDepth * 0.5);
 
-            drawSpeaker3D(ctx, bottomRightX, bottomRightY, bottomWidth, bottomHeight, "left");
+            drawSpeaker3D(ctx, bottomRightX, bottomRightY, bottomWidth, bottomHeight, "left", "floor");
 
             // Floor shadow under bottom right speaker
             ctx.save();
@@ -3378,7 +3764,7 @@
             const topWidth = (W * 0.09) * topLeftScale;
             const topHeight = (H * 0.16) * topLeftScale;
 
-            drawSpeaker3D(ctx, topLeftX, topLeftY, topWidth, topHeight, "right");
+            drawSpeaker3D(ctx, topLeftX, topLeftY, topWidth, topHeight, "right", "wall");
 
             // Wall shadow below top left speaker
             ctx.save();
@@ -3403,7 +3789,7 @@
 
             const topRightScale = 1.0 + (topRightDepth * 0.5);
 
-            drawSpeaker3D(ctx, topRightX, topRightY, topWidth, topHeight, "left");
+            drawSpeaker3D(ctx, topRightX, topRightY, topWidth, topHeight, "left", "wall");
 
             // Wall shadow below top right speaker
             ctx.save();
