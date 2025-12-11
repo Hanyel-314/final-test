@@ -3268,6 +3268,7 @@
             audioScreenBounds.screenY = screenY;
             audioScreenBounds.screenWidth = screenWidth;
             audioScreenBounds.screenHeight = screenHeight;
+            audioScreenBounds.screenBottomY = screenY + screenHeight;  // Store screen bottom for speaker positioning
 
             // Screen background (brighter with stronger glow)
             const bgGrad = ctx.createLinearGradient(screenX, screenY, screenX, screenY + screenHeight);
@@ -3360,26 +3361,40 @@
                 // 绘制歌单交互高亮
                 ctx.save();
 
-                // Playlist panel (based on actual image position and size)
-                // 歌单面板（基于实际图片位置和尺寸）
-                // Define playlist panel bounds - accurately match the actual playlist area in the image
-                // 定义歌单面板边界 - 精确匹配图片中实际的歌单区域
-                // Recalculated for proper click detection of 5 rows
+                // Playlist panel (based on actual enlarged screen dimensions)
+                // 歌单面板（基于放大后的实际屏幕尺寸）
+                // Calculate playlist bounds using ABSOLUTE coordinates after 1.6x scaling
+                // 使用1.6倍放大后的绝对坐标计算歌单边界
+
+                // These percentages are calibrated to match the actual playlist rows in the image
+                // 这些百分比已校准以匹配图片中实际的歌单行位置
                 const playlistPanel = {
-                    x: drawX + drawWidth * 0.08,   // Start 8% from left edge (more accurate)
-                    y: drawY + drawHeight * 0.28,  // Start ~28% down in image (adjusted for actual playlist start)
-                    width: drawWidth * 0.84,       // 84% of image width (actual clickable area)
-                    height: drawHeight * 0.42      // 42% of image height (5 rows of playlist only, not including controls)
+                    x: drawX + drawWidth * 0.10,   // 10% from left edge
+                    y: drawY + drawHeight * 0.32,  // 32% from top (skip header area)
+                    width: drawWidth * 0.80,       // 80% of image width (main content area)
+                    height: drawHeight * 0.48      // 48% of image height (5 rows exactly)
                 };
 
                 const playlistStartY = playlistPanel.y;
                 const playlistHeight = playlistPanel.height;
-                const rowHeight = playlistHeight / 5;  // 5 rows
+                const rowHeight = playlistHeight / 5;  // Exactly 5 rows
 
-                audioScreenBounds.playlistY = playlistStartY;
-                audioScreenBounds.playlistHeight = playlistHeight;
+                // Store ABSOLUTE coordinates for click detection (after 1.6x scaling applied)
+                // 存储绝对坐标用于点击检测（已应用1.6倍缩放）
                 audioScreenBounds.playlistX = playlistPanel.x;
+                audioScreenBounds.playlistY = playlistStartY;
                 audioScreenBounds.playlistWidth = playlistPanel.width;
+                audioScreenBounds.playlistHeight = playlistHeight;
+                audioScreenBounds.rowHeight = rowHeight;
+
+                // Debug output for click detection calibration
+                console.log('Playlist bounds (scaled):', {
+                    x: playlistPanel.x.toFixed(1),
+                    y: playlistPanel.y.toFixed(1),
+                    width: playlistPanel.width.toFixed(1),
+                    height: playlistPanel.height.toFixed(1),
+                    rowHeight: rowHeight.toFixed(1)
+                });
 
                 // Highlight current playing track
                 // 高亮当前播放的歌曲
@@ -4234,20 +4249,34 @@
             // This makes speakers move/scale as you walk forward, just like Floor 1 objects
 
             // BOTTOM LEFT speaker (large floor speaker) - positioned on left wall near floor
-            // Moved further down to avoid blocking screen (height increased from 0.78 to 0.90)
+            // Constrained to avoid blocking screen bottom
             const bottomLeftDepth = 0.35;  // How far along the left wall (0=back, 1=front)
-            const bottomLeftHeight = 0.90; // Height ratio (0=ceiling, 1=floor) - moved down to clear screen
+            const bottomLeftHeight = 0.90; // Height ratio (0=ceiling, 1=floor) - initial position
 
             // Interpolate position based on room perspective
             const bottomLeftX = lerp(backLeftX, frontLeftX, bottomLeftDepth);
-            const bottomLeftYTop = lerp(backCeilingY, backFloorY, bottomLeftHeight - 0.12);
-            const bottomLeftYBottom = lerp(backCeilingY, backFloorY, bottomLeftHeight + 0.12);
-            const bottomLeftY = (bottomLeftYTop + bottomLeftYBottom) / 2;
 
             // Scale speakers based on depth - closer = bigger
             const bottomLeftScale = 1.0 + (bottomLeftDepth * 0.5);  // 1.0 to 1.5x scale
             const bottomWidth = (W * 0.11) * bottomLeftScale;
             const bottomHeight = (H * 0.24) * bottomLeftScale;
+
+            // Calculate initial Y position
+            let bottomLeftYTop = lerp(backCeilingY, backFloorY, bottomLeftHeight - 0.12);
+            let bottomLeftYBottom = lerp(backCeilingY, backFloorY, bottomLeftHeight + 0.12);
+            let bottomLeftY = (bottomLeftYTop + bottomLeftYBottom) / 2;
+
+            // Constrain speaker position: top of speaker must be below screen bottom
+            // 约束音箱位置：音箱顶部必须在屏幕底部之下
+            const screenBottomY = audioScreenBounds.screenBottomY || 0;
+            const margin = 20;  // Clearance margin in pixels
+            const speakerTopY = bottomLeftY - bottomHeight / 2;
+
+            if (speakerTopY < screenBottomY + margin) {
+                // Speaker would block screen, move it down
+                bottomLeftY = screenBottomY + margin + bottomHeight / 2;
+                console.log('Bottom left speaker repositioned to avoid screen blocking');
+            }
 
             drawSpeaker3D(ctx, bottomLeftX, bottomLeftY, bottomWidth, bottomHeight, "right", "floor",
                          speakerAnimations[0].scale, speakerAnimations[0].glow, speakerAnimations[0].rotation);
@@ -4265,16 +4294,28 @@
             ctx.restore();
 
             // BOTTOM RIGHT speaker (large floor speaker) - mirrored position
-            // Moved further down to avoid blocking screen (height increased from 0.78 to 0.90)
+            // Constrained to avoid blocking screen bottom
             const bottomRightDepth = 0.35;
-            const bottomRightHeight = 0.90; // Height ratio - moved down to clear screen
+            const bottomRightHeight = 0.90; // Height ratio - initial position
 
             const bottomRightX = lerp(backRightX, frontRightX, bottomRightDepth);
-            const bottomRightYTop = lerp(backCeilingY, backFloorY, bottomRightHeight - 0.12);
-            const bottomRightYBottom = lerp(backCeilingY, backFloorY, bottomRightHeight + 0.12);
-            const bottomRightY = (bottomRightYTop + bottomRightYBottom) / 2;
 
             const bottomRightScale = 1.0 + (bottomRightDepth * 0.5);
+
+            // Calculate initial Y position
+            let bottomRightYTop = lerp(backCeilingY, backFloorY, bottomRightHeight - 0.12);
+            let bottomRightYBottom = lerp(backCeilingY, backFloorY, bottomRightHeight + 0.12);
+            let bottomRightY = (bottomRightYTop + bottomRightYBottom) / 2;
+
+            // Constrain speaker position: top of speaker must be below screen bottom
+            // 约束音箱位置：音箱顶部必须在屏幕底部之下
+            const speakerTopY_right = bottomRightY - bottomHeight / 2;
+
+            if (speakerTopY_right < screenBottomY + margin) {
+                // Speaker would block screen, move it down
+                bottomRightY = screenBottomY + margin + bottomHeight / 2;
+                console.log('Bottom right speaker repositioned to avoid screen blocking');
+            }
 
             drawSpeaker3D(ctx, bottomRightX, bottomRightY, bottomWidth, bottomHeight, "left", "floor",
                          speakerAnimations[1].scale, speakerAnimations[1].glow, speakerAnimations[1].rotation);
@@ -6308,34 +6349,38 @@
                         if (mx >= bounds.screenX && mx <= bounds.screenX + bounds.screenWidth &&
                             my >= bounds.screenY && my <= bounds.screenY + bounds.screenHeight) {
 
-                            // === Playlist row click detection ===
-                            // 歌单行点击检测
-                            // Recalculated click detection for accurate 5-row mapping
-                            // 重新计算点击检测，确保5行精确映射
+                            // === Playlist row click detection (using scaled absolute coordinates) ===
+                            // 歌单行点击检测（使用放大后的绝对坐标）
+                            // Based on 1.6x enlarged screen dimensions, not pre-scaled values
+                            // 基于1.6倍放大后的屏幕尺寸，而非缩放前的值
 
                             const playlistX = bounds.playlistX;
                             const playlistY = bounds.playlistY;
                             const playlistWidth = bounds.playlistWidth;
                             const playlistHeight = bounds.playlistHeight;
 
-                            // Check if click is within playlist bounds
+                            // Check if click is within playlist panel bounds
                             if (mx >= playlistX && mx <= playlistX + playlistWidth &&
                                 my >= playlistY && my <= playlistY + playlistHeight) {
 
                                 // Calculate which row was clicked (0-4 for 5 tracks)
                                 const rowCount = 5;
                                 const rowHeight = playlistHeight / rowCount;
-                                const localY = my - playlistY;
+                                const localY = my - playlistY;  // Y position relative to playlist top
                                 const clickedRow = Math.floor(localY / rowHeight);
 
-                                // Clamp to valid range and ensure one-to-one mapping
-                                // 限制在有效范围内，确保一一对应：行0-4 -> 歌曲0-4
+                                // Clamp to valid range [0, 4]
                                 const trackIndex = Math.max(0, Math.min(rowCount - 1, clickedRow));
 
-                                console.log(`Playlist click: row ${trackIndex}, y=${my.toFixed(1)}, localY=${localY.toFixed(1)}, rowHeight=${rowHeight.toFixed(1)}`);
-                                console.log(`Playing track ${trackIndex}: ${tracks[trackIndex].title}`);
+                                // Debug output
+                                console.log('=== Playlist Click Debug ===');
+                                console.log(`Click position: (${mx.toFixed(1)}, ${my.toFixed(1)})`);
+                                console.log(`Playlist bounds: x=${playlistX.toFixed(1)}, y=${playlistY.toFixed(1)}, w=${playlistWidth.toFixed(1)}, h=${playlistHeight.toFixed(1)}`);
+                                console.log(`Local Y: ${localY.toFixed(1)}, Row height: ${rowHeight.toFixed(1)}`);
+                                console.log(`Calculated row: ${clickedRow}, Clamped index: ${trackIndex}`);
+                                console.log(`Playing: Track ${trackIndex} - ${tracks[trackIndex].title}`);
 
-                                playTrack(trackIndex);  // Direct index mapping: row N -> track N
+                                playTrack(trackIndex);  // Direct 1:1 mapping - row N → track N
                             }
                             // === Player controls click detection ===
                             // 播放器控制点击检测
