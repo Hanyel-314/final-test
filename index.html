@@ -3339,16 +3339,25 @@
                 // 绘制歌单交互高亮
                 ctx.save();
 
-                // Playlist area (based on actual image position and size)
-                // 歌单区域（基于实际图片位置和尺寸）
-                // Adjust based on where the playlist appears in the image
-                // 根据图片中歌单的实际位置调整
-                const playlistStartY = drawY + drawHeight * 0.20;  // Playlist starts ~20% down in image
-                const playlistHeight = drawHeight * 0.55;  // Playlist takes ~55% of image height
+                // Playlist panel (based on actual image position and size)
+                // 歌单面板（基于实际图片位置和尺寸）
+                // Define playlist panel bounds - this is the reference for positioning
+                // 定义歌单面板边界 - 这是定位的参考
+                const playlistPanel = {
+                    x: drawX + drawWidth * 0.05,  // Start 5% from left edge
+                    y: drawY + drawHeight * 0.20,  // Start ~20% down in image
+                    width: drawWidth * 0.9,        // 90% of image width
+                    height: drawHeight * 0.50      // 50% of image height for playlist
+                };
+
+                const playlistStartY = playlistPanel.y;
+                const playlistHeight = playlistPanel.height;
                 const rowHeight = playlistHeight / 5;  // 5 rows
 
                 audioScreenBounds.playlistY = playlistStartY;
                 audioScreenBounds.playlistHeight = playlistHeight;
+                audioScreenBounds.playlistX = playlistPanel.x;
+                audioScreenBounds.playlistWidth = playlistPanel.width;
 
                 // Highlight current playing track
                 // 高亮当前播放的歌曲
@@ -3385,27 +3394,41 @@
 
                 // === Draw player control bar (below playlist) ===
                 // 绘制播放器控制条（在歌单下方）
-                // Position based on actual image dimensions
-                // 基于实际图片尺寸定位
-                const playerY = drawY + drawHeight * 0.78;  // Start at 78% down in image
-                const playerHeight = drawHeight * 0.18;  // Takes ~18% of image height
-                const playerPadding = 15;
+                // Position relative to playlist panel
+                // 相对于歌单面板定位
+                const playerControls = {
+                    width: playlistPanel.width * 0.9,   // 90% of playlist width
+                    height: 48,                         // Fixed height: 48px
+                    y: playlistPanel.y + playlistPanel.height + 24  // 24px below playlist
+                };
+                // Center horizontally with playlist panel
+                // 与歌单面板水平居中对齐
+                playerControls.x = playlistPanel.x + (playlistPanel.width - playerControls.width) / 2;
+                playerControls.centerX = playerControls.x + playerControls.width / 2;
+
+                const playerY = playerControls.y;
+                const playerHeight = playerControls.height;
+                const playerWidth = playerControls.width;
+                const playerX = playerControls.x;
+                const playerPadding = 12;
 
                 audioScreenBounds.playerY = playerY;
                 audioScreenBounds.playerHeight = playerHeight;
+                audioScreenBounds.playerX = playerX;
+                audioScreenBounds.playerWidth = playerWidth;
 
                 ctx.save();
 
-                // Player background with subtle gradient (based on image width)
-                // 播放器背景带轻微渐变（基于图片宽度）
+                // Player background with subtle gradient
+                // 播放器背景带轻微渐变
                 const playerBgGrad = ctx.createLinearGradient(
-                    drawX, playerY,
-                    drawX, playerY + playerHeight
+                    playerX, playerY,
+                    playerX, playerY + playerHeight
                 );
                 playerBgGrad.addColorStop(0, 'rgba(10, 10, 20, 0.8)');
                 playerBgGrad.addColorStop(1, 'rgba(15, 15, 30, 0.9)');
                 ctx.fillStyle = playerBgGrad;
-                ctx.fillRect(drawX + 10, playerY, drawWidth - 20, playerHeight - 10);
+                ctx.fillRect(playerX, playerY, playerWidth, playerHeight);
 
                 // Player border with cyan glow
                 // 播放器边框带青色光晕
@@ -3413,13 +3436,13 @@
                 ctx.lineWidth = 1.5;
                 ctx.shadowColor = 'rgba(79, 212, 255, 0.4)';
                 ctx.shadowBlur = 6;
-                ctx.strokeRect(drawX + 10, playerY, drawWidth - 20, playerHeight - 10);
+                ctx.strokeRect(playerX, playerY, playerWidth, playerHeight);
 
                 // === Play/Pause Button ===
                 // 播放/暂停按钮
-                const buttonSize = playerHeight * 0.4;
-                const buttonX = drawX + playerPadding + buttonSize/2 + 10;
-                const buttonY = playerY + playerHeight/2 - 5;
+                const buttonSize = playerHeight * 0.55;  // Slightly larger for 48px height
+                const buttonX = playerX + playerPadding + buttonSize/2;
+                const buttonY = playerY + playerHeight/2;
 
                 audioScreenBounds.playButtonX = buttonX;
                 audioScreenBounds.playButtonY = buttonY;
@@ -3465,9 +3488,9 @@
 
                 // === Seek Bar (Progress Bar) ===
                 // 进度条
-                const seekBarX = buttonX + buttonSize/2 + 20;
-                const seekBarY = playerY + playerHeight/2 - 5;
-                const seekBarWidth = drawWidth - (seekBarX - drawX) - playerPadding - 100;  // Leave space for time
+                const seekBarX = buttonX + buttonSize/2 + 15;
+                const seekBarY = playerY + playerHeight/2;
+                const seekBarWidth = playerWidth - (seekBarX - playerX) - playerPadding - 80;  // Leave space for time
                 const seekBarHeight = 6;
 
                 audioScreenBounds.seekBarX = seekBarX;
@@ -3524,16 +3547,16 @@
                 ctx.fillText(`${formatTime(currentTime)} / ${formatTime(duration)}`, timeX, timeY);
                 ctx.restore();
 
-                // Current track title (if playing)
-                // 当前歌曲标题（如果正在播放）
+                // Current track title (if playing) - displayed above player controls
+                // 当前歌曲标题（如果正在播放）- 显示在播放器控制条上方
                 if (currentTrackIndex >= 0 && currentTrackIndex < tracks.length) {
                     ctx.save();
-                    ctx.fillStyle = 'rgba(120, 220, 255, 0.8)';
-                    ctx.font = 'bold 9px monospace';
+                    ctx.fillStyle = 'rgba(120, 220, 255, 0.9)';
+                    ctx.font = 'bold 11px monospace';
                     ctx.textAlign = 'center';
-                    ctx.textBaseline = 'top';
+                    ctx.textBaseline = 'bottom';
                     const titleText = `♪ ${tracks[currentTrackIndex].title}`;
-                    ctx.fillText(titleText, drawX + drawWidth/2, playerY + 5);
+                    ctx.fillText(titleText, playerControls.centerX, playerY - 8);
                     ctx.restore();
                 }
 
@@ -6171,6 +6194,14 @@
                         my >= backButton.y &&
                         my <= backButton.y + backButton.h
                     ) {
+                        // Stop any playing music when exiting audio room
+                        // 退出音乐房间时停止所有音乐
+                        audio.pause();
+                        audio.currentTime = 0;
+                        currentTrackIndex = -1;
+                        isPlaying = false;
+                        console.log('Music stopped when exiting audio room');
+
                         // Return to elevator scene
                         // 返回电梯场景
                         sceneState = 'elevator';
@@ -6195,13 +6226,22 @@
 
                             // === Playlist row click detection ===
                             // 歌单行点击检测
-                            if (my >= bounds.playlistY && my < bounds.playlistY + bounds.playlistHeight) {
+                            // Ensure click is within playlist panel bounds
+                            // 确保点击在歌单面板边界内
+                            const playlistX = bounds.playlistX || bounds.imageX;
+                            const playlistWidth = bounds.playlistWidth || bounds.imageWidth;
+
+                            if (mx >= playlistX && mx <= playlistX + playlistWidth &&
+                                my >= bounds.playlistY && my < bounds.playlistY + bounds.playlistHeight) {
+
                                 const rowHeight = bounds.playlistHeight / 5;
                                 const clickedRow = Math.floor((my - bounds.playlistY) / rowHeight);
 
+                                // Ensure one-to-one mapping: row 0-4 -> track 0-4
+                                // 确保一一对应：行0-4 -> 歌曲0-4
                                 if (clickedRow >= 0 && clickedRow < 5) {
-                                    console.log(`Clicked playlist row ${clickedRow + 1}: ${tracks[clickedRow].title}`);
-                                    playTrack(clickedRow);
+                                    console.log(`Clicked playlist row ${clickedRow}: ${tracks[clickedRow].title}`);
+                                    playTrack(clickedRow);  // Direct index mapping, no offset
                                 }
                             }
                             // === Player controls click detection ===
