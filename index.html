@@ -21,10 +21,21 @@
             display: block;
             cursor: crosshair;
         }
+        #threejs-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            z-index: 10;
+        }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
     <canvas id="elevator"></canvas>
+    <div id="threejs-container"></div>
     <script>
         'use strict';
 
@@ -1779,8 +1790,8 @@
                         drawBackToElevatorButton(ctx);
                     }
                 } else if (sceneState === 'basketball') {
-                    // Floor 3: Basketball court scene
-                    drawBasketballCourtScene();
+                    // Floor 3: 3D Basketball court scene (rendered separately by Three.js)
+                    // No 2D canvas rendering needed - handled by basketball3D render loop
                 }
             }
         }
@@ -6297,10 +6308,8 @@
 
             scene.elevator.update(deltaTime);
 
-            // Update basketball court physics if in basketball scene
-            if (sceneState === 'basketball') {
-                updateBasketballCourt(deltaTime);
-            }
+            // 3D Basketball court updates handled by its own render loop
+            // No physics update needed here for basketball scene
 
             scene.render();
 
@@ -6424,23 +6433,23 @@
         canvas.addEventListener('mousemove', (e) => {
             const rect = canvas.getBoundingClientRect();
 
-            // Basketball court mouse look controls
-            if (sceneState === 'basketball') {
-                const dx = e.movementX || (e.clientX - basketballState.lastMouseX);
-                const dy = e.movementY || (e.clientY - basketballState.lastMouseY);
+            // Basketball court 3D mouse look controls
+            if (sceneState === 'basketball' && basketball3D.isActive) {
+                const dx = e.movementX || (e.clientX - basketball3D.lastMouseX);
+                const dy = e.movementY || (e.clientY - basketball3D.lastMouseY);
 
-                basketballState.lastMouseX = e.clientX;
-                basketballState.lastMouseY = e.clientY;
+                basketball3D.lastMouseX = e.clientX;
+                basketball3D.lastMouseY = e.clientY;
 
                 // Update yaw and pitch with sensitivity
-                basketballState.yaw += dx * basketballState.mouseSensitivity * 180 / Math.PI;
-                basketballState.pitch += dy * basketballState.mouseSensitivity * 180 / Math.PI;
+                basketball3D.yaw += dx * basketball3D.mouseSensitivity;
+                basketball3D.pitch += dy * basketball3D.mouseSensitivity;
 
                 // Clamp to limits
-                basketballState.yaw = Math.max(basketballState.minYaw,
-                    Math.min(basketballState.maxYaw, basketballState.yaw));
-                basketballState.pitch = Math.max(basketballState.minPitch,
-                    Math.min(basketballState.maxPitch, basketballState.pitch));
+                basketball3D.yaw = Math.max(basketball3D.minYaw,
+                    Math.min(basketball3D.maxYaw, basketball3D.yaw));
+                basketball3D.pitch = Math.max(basketball3D.minPitch,
+                    Math.min(basketball3D.maxPitch, basketball3D.pitch));
 
                 return;
             }
@@ -6466,44 +6475,9 @@
             const mx = e.clientX - rect.left;
             const my = e.clientY - rect.top;
 
-            // Basketball court: grab ball logic
-            if (sceneState === 'basketball') {
-                // Only grab if not already holding a ball
-                if (!basketballState.grabbedBall) {
-                    // Find closest ball to screen center (simplified raycast)
-                    const centerX = W / 2;
-                    const centerY = H / 2;
-                    let closestBall = null;
-                    let closestDist = Infinity;
-
-                    basketballState.balls.forEach(ball => {
-                        if (!ball.active || ball === basketballState.grabbedBall) return;
-
-                        // Project ball to screen coordinates (matching render logic)
-                        const yawOffset = basketballState.yaw * 10;
-                        const pitchOffset = -basketballState.pitch * 8;
-
-                        // Simple 2.5D projection
-                        const screenX = centerX + (ball.x * 60) - yawOffset;
-                        const screenY = centerY - (ball.y * 60) + (ball.z * 20) + pitchOffset;
-
-                        const dx = screenX - centerX;
-                        const dy = screenY - centerY;
-                        const dist = Math.sqrt(dx * dx + dy * dy);
-
-                        if (dist < closestDist) {
-                            closestDist = dist;
-                            closestBall = ball;
-                        }
-                    });
-
-                    // Grab if close enough (within 150 pixels)
-                    if (closestBall && closestDist < 150) {
-                        basketballState.grabbedBall = closestBall;
-                        closestBall.onRack = false;
-                        console.log('Grabbed ball #' + closestBall.id);
-                    }
-                }
+            // Basketball court 3D: ball interaction reserved for future implementation
+            if (sceneState === 'basketball' && basketball3D.isActive) {
+                // TODO: Add ball grab logic when basketballs are implemented in 3D
                 return;
             }
 
@@ -6587,26 +6561,9 @@
             const mx = e.clientX - rect.left;
             const my = e.clientY - rect.top;
 
-            // Basketball court: throw ball logic
-            if (sceneState === 'basketball') {
-                if (basketballState.grabbedBall) {
-                    const ball = basketballState.grabbedBall;
-
-                    // Calculate throw velocity based on camera direction
-                    const yawRad = basketballState.yaw * Math.PI / 180;
-                    const pitchRad = basketballState.pitch * Math.PI / 180;
-
-                    // Throw direction based on where player is looking
-                    const speed = basketballState.throwSpeed;
-                    ball.vx = Math.sin(yawRad) * Math.cos(pitchRad) * speed;
-                    ball.vy = -Math.sin(pitchRad) * speed;  // Negative pitch = throw upward
-                    ball.vz = Math.cos(yawRad) * Math.cos(pitchRad) * speed;
-
-                    // Release ball
-                    basketballState.grabbedBall = null;
-                    ball.scored = false;  // Reset score flag for new throw
-                    console.log('Threw ball with velocity:', ball.vx.toFixed(2), ball.vy.toFixed(2), ball.vz.toFixed(2));
-                }
+            // Basketball court 3D: ball throw logic reserved for future implementation
+            if (sceneState === 'basketball' && basketball3D.isActive) {
+                // TODO: Add ball throw logic when basketballs are implemented in 3D
                 return;
             }
 
@@ -6711,158 +6668,392 @@
             console.log('Entered Audio Room scene');
         }
 
-        // ========== Floor 3: Sky Basketball Court ==========
-        // Basketball court scene state and controls
-        let basketballState = {
-            // Camera control (mouse look)
-            yaw: 0,           // Horizontal rotation (-45° to +45°)
-            pitch: 0,         // Vertical rotation (-20° to +20°)
-            minYaw: -45,
-            maxYaw: 45,
-            minPitch: -20,
-            maxPitch: 20,
-            mouseSensitivity: 0.002,
+        // ========== Floor 3: 3D Basketball Court (Three.js) ==========
+        // Basketball court 3D scene state and controls
+        let basketball3D = {
+            // Three.js objects
+            scene: null,
+            camera: null,
+            renderer: null,
+            container: null,
 
-            // Basketballs (5 balls on rack)
+            // Court objects
+            courtFloor: null,
+            basketPole: null,
+            basketBackboard: null,
+            basketRim: null,
+            basketNet: null,
+            stands: [],
+            lights: [],
+
+            // Camera control (mouse look)
+            yaw: 0,           // Horizontal rotation (-30° to +30°)
+            pitch: 0,         // Vertical rotation (-15° to +15°)
+            minYaw: -30,
+            maxYaw: 30,
+            minPitch: -15,
+            maxPitch: 15,
+            mouseSensitivity: 0.15,
+
+            // Initial camera position
+            cameraBasePos: { x: 0, y: 1.7, z: 10 },
+            cameraLookAt: { x: 0, y: 3.05, z: 0 },
+
+            // Mouse tracking
+            lastMouseX: 0,
+            lastMouseY: 0,
+
+            // Basketballs (for future implementation)
             balls: [],
             grabbedBall: null,
-            ballGrabDistance: 1.0,  // Distance ball stays from camera when grabbed
-
-            // Score tracking
             score: 0,
-            showScoreMessage: false,
-            scoreMessageTimer: 0,
 
-            // Physics constants
-            gravity: -9.8,
-            throwSpeed: 12,
-
-            // Mouse tracking for look controls
-            isPointerLocked: false,
-            lastMouseX: 0,
-            lastMouseY: 0
+            // Animation
+            animationId: null,
+            isActive: false
         };
 
-        // Initialize basketball court scene
+        // =========================
+        // Create 3D Basketball Court
+        // =========================
+        function init3DBasketballCourt() {
+            const b3d = basketball3D;
+
+            // Get container
+            b3d.container = document.getElementById('threejs-container');
+
+            // Create scene
+            b3d.scene = new THREE.Scene();
+            b3d.scene.background = new THREE.Color(0x000000);  // Black background like dark arena
+            b3d.scene.fog = new THREE.Fog(0x000000, 15, 40);   // Add fog for depth
+
+            // Create perspective camera (FOV 45 degrees)
+            b3d.camera = new THREE.PerspectiveCamera(
+                45,  // Field of view
+                window.innerWidth / window.innerHeight,  // Aspect ratio
+                0.1,  // Near plane
+                100   // Far plane
+            );
+            b3d.camera.position.set(b3d.cameraBasePos.x, b3d.cameraBasePos.y, b3d.cameraBasePos.z);
+            b3d.camera.lookAt(b3d.cameraLookAt.x, b3d.cameraLookAt.y, b3d.cameraLookAt.z);
+
+            // Create renderer
+            b3d.renderer = new THREE.WebGLRenderer({ antialias: true });
+            b3d.renderer.setSize(window.innerWidth, window.innerHeight);
+            b3d.renderer.shadowMap.enabled = true;
+            b3d.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            b3d.container.appendChild(b3d.renderer.domElement);
+
+            // ============================================
+            // CREATE 3D COURT FLOOR (with wood texture and lines)
+            // ============================================
+            const floorGeometry = new THREE.PlaneGeometry(15, 9);  // Half court size
+            const floorMaterial = new THREE.MeshStandardMaterial({
+                color: 0xC19A6B,  // Light wood color
+                roughness: 0.8,
+                metalness: 0.1
+            });
+            b3d.courtFloor = new THREE.Mesh(floorGeometry, floorMaterial);
+            b3d.courtFloor.rotation.x = -Math.PI / 2;  // Rotate to be horizontal
+            b3d.courtFloor.position.y = 0;
+            b3d.courtFloor.receiveShadow = true;
+            b3d.scene.add(b3d.courtFloor);
+
+            // Add court lines (simplified - key area, three-point arc)
+            const lineMaterial = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 });
+
+            // Center line
+            const centerLineGeometry = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(-7.5, 0.01, 0),
+                new THREE.Vector3(7.5, 0.01, 0)
+            ]);
+            const centerLine = new THREE.Line(centerLineGeometry, lineMaterial);
+            b3d.scene.add(centerLine);
+
+            // Three-point arc (simplified)
+            const arcPoints = [];
+            for (let i = -90; i <= 90; i += 5) {
+                const angle = i * Math.PI / 180;
+                arcPoints.push(new THREE.Vector3(
+                    Math.sin(angle) * 6.75,
+                    0.01,
+                    Math.cos(angle) * 6.75 - 4.5
+                ));
+            }
+            const arcGeometry = new THREE.BufferGeometry().setFromPoints(arcPoints);
+            const threePointArc = new THREE.Line(arcGeometry, lineMaterial);
+            b3d.scene.add(threePointArc);
+
+            // Key/paint area rectangle
+            const keyGeometry = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(-2.44, 0.01, -4.5),
+                new THREE.Vector3(2.44, 0.01, -4.5),
+                new THREE.Vector3(2.44, 0.01, -0.9),
+                new THREE.Vector3(-2.44, 0.01, -0.9),
+                new THREE.Vector3(-2.44, 0.01, -4.5)
+            ]);
+            const keyArea = new THREE.Line(keyGeometry, lineMaterial);
+            b3d.scene.add(keyArea);
+
+            // ============================================
+            // CREATE BASKET STRUCTURE (3D pole, backboard, rim, net)
+            // ============================================
+
+            // Basket pole (vertical support from ground)
+            const poleGeometry = new THREE.BoxGeometry(0.15, 3.5, 0.15);
+            const poleMaterial = new THREE.MeshStandardMaterial({
+                color: 0x1a1a1a,  // Dark gray/black
+                roughness: 0.4,
+                metalness: 0.6
+            });
+            b3d.basketPole = new THREE.Mesh(poleGeometry, poleMaterial);
+            b3d.basketPole.position.set(0, 1.75, -4.5);
+            b3d.basketPole.castShadow = true;
+            b3d.scene.add(b3d.basketPole);
+
+            // Support arm (connects pole to backboard)
+            const armGeometry = new THREE.BoxGeometry(0.1, 0.1, 1.2);
+            const armMaterial = new THREE.MeshStandardMaterial({
+                color: 0x1a1a1a,
+                roughness: 0.4,
+                metalness: 0.6
+            });
+            const supportArm = new THREE.Mesh(armGeometry, armMaterial);
+            supportArm.position.set(0, 3.2, -3.9);
+            supportArm.castShadow = true;
+            b3d.scene.add(supportArm);
+
+            // Backboard (rectangular board behind rim)
+            const backboardGeometry = new THREE.BoxGeometry(1.8, 1.05, 0.05);
+            const backboardMaterial = new THREE.MeshStandardMaterial({
+                color: 0xf0f0f0,  // White/light gray
+                roughness: 0.3,
+                metalness: 0.1,
+                transparent: true,
+                opacity: 0.95
+            });
+            b3d.basketBackboard = new THREE.Mesh(backboardGeometry, backboardMaterial);
+            b3d.basketBackboard.position.set(0, 3.5, -3.3);
+            b3d.basketBackboard.castShadow = true;
+            b3d.scene.add(b3d.basketBackboard);
+
+            // Backboard border/frame
+            const borderMaterial = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 3 });
+            const borderPoints = [
+                new THREE.Vector3(-0.9, 2.975, -3.27),
+                new THREE.Vector3(0.9, 2.975, -3.27),
+                new THREE.Vector3(0.9, 4.025, -3.27),
+                new THREE.Vector3(-0.9, 4.025, -3.27),
+                new THREE.Vector3(-0.9, 2.975, -3.27)
+            ];
+            const borderGeometry = new THREE.BufferGeometry().setFromPoints(borderPoints);
+            const backboardBorder = new THREE.Line(borderGeometry, borderMaterial);
+            b3d.scene.add(backboardBorder);
+
+            // Basketball rim (orange ring)
+            const rimGeometry = new THREE.TorusGeometry(0.225, 0.012, 8, 32);
+            const rimMaterial = new THREE.MeshStandardMaterial({
+                color: 0xff6600,  // Orange
+                roughness: 0.5,
+                metalness: 0.8
+            });
+            b3d.basketRim = new THREE.Mesh(rimGeometry, rimMaterial);
+            b3d.basketRim.position.set(0, 3.05, -3.15);  // Standard 10 feet height (3.05m)
+            b3d.basketRim.rotation.x = Math.PI / 2;
+            b3d.basketRim.castShadow = true;
+            b3d.scene.add(b3d.basketRim);
+
+            // Net (simplified as vertical lines)
+            const netMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, opacity: 0.7, transparent: true });
+            for (let i = 0; i < 12; i++) {
+                const angle = (i / 12) * Math.PI * 2;
+                const x1 = Math.cos(angle) * 0.225;
+                const z1 = Math.sin(angle) * 0.225;
+                const x2 = Math.cos(angle) * 0.15;
+                const z2 = Math.sin(angle) * 0.15;
+
+                const netSegment = new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(x1, 3.05, -3.15 + z1),
+                    new THREE.Vector3(x2, 2.65, -3.15 + z2)
+                ]);
+                const netLine = new THREE.Line(netSegment, netMaterial);
+                b3d.scene.add(netLine);
+            }
+
+            // ============================================
+            // CREATE STADIUM STANDS (3D bleachers/seats behind basket)
+            // ============================================
+            const standMaterial = new THREE.MeshStandardMaterial({
+                color: 0x1a1a1a,  // Very dark gray
+                roughness: 0.9,
+                metalness: 0.1
+            });
+
+            // Create tiered seating (8 rows going back and up)
+            for (let row = 0; row < 8; row++) {
+                const standGeometry = new THREE.BoxGeometry(12, 0.4, 1.2);
+                const stand = new THREE.Mesh(standGeometry, standMaterial);
+                stand.position.set(
+                    0,
+                    0.2 + row * 0.5,  // Each row higher
+                    -5.5 - row * 0.8   // Each row further back
+                );
+                stand.receiveShadow = true;
+                b3d.stands.push(stand);
+                b3d.scene.add(stand);
+
+                // Add simplified seats (small boxes on each row)
+                const seatMaterial = new THREE.MeshStandardMaterial({
+                    color: 0x0a0a0a,
+                    roughness: 0.8
+                });
+                for (let seat = -5; seat <= 5; seat++) {
+                    const seatGeometry = new THREE.BoxGeometry(0.4, 0.3, 0.4);
+                    const seatMesh = new THREE.Mesh(seatGeometry, seatMaterial);
+                    seatMesh.position.set(
+                        seat * 1.0,
+                        0.45 + row * 0.5,
+                        -5.2 - row * 0.8
+                    );
+                    b3d.scene.add(seatMesh);
+                }
+            }
+
+            // ============================================
+            // SETUP LIGHTING (like dark arena with spotlight on court)
+            // ============================================
+
+            // Very low ambient light (dark arena atmosphere)
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.2);
+            b3d.lights.push(ambientLight);
+            b3d.scene.add(ambientLight);
+
+            // Main spotlight on basket and court (arena spotlight effect)
+            const spotlight = new THREE.SpotLight(0xffffff, 1.5);
+            spotlight.position.set(0, 8, 0);
+            spotlight.target.position.set(0, 0, -2);
+            spotlight.angle = Math.PI / 4;
+            spotlight.penumbra = 0.3;
+            spotlight.decay = 2;
+            spotlight.distance = 30;
+            spotlight.castShadow = true;
+            spotlight.shadow.mapSize.width = 2048;
+            spotlight.shadow.mapSize.height = 2048;
+            b3d.lights.push(spotlight);
+            b3d.scene.add(spotlight);
+            b3d.scene.add(spotlight.target);
+
+            // Fill light from above-front (subtle, prevents complete darkness)
+            const fillLight = new THREE.DirectionalLight(0x8899ff, 0.3);
+            fillLight.position.set(2, 6, 6);
+            b3d.lights.push(fillLight);
+            b3d.scene.add(fillLight);
+
+            // Rim highlight (small point light at rim for visibility)
+            const rimLight = new THREE.PointLight(0xffaa44, 0.8, 5);
+            rimLight.position.set(0, 3.2, -3.15);
+            b3d.lights.push(rimLight);
+            b3d.scene.add(rimLight);
+
+            console.log('3D Basketball Court initialized with Three.js');
+        }
+
+        // Initialize basketball court scene (entry point from elevator)
         function enterBasketballCourt() {
             sceneState = 'basketball';
-            viewMode = 'court';  // New view mode for basketball court
+            viewMode = 'court';
+
+            // Hide 2D canvas, show 3D container
+            canvas.style.display = 'none';
+            basketball3D.container.style.display = 'block';
+
+            // Initialize 3D scene if not already created
+            if (!basketball3D.scene) {
+                init3DBasketballCourt();
+            }
 
             // Reset camera orientation
-            basketballState.yaw = 0;
-            basketballState.pitch = 0;
+            basketball3D.yaw = 0;
+            basketball3D.pitch = 0;
+            basketball3D.isActive = true;
 
-            // Initialize 5 basketballs on rack
-            basketballState.balls = [];
-            for (let i = 0; i < 5; i++) {
-                basketballState.balls.push({
-                    id: i,
-                    x: 3 + i * 0.6,  // Positioned on right side, spaced apart
-                    y: 1.2,           // On rack height
-                    z: 2,             // Forward from player
-                    vx: 0,
-                    vy: 0,
-                    vz: 0,
-                    radius: 0.12,
-                    onRack: true,
-                    active: true
-                });
-            }
+            // Start render loop
+            render3DBasketballCourt();
 
-            basketballState.grabbedBall = null;
-            basketballState.score = 0;
-
-            console.log('Entered Basketball Court scene (Floor 3)');
+            console.log('Entered 3D Basketball Court scene (Floor 3)');
         }
 
-        // Update basketball physics and game state
-        function updateBasketballCourt(dt) {
-            // Update score message timer
-            if (basketballState.showScoreMessage) {
-                basketballState.scoreMessageTimer += dt;
-                if (basketballState.scoreMessageTimer > 2000) {
-                    basketballState.showScoreMessage = false;
-                    basketballState.scoreMessageTimer = 0;
-                }
+        // Exit basketball court and return to 2D elevator
+        function exitBasketballCourt() {
+            basketball3D.isActive = false;
+
+            // Stop animation loop
+            if (basketball3D.animationId) {
+                cancelAnimationFrame(basketball3D.animationId);
+                basketball3D.animationId = null;
             }
 
-            // Update grabbed ball position (follows camera)
-            if (basketballState.grabbedBall) {
-                const ball = basketballState.grabbedBall;
-                // Position ball in front of camera based on yaw/pitch
-                const yawRad = basketballState.yaw * Math.PI / 180;
-                const pitchRad = basketballState.pitch * Math.PI / 180;
+            // Hide 3D container, show 2D canvas
+            basketball3D.container.style.display = 'none';
+            canvas.style.display = 'block';
 
-                ball.x = Math.sin(yawRad) * basketballState.ballGrabDistance;
-                ball.z = Math.cos(yawRad) * basketballState.ballGrabDistance + 1.5;
-                ball.y = 1.5 - Math.sin(pitchRad) * basketballState.ballGrabDistance;
+            // Return to elevator
+            sceneState = 'elevator';
+            walkProgress = 0;
+            walkVelocity = 0;
+            floorScroll = 0;
+            wallScroll = 0;
+            ceilingScroll = 0;
+            readyToEnter = false;
+            enterHintPhase = 0;
+            viewMode = 'corridor';
 
-                ball.vx = 0;
-                ball.vy = 0;
-                ball.vz = 0;
-                ball.onRack = false;
-            }
-
-            // Update ball physics (gravity, collision)
-            basketballState.balls.forEach(ball => {
-                if (!ball.active || ball === basketballState.grabbedBall) return;
-
-                // Apply gravity
-                ball.vy += basketballState.gravity * dt / 1000;
-
-                // Update position
-                ball.x += ball.vx * dt / 1000;
-                ball.y += ball.vy * dt / 1000;
-                ball.z += ball.vz * dt / 1000;
-
-                // Floor collision (simple bounce)
-                if (ball.y < ball.radius) {
-                    ball.y = ball.radius;
-                    ball.vy *= -0.6;  // Bounce with energy loss
-                    ball.vx *= 0.9;   // Friction
-                    ball.vz *= 0.9;
-
-                    // Stop if moving slowly
-                    if (Math.abs(ball.vy) < 0.1) {
-                        ball.vy = 0;
-                    }
-                }
-
-                // Check for score (ball goes through hoop)
-                if (basketballState.hoopBounds) {
-                    const hoop = basketballState.hoopBounds;
-                    const dx = (ball.x * 60) - hoop.x;
-                    const dy = (H/2 - ball.y * 60 + ball.z * 20) - hoop.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-
-                    // Ball is within hoop radius and passing through the right height
-                    if (dist < hoop.radius && ball.vy < 0 && !ball.scored) {
-                        const ballScreenY = H/2 - ball.y * 60 + ball.z * 20;
-                        if (Math.abs(ballScreenY - hoop.triggerY) < 15) {
-                            // Score!
-                            basketballState.score++;
-                            basketballState.showScoreMessage = true;
-                            basketballState.scoreMessageTimer = 0;
-                            ball.scored = true;
-                            console.log('SCORE! Total: ' + basketballState.score);
-                        }
-                    }
-                }
-
-                // Reset ball if out of bounds
-                if (ball.y < -2 || Math.abs(ball.x) > 10 || ball.z < -5 || ball.z > 15) {
-                    // Return ball to rack
-                    ball.x = 3 + ball.id * 0.6;
-                    ball.y = 1.2;
-                    ball.z = 2;
-                    ball.vx = 0;
-                    ball.vy = 0;
-                    ball.vz = 0;
-                    ball.onRack = true;
-                    ball.scored = false;
-                }
-            });
+            console.log('Exited 3D Basketball Court, returned to elevator');
         }
+
+        // Update 3D camera based on mouse look
+        function update3DBasketballCamera() {
+            const b3d = basketball3D;
+
+            // Calculate camera rotation based on yaw/pitch
+            const yawRad = b3d.yaw * Math.PI / 180;
+            const pitchRad = b3d.pitch * Math.PI / 180;
+
+            // Update camera position with rotation offset
+            const radius = 10;  // Distance from center
+            b3d.camera.position.x = b3d.cameraBasePos.x + Math.sin(yawRad) * 2;
+            b3d.camera.position.y = b3d.cameraBasePos.y + Math.sin(pitchRad) * 1.5;
+            b3d.camera.position.z = b3d.cameraBasePos.z - Math.cos(yawRad) * 1;
+
+            // Always look at basket rim
+            b3d.camera.lookAt(
+                b3d.cameraLookAt.x + Math.sin(yawRad) * 0.5,
+                b3d.cameraLookAt.y + Math.sin(pitchRad) * 0.5,
+                b3d.cameraLookAt.z
+            );
+        }
+
+        // Render loop for 3D basketball court
+        function render3DBasketballCourt() {
+            if (!basketball3D.isActive) return;
+
+            basketball3D.animationId = requestAnimationFrame(render3DBasketballCourt);
+
+            // Update camera based on mouse look
+            update3DBasketballCamera();
+
+            // Render the scene
+            basketball3D.renderer.render(basketball3D.scene, basketball3D.camera);
+        }
+
+        // Handle window resize for 3D scene
+        window.addEventListener('resize', () => {
+            if (basketball3D.camera && basketball3D.renderer && basketball3D.isActive) {
+                basketball3D.camera.aspect = window.innerWidth / window.innerHeight;
+                basketball3D.camera.updateProjectionMatrix();
+                basketball3D.renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+        });
 
         // === 点击进入事件 Click to Enter Event ===
         // 当玩家走到门前并点击时，触发进入下一场景的动画
@@ -7044,27 +7235,8 @@
                     }
                 }
             } else if (sceneState === 'basketball') {
-                // Check if "Back to Elevator" button was clicked
-                // 检查是否点击了"返回电梯"按钮
-                if (
-                    mx >= backButton.x &&
-                    mx <= backButton.x + backButton.w &&
-                    my >= backButton.y &&
-                    my <= backButton.y + backButton.h
-                ) {
-                    // Return to elevator scene
-                    // 返回电梯场景
-                    sceneState = 'elevator';
-                    walkProgress = 0;
-                    walkVelocity = 0;
-                    floorScroll = 0;
-                    wallScroll = 0;
-                    ceilingScroll = 0;
-                    readyToEnter = false;
-                    enterHintPhase = 0;
-                    viewMode = 'corridor';  // Reset view mode
-                    console.log('Returned to elevator from basketball court');
-                }
+                // 3D Basketball court - no 2D UI buttons
+                // Use ESC key to return (handled in keydown event)
             }
         });
 
@@ -7073,6 +7245,15 @@
         // 松开按键=停止 Release key = stop
         window.addEventListener('keydown', (e) => {
             const key = e.key;
+
+            // Handle 3D basketball court keyboard input
+            if (sceneState === 'basketball' && basketball3D.isActive) {
+                // ESC to return to elevator
+                if (key === 'Escape') {
+                    exitBasketballCourt();
+                    return;
+                }
+            }
 
             // Handle game hub keyboard input in monitor view
             if (sceneState === 'corridor1' && viewMode === 'monitor') {
