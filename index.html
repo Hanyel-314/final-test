@@ -3392,18 +3392,18 @@
 
                 ctx.restore();
 
-                // === Draw player control bar (below playlist) ===
-                // 绘制播放器控制条（在歌单下方）
-                // Position relative to playlist panel
-                // 相对于歌单面板定位
+                // === Draw player control bar (below image, outside the image area) ===
+                // 绘制播放器控制条（在图片下方，图片外部区域）
+                // Position below the image, not overlapping the image
+                // 放在图片下方，不遮挡图片
                 const playerControls = {
-                    width: playlistPanel.width * 0.9,   // 90% of playlist width
+                    width: drawWidth * 0.9,             // 90% of image width
                     height: 48,                         // Fixed height: 48px
-                    y: playlistPanel.y + playlistPanel.height + 24  // 24px below playlist
+                    y: drawY + drawHeight + 24          // 24px below image bottom
                 };
-                // Center horizontally with playlist panel
-                // 与歌单面板水平居中对齐
-                playerControls.x = playlistPanel.x + (playlistPanel.width - playerControls.width) / 2;
+                // Center horizontally with image
+                // 与图片水平居中对齐
+                playerControls.x = drawX + (drawWidth - playerControls.width) / 2;
                 playerControls.centerX = playerControls.x + playerControls.width / 2;
 
                 const playerY = playerControls.y;
