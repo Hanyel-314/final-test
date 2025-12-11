@@ -3362,13 +3362,14 @@
 
                 // Playlist panel (based on actual image position and size)
                 // 歌单面板（基于实际图片位置和尺寸）
-                // Define playlist panel bounds - this is the reference for positioning
-                // 定义歌单面板边界 - 这是定位的参考
+                // Define playlist panel bounds - accurately match the actual playlist area in the image
+                // 定义歌单面板边界 - 精确匹配图片中实际的歌单区域
+                // Recalculated for proper click detection of 5 rows
                 const playlistPanel = {
-                    x: drawX + drawWidth * 0.05,  // Start 5% from left edge
-                    y: drawY + drawHeight * 0.20,  // Start ~20% down in image
-                    width: drawWidth * 0.9,        // 90% of image width
-                    height: drawHeight * 0.50      // 50% of image height for playlist
+                    x: drawX + drawWidth * 0.08,   // Start 8% from left edge (more accurate)
+                    y: drawY + drawHeight * 0.28,  // Start ~28% down in image (adjusted for actual playlist start)
+                    width: drawWidth * 0.84,       // 84% of image width (actual clickable area)
+                    height: drawHeight * 0.42      // 42% of image height (5 rows of playlist only, not including controls)
                 };
 
                 const playlistStartY = playlistPanel.y;
@@ -4233,8 +4234,9 @@
             // This makes speakers move/scale as you walk forward, just like Floor 1 objects
 
             // BOTTOM LEFT speaker (large floor speaker) - positioned on left wall near floor
+            // Moved further down to avoid blocking screen (height increased from 0.78 to 0.90)
             const bottomLeftDepth = 0.35;  // How far along the left wall (0=back, 1=front)
-            const bottomLeftHeight = 0.78; // Height ratio (0=ceiling, 1=floor)
+            const bottomLeftHeight = 0.90; // Height ratio (0=ceiling, 1=floor) - moved down to clear screen
 
             // Interpolate position based on room perspective
             const bottomLeftX = lerp(backLeftX, frontLeftX, bottomLeftDepth);
@@ -4263,8 +4265,9 @@
             ctx.restore();
 
             // BOTTOM RIGHT speaker (large floor speaker) - mirrored position
+            // Moved further down to avoid blocking screen (height increased from 0.78 to 0.90)
             const bottomRightDepth = 0.35;
-            const bottomRightHeight = 0.78;
+            const bottomRightHeight = 0.90; // Height ratio - moved down to clear screen
 
             const bottomRightX = lerp(backRightX, frontRightX, bottomRightDepth);
             const bottomRightYTop = lerp(backCeilingY, backFloorY, bottomRightHeight - 0.12);
@@ -4289,7 +4292,8 @@
             ctx.restore();
 
             // TOP LEFT speaker (wall-mounted) - higher on the wall
-            const topLeftDepth = 0.38;
+            // Moved further forward to push toward left edge (depth increased from 0.38 to 0.60)
+            const topLeftDepth = 0.60;  // Increased to move speaker closer to left edge
             const topLeftHeight = 0.30;
 
             const topLeftX = lerp(backLeftX, frontLeftX, topLeftDepth);
@@ -4317,7 +4321,8 @@
             ctx.restore();
 
             // TOP RIGHT speaker (wall-mounted) - mirrored position
-            const topRightDepth = 0.38;
+            // Moved further forward to push toward right edge (depth increased from 0.38 to 0.60)
+            const topRightDepth = 0.60;  // Increased to move speaker closer to right edge
             const topRightHeight = 0.30;
 
             const topRightX = lerp(backRightX, frontRightX, topRightDepth);
@@ -6305,23 +6310,32 @@
 
                             // === Playlist row click detection ===
                             // 歌单行点击检测
-                            // Ensure click is within playlist panel bounds
-                            // 确保点击在歌单面板边界内
-                            const playlistX = bounds.playlistX || bounds.imageX;
-                            const playlistWidth = bounds.playlistWidth || bounds.imageWidth;
+                            // Recalculated click detection for accurate 5-row mapping
+                            // 重新计算点击检测，确保5行精确映射
 
+                            const playlistX = bounds.playlistX;
+                            const playlistY = bounds.playlistY;
+                            const playlistWidth = bounds.playlistWidth;
+                            const playlistHeight = bounds.playlistHeight;
+
+                            // Check if click is within playlist bounds
                             if (mx >= playlistX && mx <= playlistX + playlistWidth &&
-                                my >= bounds.playlistY && my < bounds.playlistY + bounds.playlistHeight) {
+                                my >= playlistY && my <= playlistY + playlistHeight) {
 
-                                const rowHeight = bounds.playlistHeight / 5;
-                                const clickedRow = Math.floor((my - bounds.playlistY) / rowHeight);
+                                // Calculate which row was clicked (0-4 for 5 tracks)
+                                const rowCount = 5;
+                                const rowHeight = playlistHeight / rowCount;
+                                const localY = my - playlistY;
+                                const clickedRow = Math.floor(localY / rowHeight);
 
-                                // Ensure one-to-one mapping: row 0-4 -> track 0-4
-                                // 确保一一对应：行0-4 -> 歌曲0-4
-                                if (clickedRow >= 0 && clickedRow < 5) {
-                                    console.log(`Clicked playlist row ${clickedRow}: ${tracks[clickedRow].title}`);
-                                    playTrack(clickedRow);  // Direct index mapping, no offset
-                                }
+                                // Clamp to valid range and ensure one-to-one mapping
+                                // 限制在有效范围内，确保一一对应：行0-4 -> 歌曲0-4
+                                const trackIndex = Math.max(0, Math.min(rowCount - 1, clickedRow));
+
+                                console.log(`Playlist click: row ${trackIndex}, y=${my.toFixed(1)}, localY=${localY.toFixed(1)}, rowHeight=${rowHeight.toFixed(1)}`);
+                                console.log(`Playing track ${trackIndex}: ${tracks[trackIndex].title}`);
+
+                                playTrack(trackIndex);  // Direct index mapping: row N -> track N
                             }
                             // === Player controls click detection ===
                             // 播放器控制点击检测
