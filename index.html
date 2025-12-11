@@ -3379,6 +3379,25 @@
                 const playlistHeight = playlistPanel.height;
                 const rowHeight = playlistHeight / 5;  // Exactly 5 rows
 
+                // Calculate row center Y positions using first and last row as anchors
+                // 使用首尾行作为锚点计算每行的中心Y坐标
+                // This ensures precise alignment between visual position and click detection
+                const firstRowCenterY = playlistStartY + rowHeight * 0.5;  // Center of row 0
+                const lastRowCenterY = playlistStartY + rowHeight * 4.5;   // Center of row 4
+
+                // Linearly interpolate middle rows between first and last anchors
+                // 在首尾锚点之间线性插值计算中间行
+                const steps = 4;  // 5 rows = 4 intervals
+                const stepY = (lastRowCenterY - firstRowCenterY) / steps;
+
+                const rowCenterY = [
+                    firstRowCenterY,                    // Row 0 center
+                    firstRowCenterY + stepY,            // Row 1 center
+                    firstRowCenterY + stepY * 2,        // Row 2 center
+                    firstRowCenterY + stepY * 3,        // Row 3 center
+                    lastRowCenterY                      // Row 4 center
+                ];
+
                 // Store ABSOLUTE coordinates for click detection (after 1.6x scaling applied)
                 // 存储绝对坐标用于点击检测（已应用1.6倍缩放）
                 audioScreenBounds.playlistX = playlistPanel.x;
@@ -3386,6 +3405,7 @@
                 audioScreenBounds.playlistWidth = playlistPanel.width;
                 audioScreenBounds.playlistHeight = playlistHeight;
                 audioScreenBounds.rowHeight = rowHeight;
+                audioScreenBounds.rowCenterY = rowCenterY;  // Store row centers for precise click detection
 
                 // Debug output for click detection calibration
                 console.log('Playlist bounds (scaled):', {
@@ -3393,7 +3413,8 @@
                     y: playlistPanel.y.toFixed(1),
                     width: playlistPanel.width.toFixed(1),
                     height: playlistPanel.height.toFixed(1),
-                    rowHeight: rowHeight.toFixed(1)
+                    rowHeight: rowHeight.toFixed(1),
+                    rowCenters: rowCenterY.map(y => y.toFixed(1))
                 });
 
                 // Highlight current playing track
@@ -6349,38 +6370,42 @@
                         if (mx >= bounds.screenX && mx <= bounds.screenX + bounds.screenWidth &&
                             my >= bounds.screenY && my <= bounds.screenY + bounds.screenHeight) {
 
-                            // === Playlist row click detection (using scaled absolute coordinates) ===
-                            // 歌单行点击检测（使用放大后的绝对坐标）
-                            // Based on 1.6x enlarged screen dimensions, not pre-scaled values
-                            // 基于1.6倍放大后的屏幕尺寸，而非缩放前的值
+                            // === Playlist row click detection (using nearest row center) ===
+                            // 歌单行点击检测（使用最近的行中心）
+                            // Find the row whose center is closest to the click position
+                            // 找到点击位置最接近的行中心
 
                             const playlistX = bounds.playlistX;
                             const playlistY = bounds.playlistY;
                             const playlistWidth = bounds.playlistWidth;
                             const playlistHeight = bounds.playlistHeight;
+                            const rowCenterY = bounds.rowCenterY;
 
                             // Check if click is within playlist panel bounds
                             if (mx >= playlistX && mx <= playlistX + playlistWidth &&
                                 my >= playlistY && my <= playlistY + playlistHeight) {
 
-                                // Calculate which row was clicked (0-4 for 5 tracks)
-                                const rowCount = 5;
-                                const rowHeight = playlistHeight / rowCount;
-                                const localY = my - playlistY;  // Y position relative to playlist top
-                                const clickedRow = Math.floor(localY / rowHeight);
+                                // Find the closest row center to the click Y position
+                                // 找到距离点击Y位置最近的行中心
+                                let closestIndex = 0;
+                                let minDist = Infinity;
 
-                                // Clamp to valid range [0, 4]
-                                const trackIndex = Math.max(0, Math.min(rowCount - 1, clickedRow));
+                                for (let i = 0; i < 5; i++) {
+                                    const dist = Math.abs(my - rowCenterY[i]);
+                                    if (dist < minDist) {
+                                        minDist = dist;
+                                        closestIndex = i;
+                                    }
+                                }
 
                                 // Debug output
-                                console.log('=== Playlist Click Debug ===');
-                                console.log(`Click position: (${mx.toFixed(1)}, ${my.toFixed(1)})`);
-                                console.log(`Playlist bounds: x=${playlistX.toFixed(1)}, y=${playlistY.toFixed(1)}, w=${playlistWidth.toFixed(1)}, h=${playlistHeight.toFixed(1)}`);
-                                console.log(`Local Y: ${localY.toFixed(1)}, Row height: ${rowHeight.toFixed(1)}`);
-                                console.log(`Calculated row: ${clickedRow}, Clamped index: ${trackIndex}`);
-                                console.log(`Playing: Track ${trackIndex} - ${tracks[trackIndex].title}`);
+                                console.log('=== Playlist Click Debug (Nearest Center) ===');
+                                console.log(`Click Y: ${my.toFixed(1)}`);
+                                console.log(`Row centers: [${rowCenterY.map(y => y.toFixed(1)).join(', ')}]`);
+                                console.log(`Closest row: ${closestIndex}, Distance: ${minDist.toFixed(1)}px`);
+                                console.log(`Playing: Track ${closestIndex} - ${tracks[closestIndex].title}`);
 
-                                playTrack(trackIndex);  // Direct 1:1 mapping - row N → track N
+                                playTrack(closestIndex);  // Direct 1:1 mapping - row N → track N
                             }
                             // === Player controls click detection ===
                             // 播放器控制点击检测
