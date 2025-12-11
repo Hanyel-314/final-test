@@ -3244,13 +3244,23 @@
 
         // ========== Audio Room Central Display Screen ==========
         function drawAudioRoomCentralScreen(backLeftX, backRightX, backCeilingY, backFloorY) {
-            // Full-wall screen - covers most of the back wall
-            // 全墙屏幕 - 覆盖大部分背景墙
-            const screenWidth = (backRightX - backLeftX) * 0.85;  // 85% of back wall width
-            const screenHeight = (backFloorY - backCeilingY) * 0.70;  // 70% of wall height
+            // Enlarged centered screen with semi-transparent projection effect
+            // 放大居中的屏幕，带半透明投影效果
+            // Scale factor: 1.6x uniform scaling
+            const SCALE_FACTOR = 1.6;
+            const BASE_WIDTH_RATIO = 0.85;
+            const BASE_HEIGHT_RATIO = 0.70;
 
-            const screenX = backLeftX + (backRightX - backLeftX - screenWidth) / 2;
-            const screenY = backCeilingY + (backFloorY - backCeilingY) * 0.15;  // Start at 15% from top
+            const screenWidth = (backRightX - backLeftX) * BASE_WIDTH_RATIO * SCALE_FACTOR;  // 1.36 (85% * 1.6)
+            const screenHeight = (backFloorY - backCeilingY) * BASE_HEIGHT_RATIO * SCALE_FACTOR;  // 1.12 (70% * 1.6)
+
+            // Center the screen in the scene
+            // 将屏幕居中到场景中央
+            const sceneCenterX = (backLeftX + backRightX) / 2;
+            const sceneCenterY = (backCeilingY + backFloorY) / 2;
+
+            const screenX = sceneCenterX - screenWidth / 2;
+            const screenY = sceneCenterY - screenHeight / 2;
 
             // Store bounds for click detection
             // 存储边界用于点击检测
@@ -3266,22 +3276,24 @@
             ctx.fillStyle = bgGrad;
             ctx.fillRect(screenX, screenY, screenWidth, screenHeight);
 
-            // Outer glow aura around screen
+            // Softer outer glow aura around screen (reduced for projection effect)
+            // 更柔和的外发光效果（为投影效果减少强度）
             ctx.save();
             const outerGlow = ctx.createRadialGradient(
                 screenX + screenWidth/2, screenY + screenHeight/2, 0,
                 screenX + screenWidth/2, screenY + screenHeight/2, screenWidth * 0.7
             );
-            outerGlow.addColorStop(0, 'rgba(79, 212, 255, 0.2)');
+            outerGlow.addColorStop(0, 'rgba(79, 212, 255, 0.12)');  // Reduced from 0.2
             outerGlow.addColorStop(1, 'rgba(79, 212, 255, 0)');
             ctx.fillStyle = outerGlow;
             ctx.fillRect(screenX - 40, screenY - 40, screenWidth + 80, screenHeight + 80);
             ctx.restore();
 
-            // Screen border with stronger cyan glow
+            // Screen border with softer cyan glow (emissiveIntensity = 0.55)
+            // 屏幕边框带柔和青色光晕（发光强度 = 0.55）
             ctx.save();
-            ctx.shadowColor = 'rgba(79, 212, 255, 1.0)';
-            ctx.shadowBlur = 30;
+            ctx.shadowColor = 'rgba(79, 212, 255, 0.55)';  // Reduced from 1.0
+            ctx.shadowBlur = 25;  // Slightly reduced from 30
             ctx.strokeStyle = '#6fddff';
             ctx.lineWidth = 5;
             ctx.strokeRect(screenX, screenY, screenWidth, screenHeight);
@@ -3291,6 +3303,15 @@
             // 显示歌单图片并添加交互式播放列表和播放器控制条
             if (songPageImageLoaded) {
                 ctx.save();
+
+                // Apply semi-transparent projection effect (opacity = 0.78)
+                // 应用半透明投影效果（透明度 = 0.78）
+                ctx.globalAlpha = 0.78;
+
+                // High-quality image rendering (equivalent to LinearFilter in Three.js)
+                // 高质量图像渲染（相当于Three.js中的LinearFilter）
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
 
                 // Create clipping region for screen content
                 ctx.beginPath();
