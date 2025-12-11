@@ -1778,6 +1778,9 @@
                         // Draw "Back to Elevator" button (no head-bob for UI)
                         drawBackToElevatorButton(ctx);
                     }
+                } else if (sceneState === 'basketball') {
+                    // Floor 3: Basketball court scene
+                    drawBasketballCourtScene();
                 }
             }
         }
@@ -4410,6 +4413,363 @@
             ctx.restore();
         }
 
+        // ========== Floor 3: Sky Basketball Court Scene ==========
+        // Create sky basketball court for floor 3
+        function drawBasketballCourtScene() {
+            // Apply camera rotation based on yaw and pitch
+            ctx.save();
+            ctx.translate(W / 2, H / 2);
+
+            // Simple 2.5D perspective simulation
+            // Yaw affects horizontal offset, pitch affects vertical offset
+            const yawOffset = basketballState.yaw * 10;  // Convert angle to screen offset
+            const pitchOffset = -basketballState.pitch * 8;
+
+            ctx.translate(-yawOffset, pitchOffset);
+
+            // Draw sky/background
+            drawSkyBackground();
+
+            // Draw basketball court floor
+            drawCourtFloor();
+
+            // Draw basketball hoop and backboard
+            drawBasketballHoop();
+
+            // Draw ball rack (holds 5 basketballs)
+            drawBallRack();
+
+            // Draw basketballs
+            drawBasketballs();
+
+            // Draw score UI
+            drawBasketballUI();
+
+            ctx.restore();
+
+            // Draw "Back to Elevator" button (always visible, not affected by camera)
+            drawBackToElevatorButton(ctx);
+        }
+
+        // Draw sky background with clouds and city view
+        function drawSkyBackground() {
+            // Gradient sky
+            const skyGrad = ctx.createLinearGradient(0, -H/2, 0, H/2);
+            skyGrad.addColorStop(0, '#0a0a1a');    // Dark purple-blue at top
+            skyGrad.addColorStop(0.6, '#1a1a35');
+            skyGrad.addColorStop(1, '#2a2a50');    // Lighter at horizon
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(-W, -H, W * 3, H * 2);
+
+            // Simple cloud shapes (static, for atmosphere)
+            ctx.save();
+            ctx.globalAlpha = 0.15;
+            ctx.fillStyle = '#ffffff';
+            for (let i = 0; i < 5; i++) {
+                const cloudX = -W/2 + (i * W/3) + Math.sin(performance.now() / 5000 + i) * 20;
+                const cloudY = -H/3 + Math.sin(i * 2) * 50;
+                ctx.beginPath();
+                ctx.arc(cloudX, cloudY, 60 + i * 10, 0, Math.PI * 2);
+                ctx.arc(cloudX + 40, cloudY - 10, 50, 0, Math.PI * 2);
+                ctx.arc(cloudX + 80, cloudY, 55, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+
+            // Distant city lights (bottom edge, creates floating effect)
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            for (let i = 0; i < 20; i++) {
+                const lightX = -W + i * (W * 2 / 19);
+                const lightY = H/2.5 + Math.sin(i) * 20;
+                const lightSize = 2 + Math.random() * 3;
+
+                ctx.fillStyle = Math.random() > 0.5 ? '#ffaa00' : '#00aaff';
+                ctx.fillRect(lightX, lightY, lightSize, lightSize * 3);
+
+                ctx.shadowColor = ctx.fillStyle;
+                ctx.shadowBlur = 8;
+                ctx.fillRect(lightX, lightY, lightSize, lightSize * 3);
+            }
+            ctx.restore();
+        }
+
+        // Draw basketball court floor with lines
+        function drawCourtFloor() {
+            const courtY = H/3;  // Court floor position
+            const courtWidth = W * 0.8;
+            const courtDepth = 200;
+
+            // Court floor (dark with purple tint)
+            ctx.save();
+            ctx.fillStyle = '#1a1530';
+            ctx.strokeStyle = '#4a4a70';
+            ctx.lineWidth = 2;
+
+            // Main court rectangle (with perspective)
+            ctx.beginPath();
+            ctx.moveTo(-courtWidth/2, courtY);
+            ctx.lineTo(courtWidth/2, courtY);
+            ctx.lineTo(courtWidth/2.5, courtY + courtDepth);
+            ctx.lineTo(-courtWidth/2.5, courtY + courtDepth);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Court lines (half-court, three-point line, free-throw)
+            ctx.strokeStyle = '#6fd4ff';
+            ctx.lineWidth = 3;
+            ctx.shadowColor = 'rgba(111, 212, 255, 0.6)';
+            ctx.shadowBlur = 8;
+
+            // Half-court line
+            ctx.beginPath();
+            ctx.moveTo(-courtWidth/2, courtY + courtDepth/2);
+            ctx.lineTo(courtWidth/2, courtY + courtDepth/2);
+            ctx.stroke();
+
+            // Three-point arc (simplified)
+            ctx.beginPath();
+            ctx.arc(0, courtY - 50, courtWidth/3, Math.PI * 0.3, Math.PI * 0.7);
+            ctx.stroke();
+
+            // Key/paint area
+            const keyWidth = courtWidth / 5;
+            ctx.strokeRect(-keyWidth/2, courtY - 20, keyWidth, 100);
+
+            ctx.restore();
+
+            // Court edge glow (creates floating effect)
+            ctx.save();
+            ctx.strokeStyle = '#8866ff';
+            ctx.lineWidth = 4;
+            ctx.shadowColor = 'rgba(136, 102, 255, 1)';
+            ctx.shadowBlur = 20;
+            ctx.strokeRect(-courtWidth/2 - 5, courtY - 5, courtWidth + 10, courtDepth + 10);
+            ctx.restore();
+        }
+
+        // Draw basketball hoop with backboard and net
+        function drawBasketballHoop() {
+            const hoopX = 0;
+            const hoopY = H/3 - 120;  // Above court, in front of player
+            const backboardWidth = 120;
+            const backboardHeight = 80;
+
+            ctx.save();
+
+            // Backboard (transparent acrylic with cyan frame)
+            ctx.fillStyle = 'rgba(100, 150, 200, 0.15)';
+            ctx.strokeStyle = '#6fd4ff';
+            ctx.lineWidth = 5;
+            ctx.shadowColor = 'rgba(111, 212, 255, 0.8)';
+            ctx.shadowBlur = 15;
+
+            ctx.fillRect(hoopX - backboardWidth/2, hoopY - backboardHeight/2, backboardWidth, backboardHeight);
+            ctx.strokeRect(hoopX - backboardWidth/2, hoopY - backboardHeight/2, backboardWidth, backboardHeight);
+
+            // Backboard inner square
+            ctx.strokeRect(hoopX - 30, hoopY - 15, 60, 30);
+
+            // Support pole (from backboard to floor)
+            ctx.strokeStyle = '#4a4a70';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(hoopX, hoopY + backboardHeight/2);
+            ctx.lineTo(hoopX, H/3);
+            ctx.stroke();
+
+            // Rim (orange circle)
+            const rimY = hoopY + backboardHeight/2 + 15;
+            const rimRadius = 22;
+
+            ctx.strokeStyle = '#ff6600';
+            ctx.lineWidth = 4;
+            ctx.shadowColor = 'rgba(255, 102, 0, 0.8)';
+            ctx.shadowBlur = 12;
+            ctx.beginPath();
+            ctx.arc(hoopX, rimY, rimRadius, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Net (simple lines)
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.lineWidth = 1.5;
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2;
+                const x1 = hoopX + Math.cos(angle) * rimRadius;
+                const y1 = rimY + Math.sin(angle) * rimRadius * 0.3;
+                const x2 = hoopX + Math.cos(angle) * (rimRadius * 0.6);
+                const y2 = rimY + 35;
+
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            }
+
+            // Hoop trigger zone (invisible, for score detection)
+            // Store bounds for collision detection
+            basketballState.hoopBounds = {
+                x: hoopX,
+                y: rimY,
+                radius: rimRadius - 2,  // Slightly smaller than visual rim
+                triggerY: rimY + 10     // Ball must pass through this height
+            };
+
+            ctx.restore();
+        }
+
+        // Draw ball rack (holds basketballs)
+        function drawBallRack() {
+            const rackX = W/3;
+            const rackY = H/2.5;
+            const rackWidth = 300;
+            const rackHeight = 60;
+
+            ctx.save();
+
+            // Rack frame (metal bars)
+            ctx.strokeStyle = '#666688';
+            ctx.lineWidth = 4;
+            ctx.fillStyle = '#2a2a40';
+
+            // Base
+            ctx.fillRect(rackX - rackWidth/2, rackY, rackWidth, 10);
+            ctx.strokeRect(rackX - rackWidth/2, rackY, rackWidth, 10);
+
+            // Vertical supports
+            for (let i = 0; i <= 5; i++) {
+                const x = rackX - rackWidth/2 + i * (rackWidth/5);
+                ctx.beginPath();
+                ctx.moveTo(x, rackY);
+                ctx.lineTo(x, rackY - rackHeight);
+                ctx.stroke();
+            }
+
+            // Top bar
+            ctx.beginPath();
+            ctx.moveTo(rackX - rackWidth/2, rackY - rackHeight);
+            ctx.lineTo(rackX + rackWidth/2, rackY - rackHeight);
+            ctx.stroke();
+
+            // Rack label
+            ctx.fillStyle = '#6fd4ff';
+            ctx.font = '14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('BASKETBALLS', rackX, rackY + 25);
+
+            ctx.restore();
+        }
+
+        // Draw all basketballs (on rack or in motion)
+        function drawBasketballs() {
+            basketballState.balls.forEach(ball => {
+                if (!ball.active) return;
+
+                // Calculate screen position based on 3D position
+                // Simple projection (you can enhance with proper 3D math)
+                const screenX = ball.x * 60;  // Scale factor for visibility
+                const screenY = H/2 - ball.y * 60 + ball.z * 20;  // Y affected by height and depth
+                const screenRadius = ball.radius * 100 / (1 + ball.z * 0.1);  // Perspective scaling
+
+                ctx.save();
+
+                // Ball is being held
+                if (basketballState.grabbedBall === ball) {
+                    ctx.globalAlpha = 0.9;
+                }
+
+                // Basketball appearance (orange with black lines)
+                const ballGrad = ctx.createRadialGradient(
+                    screenX - screenRadius * 0.3, screenY - screenRadius * 0.3, screenRadius * 0.1,
+                    screenX, screenY, screenRadius
+                );
+                ballGrad.addColorStop(0, '#ff8844');
+                ballGrad.addColorStop(0.7, '#ee6622');
+                ballGrad.addColorStop(1, '#cc4400');
+                ctx.fillStyle = ballGrad;
+
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, screenRadius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Basketball lines (texture)
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.6)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, screenRadius, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Vertical line
+                ctx.beginPath();
+                ctx.moveTo(screenX, screenY - screenRadius);
+                ctx.lineTo(screenX, screenY + screenRadius);
+                ctx.stroke();
+
+                // Horizontal line
+                ctx.beginPath();
+                ctx.moveTo(screenX - screenRadius, screenY);
+                ctx.lineTo(screenX + screenRadius, screenY);
+                ctx.stroke();
+
+                ctx.restore();
+            });
+        }
+
+        // Draw UI elements (score, instructions, crosshair)
+        function drawBasketballUI() {
+            ctx.save();
+
+            // Reset transformations for UI (screen-space)
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+            // Crosshair (center of screen for aiming)
+            if (!basketballState.grabbedBall) {
+                ctx.strokeStyle = 'rgba(111, 212, 255, 0.6)';
+                ctx.lineWidth = 2;
+                const crossSize = 15;
+
+                ctx.beginPath();
+                ctx.moveTo(W/2 - crossSize, H/2);
+                ctx.lineTo(W/2 + crossSize, H/2);
+                ctx.moveTo(W/2, H/2 - crossSize);
+                ctx.lineTo(W/2, H/2 + crossSize);
+                ctx.stroke();
+            }
+
+            // Score display
+            ctx.fillStyle = '#6fd4ff';
+            ctx.font = 'bold 32px sans-serif';
+            ctx.textAlign = 'left';
+            ctx.shadowColor = 'rgba(111, 212, 255, 0.8)';
+            ctx.shadowBlur = 10;
+            ctx.fillText(`Score: ${basketballState.score}`, 30, 50);
+
+            // Score message (when player scores)
+            if (basketballState.showScoreMessage) {
+                ctx.fillStyle = '#44ff44';
+                ctx.font = 'bold 48px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.shadowColor = 'rgba(68, 255, 68, 1)';
+                ctx.shadowBlur = 20;
+                ctx.fillText('SCORE!', W/2, H/3);
+            }
+
+            // Instructions
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.font = '16px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.shadowBlur = 0;
+
+            if (basketballState.grabbedBall) {
+                ctx.fillText('Release mouse to throw basketball', W/2, H - 40);
+            } else {
+                ctx.fillText('Move mouse to look around • Click ball to grab • Click "Back to Elevator" to exit', W/2, H - 40);
+            }
+
+            ctx.restore();
+        }
+
         // ========== "Back to Elevator" 按钮绘制 Button Drawing ==========
         // Appears only in corridor scene, bottom-left corner
         // 仅在走廊场景中出现，位于左下角
@@ -5936,6 +6296,12 @@
             }
 
             scene.elevator.update(deltaTime);
+
+            // Update basketball court physics if in basketball scene
+            if (sceneState === 'basketball') {
+                updateBasketballCourt(deltaTime);
+            }
+
             scene.render();
 
             requestAnimationFrame(animate);
@@ -6057,6 +6423,28 @@
         // Track mouse movement for game hub
         canvas.addEventListener('mousemove', (e) => {
             const rect = canvas.getBoundingClientRect();
+
+            // Basketball court mouse look controls
+            if (sceneState === 'basketball') {
+                const dx = e.movementX || (e.clientX - basketballState.lastMouseX);
+                const dy = e.movementY || (e.clientY - basketballState.lastMouseY);
+
+                basketballState.lastMouseX = e.clientX;
+                basketballState.lastMouseY = e.clientY;
+
+                // Update yaw and pitch with sensitivity
+                basketballState.yaw += dx * basketballState.mouseSensitivity * 180 / Math.PI;
+                basketballState.pitch += dy * basketballState.mouseSensitivity * 180 / Math.PI;
+
+                // Clamp to limits
+                basketballState.yaw = Math.max(basketballState.minYaw,
+                    Math.min(basketballState.maxYaw, basketballState.yaw));
+                basketballState.pitch = Math.max(basketballState.minPitch,
+                    Math.min(basketballState.maxPitch, basketballState.pitch));
+
+                return;
+            }
+
             if (sceneState === 'corridor1' && viewMode === 'monitor') {
                 const mx = e.clientX - rect.left;
                 const my = e.clientY - rect.top;
@@ -6077,6 +6465,47 @@
             const rect = canvas.getBoundingClientRect();
             const mx = e.clientX - rect.left;
             const my = e.clientY - rect.top;
+
+            // Basketball court: grab ball logic
+            if (sceneState === 'basketball') {
+                // Only grab if not already holding a ball
+                if (!basketballState.grabbedBall) {
+                    // Find closest ball to screen center (simplified raycast)
+                    const centerX = W / 2;
+                    const centerY = H / 2;
+                    let closestBall = null;
+                    let closestDist = Infinity;
+
+                    basketballState.balls.forEach(ball => {
+                        if (!ball.active || ball === basketballState.grabbedBall) return;
+
+                        // Project ball to screen coordinates (matching render logic)
+                        const yawOffset = basketballState.yaw * 10;
+                        const pitchOffset = -basketballState.pitch * 8;
+
+                        // Simple 2.5D projection
+                        const screenX = centerX + (ball.x * 60) - yawOffset;
+                        const screenY = centerY - (ball.y * 60) + (ball.z * 20) + pitchOffset;
+
+                        const dx = screenX - centerX;
+                        const dy = screenY - centerY;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+
+                        if (dist < closestDist) {
+                            closestDist = dist;
+                            closestBall = ball;
+                        }
+                    });
+
+                    // Grab if close enough (within 150 pixels)
+                    if (closestBall && closestDist < 150) {
+                        basketballState.grabbedBall = closestBall;
+                        closestBall.onRack = false;
+                        console.log('Grabbed ball #' + closestBall.id);
+                    }
+                }
+                return;
+            }
 
             // Handle game hub interactions in monitor view
             if (sceneState === 'corridor1' && viewMode === 'monitor') {
@@ -6157,6 +6586,29 @@
             const rect = canvas.getBoundingClientRect();
             const mx = e.clientX - rect.left;
             const my = e.clientY - rect.top;
+
+            // Basketball court: throw ball logic
+            if (sceneState === 'basketball') {
+                if (basketballState.grabbedBall) {
+                    const ball = basketballState.grabbedBall;
+
+                    // Calculate throw velocity based on camera direction
+                    const yawRad = basketballState.yaw * Math.PI / 180;
+                    const pitchRad = basketballState.pitch * Math.PI / 180;
+
+                    // Throw direction based on where player is looking
+                    const speed = basketballState.throwSpeed;
+                    ball.vx = Math.sin(yawRad) * Math.cos(pitchRad) * speed;
+                    ball.vy = -Math.sin(pitchRad) * speed;  // Negative pitch = throw upward
+                    ball.vz = Math.cos(yawRad) * Math.cos(pitchRad) * speed;
+
+                    // Release ball
+                    basketballState.grabbedBall = null;
+                    ball.scored = false;  // Reset score flag for new throw
+                    console.log('Threw ball with velocity:', ball.vx.toFixed(2), ball.vy.toFixed(2), ball.vz.toFixed(2));
+                }
+                return;
+            }
 
             // Handle game hub mouseup
             if (sceneState === 'corridor1' && viewMode === 'monitor') {
@@ -6259,6 +6711,159 @@
             console.log('Entered Audio Room scene');
         }
 
+        // ========== Floor 3: Sky Basketball Court ==========
+        // Basketball court scene state and controls
+        let basketballState = {
+            // Camera control (mouse look)
+            yaw: 0,           // Horizontal rotation (-45° to +45°)
+            pitch: 0,         // Vertical rotation (-20° to +20°)
+            minYaw: -45,
+            maxYaw: 45,
+            minPitch: -20,
+            maxPitch: 20,
+            mouseSensitivity: 0.002,
+
+            // Basketballs (5 balls on rack)
+            balls: [],
+            grabbedBall: null,
+            ballGrabDistance: 1.0,  // Distance ball stays from camera when grabbed
+
+            // Score tracking
+            score: 0,
+            showScoreMessage: false,
+            scoreMessageTimer: 0,
+
+            // Physics constants
+            gravity: -9.8,
+            throwSpeed: 12,
+
+            // Mouse tracking for look controls
+            isPointerLocked: false,
+            lastMouseX: 0,
+            lastMouseY: 0
+        };
+
+        // Initialize basketball court scene
+        function enterBasketballCourt() {
+            sceneState = 'basketball';
+            viewMode = 'court';  // New view mode for basketball court
+
+            // Reset camera orientation
+            basketballState.yaw = 0;
+            basketballState.pitch = 0;
+
+            // Initialize 5 basketballs on rack
+            basketballState.balls = [];
+            for (let i = 0; i < 5; i++) {
+                basketballState.balls.push({
+                    id: i,
+                    x: 3 + i * 0.6,  // Positioned on right side, spaced apart
+                    y: 1.2,           // On rack height
+                    z: 2,             // Forward from player
+                    vx: 0,
+                    vy: 0,
+                    vz: 0,
+                    radius: 0.12,
+                    onRack: true,
+                    active: true
+                });
+            }
+
+            basketballState.grabbedBall = null;
+            basketballState.score = 0;
+
+            console.log('Entered Basketball Court scene (Floor 3)');
+        }
+
+        // Update basketball physics and game state
+        function updateBasketballCourt(dt) {
+            // Update score message timer
+            if (basketballState.showScoreMessage) {
+                basketballState.scoreMessageTimer += dt;
+                if (basketballState.scoreMessageTimer > 2000) {
+                    basketballState.showScoreMessage = false;
+                    basketballState.scoreMessageTimer = 0;
+                }
+            }
+
+            // Update grabbed ball position (follows camera)
+            if (basketballState.grabbedBall) {
+                const ball = basketballState.grabbedBall;
+                // Position ball in front of camera based on yaw/pitch
+                const yawRad = basketballState.yaw * Math.PI / 180;
+                const pitchRad = basketballState.pitch * Math.PI / 180;
+
+                ball.x = Math.sin(yawRad) * basketballState.ballGrabDistance;
+                ball.z = Math.cos(yawRad) * basketballState.ballGrabDistance + 1.5;
+                ball.y = 1.5 - Math.sin(pitchRad) * basketballState.ballGrabDistance;
+
+                ball.vx = 0;
+                ball.vy = 0;
+                ball.vz = 0;
+                ball.onRack = false;
+            }
+
+            // Update ball physics (gravity, collision)
+            basketballState.balls.forEach(ball => {
+                if (!ball.active || ball === basketballState.grabbedBall) return;
+
+                // Apply gravity
+                ball.vy += basketballState.gravity * dt / 1000;
+
+                // Update position
+                ball.x += ball.vx * dt / 1000;
+                ball.y += ball.vy * dt / 1000;
+                ball.z += ball.vz * dt / 1000;
+
+                // Floor collision (simple bounce)
+                if (ball.y < ball.radius) {
+                    ball.y = ball.radius;
+                    ball.vy *= -0.6;  // Bounce with energy loss
+                    ball.vx *= 0.9;   // Friction
+                    ball.vz *= 0.9;
+
+                    // Stop if moving slowly
+                    if (Math.abs(ball.vy) < 0.1) {
+                        ball.vy = 0;
+                    }
+                }
+
+                // Check for score (ball goes through hoop)
+                if (basketballState.hoopBounds) {
+                    const hoop = basketballState.hoopBounds;
+                    const dx = (ball.x * 60) - hoop.x;
+                    const dy = (H/2 - ball.y * 60 + ball.z * 20) - hoop.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    // Ball is within hoop radius and passing through the right height
+                    if (dist < hoop.radius && ball.vy < 0 && !ball.scored) {
+                        const ballScreenY = H/2 - ball.y * 60 + ball.z * 20;
+                        if (Math.abs(ballScreenY - hoop.triggerY) < 15) {
+                            // Score!
+                            basketballState.score++;
+                            basketballState.showScoreMessage = true;
+                            basketballState.scoreMessageTimer = 0;
+                            ball.scored = true;
+                            console.log('SCORE! Total: ' + basketballState.score);
+                        }
+                    }
+                }
+
+                // Reset ball if out of bounds
+                if (ball.y < -2 || Math.abs(ball.x) > 10 || ball.z < -5 || ball.z > 15) {
+                    // Return ball to rack
+                    ball.x = 3 + ball.id * 0.6;
+                    ball.y = 1.2;
+                    ball.z = 2;
+                    ball.vx = 0;
+                    ball.vy = 0;
+                    ball.vz = 0;
+                    ball.onRack = true;
+                    ball.scored = false;
+                }
+            });
+        }
+
         // === 点击进入事件 Click to Enter Event ===
         // 当玩家走到门前并点击时，触发进入下一场景的动画
         // When player is at door and clicks, trigger entering next scene animation
@@ -6282,6 +6887,10 @@
                         // Floor 2: Audio room
                         else if (scene.elevator.currentFloor === 2) {
                             enterAudioRoom();
+                        }
+                        // Floor 3: Basketball court
+                        else if (scene.elevator.currentFloor === 3) {
+                            enterBasketballCourt();
                         }
                     }
                 }
@@ -6433,6 +7042,28 @@
                             }
                         }
                     }
+                }
+            } else if (sceneState === 'basketball') {
+                // Check if "Back to Elevator" button was clicked
+                // 检查是否点击了"返回电梯"按钮
+                if (
+                    mx >= backButton.x &&
+                    mx <= backButton.x + backButton.w &&
+                    my >= backButton.y &&
+                    my <= backButton.y + backButton.h
+                ) {
+                    // Return to elevator scene
+                    // 返回电梯场景
+                    sceneState = 'elevator';
+                    walkProgress = 0;
+                    walkVelocity = 0;
+                    floorScroll = 0;
+                    wallScroll = 0;
+                    ceilingScroll = 0;
+                    readyToEnter = false;
+                    enterHintPhase = 0;
+                    viewMode = 'corridor';  // Reset view mode
+                    console.log('Returned to elevator from basketball court');
                 }
             }
         });
