@@ -6663,21 +6663,20 @@
             stands: [],
             lights: [],
 
-            // Mouse drag camera control (click and drag to look around)
+            // Mouse position camera control (mouse position controls view direction)
             yaw: 0,           // Horizontal rotation in degrees
-            pitch: 8,         // Vertical rotation in degrees, starts looking up at hoop
-            minYaw: -35,      // Maximum left rotation (avoid seeing outside court)
-            maxYaw: 35,       // Maximum right rotation (avoid seeing outside court)
-            minPitch: -15,    // Maximum down rotation (avoid seeing below floor)
-            maxPitch: 35,     // Maximum up rotation (can look up at hoop and stands)
-            mouseSensitivity: 0.3,  // Mouse sensitivity for drag-based rotation
-            isDragging: false,    // Track if mouse is being dragged
+            pitch: 0,         // Vertical rotation in degrees
+            minYaw: -40,      // Maximum left rotation
+            maxYaw: 40,       // Maximum right rotation
+            minPitch: -60,    // Maximum down rotation (can look down at floor)
+            maxPitch: 45,     // Maximum up rotation (can look up at hoop and stands)
+            mouseSensitivity: 0.08,  // Sensitivity for mouse position mapping
 
-            // Initial camera position (fixed, no movement)
-            cameraBasePos: { x: 0, y: 1.7, z: 10 },  // Eye height at half-court
-            cameraLookAt: { x: 0, y: 3.5, z: 0 },    // Look towards hoop
+            // Initial camera position (standing on court floor)
+            cameraBasePos: { x: 0, y: 0.5, z: 8 },  // Lower height, standing on floor
+            cameraLookAt: { x: 0, y: 2.0, z: 0 },    // Look towards hoop
 
-            // Mouse tracking for drag
+            // Mouse tracking
             lastMouseX: 0,
             lastMouseY: 0,
 
@@ -6978,16 +6977,13 @@
             // CREATE EVENT HANDLERS for 3D scene
             // ============================================
 
-            // Mouse move handler for camera rotation (drag to rotate)
+            // Mouse move handler for camera rotation (mouse follow mode)
+            // Camera view follows mouse movement - no click needed
             b3d.mouseMoveHandler = function(e) {
-                // Only rotate camera when dragging
-                if (!basketball3D.isDragging) return;
-
-                const rect = b3d.renderer.domElement.getBoundingClientRect();
                 const currentX = e.clientX;
                 const currentY = e.clientY;
 
-                // Calculate mouse delta from last position
+                // Calculate mouse movement delta
                 const dx = currentX - basketball3D.lastMouseX;
                 const dy = currentY - basketball3D.lastMouseY;
 
@@ -6995,7 +6991,11 @@
                 basketball3D.lastMouseX = currentX;
                 basketball3D.lastMouseY = currentY;
 
-                // Update yaw and pitch based on drag (in degrees)
+                // Update yaw and pitch based on mouse movement (in degrees)
+                // Mouse moves right → look right (positive yaw)
+                // Mouse moves left → look left (negative yaw)
+                // Mouse moves down → look down (positive pitch)
+                // Mouse moves up → look up (negative pitch)
                 basketball3D.yaw += dx * basketball3D.mouseSensitivity;
                 basketball3D.pitch += dy * basketball3D.mouseSensitivity;
 
@@ -7006,33 +7006,24 @@
                     Math.min(basketball3D.maxPitch, basketball3D.pitch));
             };
 
-            // Mouse down handler - start dragging
+            // Mouse down handler - for future ball grabbing
             b3d.mouseDownHandler = function(e) {
-                // Start dragging to rotate camera
-                basketball3D.isDragging = true;
-                basketball3D.lastMouseX = e.clientX;
-                basketball3D.lastMouseY = e.clientY;
-
-                // Change cursor to grabbing while dragging
+                // Future: raycast to detect and grab basketballs
+                // For now, just visual feedback
                 b3d.renderer.domElement.style.cursor = 'grabbing';
             };
 
-            // Mouse up handler - stop dragging
+            // Mouse up handler - for future ball throwing
             b3d.mouseUpHandler = function(e) {
-                // Stop dragging
-                basketball3D.isDragging = false;
-
-                // Restore cursor to grab
+                // Future: throw basketball
+                // Restore cursor
                 b3d.renderer.domElement.style.cursor = 'grab';
             };
 
-            // Mouse leave handler - stop dragging when mouse leaves canvas
+            // Mouse leave handler - reset when mouse leaves canvas
             b3d.mouseLeaveHandler = function(e) {
-                // Stop dragging if mouse leaves canvas
-                if (basketball3D.isDragging) {
-                    basketball3D.isDragging = false;
-                    b3d.renderer.domElement.style.cursor = 'grab';
-                }
+                // Optional: could reset view to center when mouse leaves
+                // For now, just maintain current view
             };
 
             console.log('=== 3D Basketball Court initialized successfully ===');
@@ -7080,17 +7071,18 @@
             document.body.style.cursor = 'grab';
             console.log('Cursor set to grab for basketball interaction');
 
-            // Add event listeners to 3D canvas for drag-to-rotate controls
+            // Add event listeners to 3D canvas for mouse-follow controls
             canvas3D.addEventListener('mousemove', basketball3D.mouseMoveHandler);
             canvas3D.addEventListener('mousedown', basketball3D.mouseDownHandler);
             canvas3D.addEventListener('mouseup', basketball3D.mouseUpHandler);
             canvas3D.addEventListener('mouseleave', basketball3D.mouseLeaveHandler);
-            console.log('3D canvas event listeners added (drag-to-rotate mode)');
+            console.log('3D canvas event listeners added (mouse-follow mode)');
 
-            // Reset camera orientation (looking up at hoop)
+            // Reset camera orientation and initialize mouse position
             basketball3D.yaw = 0;
-            basketball3D.pitch = 8;  // Start looking up at hoop
-            basketball3D.isDragging = false;  // Not dragging initially
+            basketball3D.pitch = 0;  // Start looking straight ahead
+            basketball3D.lastMouseX = window.innerWidth / 2;   // Initialize to screen center
+            basketball3D.lastMouseY = window.innerHeight / 2;
             basketball3D.isActive = true;
 
             // Start render loop
