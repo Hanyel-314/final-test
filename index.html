@@ -6994,10 +6994,10 @@
                 // Update yaw and pitch based on mouse movement (in degrees)
                 // Mouse moves right → look right (negative yaw in Three.js)
                 // Mouse moves left → look left (positive yaw in Three.js)
-                // Mouse moves down → look down (positive pitch)
-                // Mouse moves up → look up (negative pitch)
+                // Mouse moves down → look down (negative pitch in Three.js)
+                // Mouse moves up → look up (positive pitch in Three.js)
                 basketball3D.yaw -= dx * basketball3D.mouseSensitivity;
-                basketball3D.pitch += dy * basketball3D.mouseSensitivity;
+                basketball3D.pitch -= dy * basketball3D.mouseSensitivity;
 
                 // Clamp yaw and pitch to limits
                 basketball3D.yaw = Math.max(basketball3D.minYaw,
