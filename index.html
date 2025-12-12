@@ -6717,15 +6717,26 @@
         // Create 3D Basketball Court
         // =========================
         function init3DBasketballCourt() {
+            console.log('=== Initializing 3D Basketball Court ===');
+
+            // Check if THREE.js is loaded
+            if (typeof THREE === 'undefined') {
+                console.error('THREE.js is not loaded! Check CDN link.');
+                return;
+            }
+            console.log('THREE.js version:', THREE.REVISION);
+
             const b3d = basketball3D;
 
             // Get container
             b3d.container = document.getElementById('threejs-container');
+            console.log('Container element:', b3d.container);
 
             // Create scene
             b3d.scene = new THREE.Scene();
-            b3d.scene.background = new THREE.Color(0x000000);  // Black background like dark arena
+            b3d.scene.background = new THREE.Color(0x0a0a0a);  // Very dark gray (not pure black)
             b3d.scene.fog = new THREE.Fog(0x000000, 15, 40);   // Add fog for depth
+            console.log('Scene created');
 
             // Create perspective camera (FOV 45 degrees)
             b3d.camera = new THREE.PerspectiveCamera(
@@ -6736,6 +6747,8 @@
             );
             b3d.camera.position.set(b3d.cameraBasePos.x, b3d.cameraBasePos.y, b3d.cameraBasePos.z);
             b3d.camera.lookAt(b3d.cameraLookAt.x, b3d.cameraLookAt.y, b3d.cameraLookAt.z);
+            console.log('Camera position:', b3d.camera.position);
+            console.log('Camera looking at:', b3d.cameraLookAt);
 
             // Create renderer
             b3d.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -6743,6 +6756,7 @@
             b3d.renderer.shadowMap.enabled = true;
             b3d.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             b3d.container.appendChild(b3d.renderer.domElement);
+            console.log('Renderer created and added to container');
 
             // ============================================
             // CREATE 3D COURT FLOOR (with wood texture and lines)
@@ -6922,17 +6936,19 @@
             // ============================================
             // SETUP LIGHTING (like dark arena with spotlight on court)
             // ============================================
+            console.log('Adding lights...');
 
-            // Very low ambient light (dark arena atmosphere)
-            const ambientLight = new THREE.AmbientLight(0x404040, 0.2);
+            // Ambient light (increased for better visibility during debug)
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
             b3d.lights.push(ambientLight);
             b3d.scene.add(ambientLight);
+            console.log('Ambient light added');
 
             // Main spotlight on basket and court (arena spotlight effect)
-            const spotlight = new THREE.SpotLight(0xffffff, 1.5);
+            const spotlight = new THREE.SpotLight(0xffffff, 2.0);
             spotlight.position.set(0, 8, 0);
             spotlight.target.position.set(0, 0, -2);
-            spotlight.angle = Math.PI / 4;
+            spotlight.angle = Math.PI / 3;
             spotlight.penumbra = 0.3;
             spotlight.decay = 2;
             spotlight.distance = 30;
@@ -6942,20 +6958,24 @@
             b3d.lights.push(spotlight);
             b3d.scene.add(spotlight);
             b3d.scene.add(spotlight.target);
+            console.log('Spotlight added at', spotlight.position);
 
             // Fill light from above-front (subtle, prevents complete darkness)
-            const fillLight = new THREE.DirectionalLight(0x8899ff, 0.3);
+            const fillLight = new THREE.DirectionalLight(0x8899ff, 0.5);
             fillLight.position.set(2, 6, 6);
             b3d.lights.push(fillLight);
             b3d.scene.add(fillLight);
+            console.log('Fill light added');
 
             // Rim highlight (small point light at rim for visibility)
-            const rimLight = new THREE.PointLight(0xffaa44, 0.8, 5);
+            const rimLight = new THREE.PointLight(0xffaa44, 1.2, 8);
             rimLight.position.set(0, 3.2, -3.15);
             b3d.lights.push(rimLight);
             b3d.scene.add(rimLight);
+            console.log('Rim light added');
 
-            console.log('3D Basketball Court initialized with Three.js');
+            console.log('=== 3D Basketball Court initialized successfully ===');
+            console.log('Scene children count:', b3d.scene.children.length);
         }
 
         // Initialize basketball court scene (entry point from elevator)
