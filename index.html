@@ -6668,12 +6668,12 @@
             pitch: 0,         // Vertical rotation in degrees
             minYaw: -40,      // Maximum left rotation
             maxYaw: 40,       // Maximum right rotation
-            minPitch: -60,    // Maximum down rotation (can look down at floor)
-            maxPitch: 45,     // Maximum up rotation (can look up at hoop and stands)
+            minPitch: -15,    // Maximum down rotation
+            maxPitch: 25,     // Maximum up rotation
             mouseSensitivity: 0.08,  // Sensitivity for mouse position mapping
 
-            // Initial camera position (standing on court floor)
-            cameraBasePos: { x: 0, y: 0.5, z: 8 },  // Lower height, standing on floor
+            // Initial camera position
+            cameraBasePos: { x: 0, y: 1.7, z: 10 },
             cameraLookAt: { x: 0, y: 2.0, z: 0 },    // Look towards hoop
 
             // Mouse tracking
@@ -6992,11 +6992,11 @@
                 basketball3D.lastMouseY = currentY;
 
                 // Update yaw and pitch based on mouse movement (in degrees)
-                // Mouse moves right → look right (positive yaw)
-                // Mouse moves left → look left (negative yaw)
+                // Mouse moves right → look right (negative yaw in Three.js)
+                // Mouse moves left → look left (positive yaw in Three.js)
                 // Mouse moves down → look down (positive pitch)
                 // Mouse moves up → look up (negative pitch)
-                basketball3D.yaw += dx * basketball3D.mouseSensitivity;
+                basketball3D.yaw -= dx * basketball3D.mouseSensitivity;
                 basketball3D.pitch += dy * basketball3D.mouseSensitivity;
 
                 // Clamp yaw and pitch to limits
