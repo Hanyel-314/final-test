@@ -6980,15 +6980,14 @@
             // ============================================
             // BUILD BASKETBALL RACK (3D cart with 3 tiers)
             // ============================================
-            // TEMPORARILY DISABLED FOR DEBUGGING
-            console.log('Skipping basketball rack for now...');
+            console.log('Building basketball rack...');
 
-            // Create raycaster for mouse picking (still needed for future use)
+            // Create raycaster for mouse picking
             b3d.raycaster = new THREE.Raycaster();
             b3d.mouse = new THREE.Vector2();
 
-            /* COMMENTED OUT - BASKETBALL RACK
-            const rackGroup = new THREE.Group();
+            try {
+                const rackGroup = new THREE.Group();
             rackGroup.name = "basketballRack";
             b3d.basketballRack = rackGroup;
 
@@ -7133,14 +7132,18 @@
             });
 
             console.log(`Created ${b3d.balls.length} basketballs on rack`);
-            END OF BASKETBALL RACK COMMENT */
+
+            } catch (error) {
+                console.error('Error creating basketball rack:', error);
+                // Initialize empty balls array if rack creation failed
+                b3d.balls = [];
+            }
 
             // ============================================
             // CREATE EVENT HANDLERS for 3D scene
             // ============================================
 
-            // Mouse move handler for camera rotation (mouse follow mode)
-            // Camera view follows mouse movement - no click needed
+            // Mouse move handler for camera rotation and hover detection
             b3d.mouseMoveHandler = function(e) {
                 const currentX = e.clientX;
                 const currentY = e.clientY;
@@ -7153,11 +7156,7 @@
                 basketball3D.lastMouseX = currentX;
                 basketball3D.lastMouseY = currentY;
 
-                // Update yaw and pitch based on mouse movement (in degrees)
-                // Mouse moves right → look right (negative yaw in Three.js)
-                // Mouse moves left → look left (positive yaw in Three.js)
-                // Mouse moves down → look down (negative pitch in Three.js)
-                // Mouse moves up → look up (positive pitch in Three.js)
+                // Update yaw and pitch based on mouse movement
                 basketball3D.yaw -= dx * basketball3D.mouseSensitivity;
                 basketball3D.pitch -= dy * basketball3D.mouseSensitivity;
 
@@ -7166,16 +7165,79 @@
                     Math.min(basketball3D.maxYaw, basketball3D.yaw));
                 basketball3D.pitch = Math.max(basketball3D.minPitch,
                     Math.min(basketball3D.maxPitch, basketball3D.pitch));
+
+                // Raycast hover to show grab cursor when over basketballs
+                if (basketball3D.balls && basketball3D.balls.length > 0 && !basketball3D.grabbedBall) {
+                    try {
+                        basketball3D.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+                        basketball3D.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+                        basketball3D.raycaster.setFromCamera(basketball3D.mouse, basketball3D.camera);
+                        const intersects = basketball3D.raycaster.intersectObjects(basketball3D.balls);
+
+                        if (intersects.length > 0 && intersects[0].distance < 3.0) {
+                            document.body.style.cursor = 'grab';
+                        } else {
+                            document.body.style.cursor = 'default';
+                        }
+                    } catch (err) {
+                        // Silently ignore raycast errors
+                    }
+                }
             };
 
-            // Mouse down handler - simplified (no basketball interaction for now)
+            // Mouse down handler - grab ball on mousedown
             b3d.mouseDownHandler = function(e) {
-                // Placeholder for future basketball grabbing
+                if (!basketball3D.balls || basketball3D.balls.length === 0) return;
+
+                try {
+                    basketball3D.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+                    basketball3D.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+                    basketball3D.raycaster.setFromCamera(basketball3D.mouse, basketball3D.camera);
+                    const intersects = basketball3D.raycaster.intersectObjects(basketball3D.balls);
+
+                    if (intersects.length > 0 && intersects[0].distance < 3.0) {
+                        const ball = intersects[0].object;
+                        basketball3D.grabbedBall = ball;
+                        ball.userData.isGrabbed = true;
+                        ball.userData.onRack = false;
+
+                        // Move ball from rack to scene (world coordinates)
+                        const worldPos = new THREE.Vector3();
+                        ball.getWorldPosition(worldPos);
+                        basketball3D.basketballRack.remove(ball);
+                        basketball3D.scene.add(ball);
+                        ball.position.copy(worldPos);
+
+                        document.body.style.cursor = 'grabbing';
+                        console.log('Grabbed basketball:', ball.name);
+                    }
+                } catch (err) {
+                    console.error('Grab ball error:', err);
+                }
             };
 
-            // Mouse up handler - simplified (no basketball interaction for now)
+            // Mouse up handler - throw ball on mouseup
             b3d.mouseUpHandler = function(e) {
-                // Placeholder for future basketball throwing
+                if (basketball3D.grabbedBall) {
+                    try {
+                        const ball = basketball3D.grabbedBall;
+                        ball.userData.isGrabbed = false;
+
+                        // Get camera direction and throw
+                        const throwSpeed = 14;
+                        const cameraDirection = new THREE.Vector3();
+                        basketball3D.camera.getWorldDirection(cameraDirection);
+                        ball.userData.velocity.copy(cameraDirection.multiplyScalar(throwSpeed));
+
+                        basketball3D.grabbedBall = null;
+                        document.body.style.cursor = 'grab';
+                        console.log('Threw basketball');
+                    } catch (err) {
+                        console.error('Throw ball error:', err);
+                    }
+                }
             };
 
             // Mouse leave handler - reset when mouse leaves canvas
@@ -7351,7 +7413,50 @@
 
         // Update basketball physics (temporarily disabled)
         function updateBasketballPhysics() {
-            // Placeholder for basketball physics (disabled for debugging)
+            if (!basketball3D.balls || basketball3D.balls.length === 0) return;
+
+            const deltaTime = 1/60;  // Assume 60 FPS
+            const gravity = -9.8;    // m/s^2
+
+            basketball3D.balls.forEach(ball => {
+                if (!ball || !ball.userData) return;
+
+                if (ball.userData.isGrabbed && ball === basketball3D.grabbedBall) {
+                    // Ball is grabbed - follow camera at fixed distance
+                    const holdDistance = 1.0;
+                    const cameraDirection = new THREE.Vector3();
+                    basketball3D.camera.getWorldDirection(cameraDirection);
+
+                    ball.position.copy(basketball3D.camera.position);
+                    ball.position.add(cameraDirection.multiplyScalar(holdDistance));
+
+                    // Reset velocity while holding
+                    ball.userData.velocity.set(0, 0, 0);
+                } else if (!ball.userData.onRack) {
+                    // Ball is flying - apply gravity and velocity
+                    ball.userData.velocity.y += gravity * deltaTime;
+
+                    // Update position based on velocity
+                    ball.position.x += ball.userData.velocity.x * deltaTime;
+                    ball.position.y += ball.userData.velocity.y * deltaTime;
+                    ball.position.z += ball.userData.velocity.z * deltaTime;
+
+                    // Simple floor collision (y = 0)
+                    if (ball.position.y < 0.12) {  // ball radius
+                        ball.position.y = 0.12;
+                        ball.userData.velocity.y *= -0.6;  // Bounce with energy loss
+
+                        // Apply friction on ground
+                        ball.userData.velocity.x *= 0.95;
+                        ball.userData.velocity.z *= 0.95;
+
+                        // Stop bouncing if velocity is very small
+                        if (Math.abs(ball.userData.velocity.y) < 0.5) {
+                            ball.userData.velocity.y = 0;
+                        }
+                    }
+                }
+            });
         }
 
         // Handle window resize for 3D scene
