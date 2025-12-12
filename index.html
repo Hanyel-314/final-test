@@ -6745,7 +6745,7 @@
             // ============================================
             // CREATE 3D COURT FLOOR (with wood texture and lines)
             // ============================================
-            const floorGeometry = new THREE.PlaneGeometry(15, 9);  // Half court size
+            const floorGeometry = new THREE.PlaneGeometry(15, 18);  // Extended towards user (doubled length)
             const floorMaterial = new THREE.MeshStandardMaterial({
                 color: 0xC19A6B,  // Light wood color
                 roughness: 0.8,
@@ -6754,6 +6754,7 @@
             b3d.courtFloor = new THREE.Mesh(floorGeometry, floorMaterial);
             b3d.courtFloor.rotation.x = -Math.PI / 2;  // Rotate to be horizontal
             b3d.courtFloor.position.y = 0;
+            b3d.courtFloor.position.z = 4.5;  // Shift forward to extend towards user
             b3d.courtFloor.receiveShadow = true;
             b3d.scene.add(b3d.courtFloor);
 
