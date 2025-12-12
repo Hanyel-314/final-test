@@ -6433,26 +6433,8 @@
         canvas.addEventListener('mousemove', (e) => {
             const rect = canvas.getBoundingClientRect();
 
-            // Mouse look camera control (first person VR feel)
-            if (sceneState === 'basketball' && basketball3D.isActive) {
-                const dx = e.movementX || (e.clientX - basketball3D.lastMouseX);
-                const dy = e.movementY || (e.clientY - basketball3D.lastMouseY);
-
-                basketball3D.lastMouseX = e.clientX;
-                basketball3D.lastMouseY = e.clientY;
-
-                // Update yaw and pitch with sensitivity (in degrees)
-                basketball3D.yaw += dx * basketball3D.mouseSensitivity * 180 / Math.PI;
-                basketball3D.pitch += dy * basketball3D.mouseSensitivity * 180 / Math.PI;
-
-                // Clamp yaw and pitch to limits
-                basketball3D.yaw = Math.max(basketball3D.minYaw,
-                    Math.min(basketball3D.maxYaw, basketball3D.yaw));
-                basketball3D.pitch = Math.max(basketball3D.minPitch,
-                    Math.min(basketball3D.maxPitch, basketball3D.pitch));
-
-                return;
-            }
+            // Basketball court 3D: events handled on 3D canvas, not here
+            // (See basketball3D.mouseMoveHandler for mouse look controls)
 
             if (sceneState === 'corridor1' && viewMode === 'monitor') {
                 const mx = e.clientX - rect.left;
@@ -6475,16 +6457,8 @@
             const mx = e.clientX - rect.left;
             const my = e.clientY - rect.top;
 
-            // Basketball court 3D: ball interaction reserved for future implementation
-            if (sceneState === 'basketball' && basketball3D.isActive) {
-                // TODO: Add ball grab logic when basketballs are implemented in 3D
-                // For now, change cursor to grabbing when clicking
-                // Cursor grabbing when holding ball (future: check if ball grabbed)
-                if (basketball3D.grabbedBall) {
-                    document.body.style.cursor = 'grabbing';
-                }
-                return;
-            }
+            // Basketball court 3D: events handled on 3D canvas, not here
+            // (See basketball3D.mouseDownHandler for ball grab logic)
 
             // Handle game hub interactions in monitor view
             if (sceneState === 'corridor1' && viewMode === 'monitor') {
@@ -6566,13 +6540,8 @@
             const mx = e.clientX - rect.left;
             const my = e.clientY - rect.top;
 
-            // Basketball court 3D: ball throw logic reserved for future implementation
-            if (sceneState === 'basketball' && basketball3D.isActive) {
-                // TODO: Add ball throw logic when basketballs are implemented in 3D
-                // Restore cursor to grab after releasing ball
-                document.body.style.cursor = 'grab';
-                return;
-            }
+            // Basketball court 3D: events handled on 3D canvas, not here
+            // (See basketball3D.mouseUpHandler for ball throw logic)
 
             // Handle game hub mouseup
             if (sceneState === 'corridor1' && viewMode === 'monitor') {
@@ -6710,6 +6679,11 @@
             // Mouse tracking
             lastMouseX: 0,
             lastMouseY: 0,
+
+            // Event handlers (store references for cleanup)
+            mouseMoveHandler: null,
+            mouseDownHandler: null,
+            mouseUpHandler: null,
 
             // Basketballs (for future implementation)
             balls: [],
@@ -6998,6 +6972,40 @@
             b3d.scene.add(rimLight);
             console.log('Rim light added');
 
+            // ============================================
+            // CREATE EVENT HANDLERS for 3D scene
+            // ============================================
+
+            // Mouse move handler for camera rotation (first person VR feel)
+            b3d.mouseMoveHandler = function(e) {
+                const dx = e.movementX || 0;
+                const dy = e.movementY || 0;
+
+                // Update yaw and pitch with sensitivity (in degrees)
+                basketball3D.yaw += dx * basketball3D.mouseSensitivity * 180 / Math.PI;
+                basketball3D.pitch += dy * basketball3D.mouseSensitivity * 180 / Math.PI;
+
+                // Clamp yaw and pitch to limits
+                basketball3D.yaw = Math.max(basketball3D.minYaw,
+                    Math.min(basketball3D.maxYaw, basketball3D.yaw));
+                basketball3D.pitch = Math.max(basketball3D.minPitch,
+                    Math.min(basketball3D.maxPitch, basketball3D.pitch));
+            };
+
+            // Mouse down handler for grabbing basketballs
+            b3d.mouseDownHandler = function(e) {
+                // Cursor grabbing when holding ball (future: raycast to detect ball)
+                if (basketball3D.grabbedBall) {
+                    b3d.renderer.domElement.style.cursor = 'grabbing';
+                }
+            };
+
+            // Mouse up handler for releasing basketballs
+            b3d.mouseUpHandler = function(e) {
+                // Restore cursor to grab after releasing ball
+                b3d.renderer.domElement.style.cursor = 'grab';
+            };
+
             console.log('=== 3D Basketball Court initialized successfully ===');
             console.log('Scene children count:', b3d.scene.children.length);
             return true;
@@ -7038,8 +7046,16 @@
             basketball3D.container.style.display = 'block';
 
             // Set hand cursor on floor 3 (for grabbing basketballs)
+            const canvas3D = basketball3D.renderer.domElement;
+            canvas3D.style.cursor = 'grab';
             document.body.style.cursor = 'grab';
             console.log('Cursor set to grab for basketball interaction');
+
+            // Add event listeners to 3D canvas for mouse look controls
+            canvas3D.addEventListener('mousemove', basketball3D.mouseMoveHandler);
+            canvas3D.addEventListener('mousedown', basketball3D.mouseDownHandler);
+            canvas3D.addEventListener('mouseup', basketball3D.mouseUpHandler);
+            console.log('3D canvas event listeners added');
 
             // Reset camera orientation (slightly looking up at hoop)
             basketball3D.yaw = 0;
@@ -7070,8 +7086,20 @@
                 basketball3D.animationId = null;
             }
 
+            // Remove event listeners from 3D canvas
+            if (basketball3D.renderer && basketball3D.renderer.domElement) {
+                const canvas3D = basketball3D.renderer.domElement;
+                canvas3D.removeEventListener('mousemove', basketball3D.mouseMoveHandler);
+                canvas3D.removeEventListener('mousedown', basketball3D.mouseDownHandler);
+                canvas3D.removeEventListener('mouseup', basketball3D.mouseUpHandler);
+                console.log('3D canvas event listeners removed');
+            }
+
             // Restore cursor when leaving floor 3
             document.body.style.cursor = 'default';
+            if (basketball3D.renderer && basketball3D.renderer.domElement) {
+                basketball3D.renderer.domElement.style.cursor = 'default';
+            }
             console.log('Cursor restored to default');
 
             // Hide 3D container, show 2D canvas
