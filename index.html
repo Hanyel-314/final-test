@@ -6722,7 +6722,8 @@
             // Check if THREE.js is loaded
             if (typeof THREE === 'undefined') {
                 console.error('THREE.js is not loaded! Check CDN link.');
-                return;
+                alert('Error: THREE.js library failed to load. Please check your internet connection.');
+                return false;
             }
             console.log('THREE.js version:', THREE.REVISION);
 
@@ -6976,21 +6977,42 @@
 
             console.log('=== 3D Basketball Court initialized successfully ===');
             console.log('Scene children count:', b3d.scene.children.length);
+            return true;
         }
 
         // Initialize basketball court scene (entry point from elevator)
         function enterBasketballCourt() {
+            console.log('>>> enterBasketballCourt called');
             sceneState = 'basketball';
             viewMode = 'court';
 
-            // Hide 2D canvas, show 3D container
-            canvas.style.display = 'none';
-            basketball3D.container.style.display = 'block';
-
             // Initialize 3D scene if not already created
             if (!basketball3D.scene) {
-                init3DBasketballCourt();
+                console.log('Initializing 3D scene for the first time...');
+                const success = init3DBasketballCourt();
+                if (!success) {
+                    console.error('Failed to initialize 3D scene!');
+                    // Return to elevator
+                    sceneState = 'elevator';
+                    return;
+                }
             }
+
+            // Verify all components exist
+            if (!basketball3D.renderer || !basketball3D.scene || !basketball3D.camera) {
+                console.error('3D components missing after initialization!');
+                console.log('renderer:', !!basketball3D.renderer);
+                console.log('scene:', !!basketball3D.scene);
+                console.log('camera:', !!basketball3D.camera);
+                console.log('container:', !!basketball3D.container);
+                sceneState = 'elevator';
+                return;
+            }
+
+            // Hide 2D canvas, show 3D container
+            console.log('Hiding 2D canvas, showing 3D container');
+            canvas.style.display = 'none';
+            basketball3D.container.style.display = 'block';
 
             // Reset camera orientation
             basketball3D.yaw = 0;
@@ -6998,9 +7020,17 @@
             basketball3D.isActive = true;
 
             // Start render loop
+            console.log('Starting 3D render loop...');
+
+            // Do one immediate render to test
+            console.log('Doing test render...');
+            basketball3D.renderer.render(basketball3D.scene, basketball3D.camera);
+            console.log('Test render complete');
+
+            // Start animation loop
             render3DBasketballCourt();
 
-            console.log('Entered 3D Basketball Court scene (Floor 3)');
+            console.log('>>> Entered 3D Basketball Court scene (Floor 3)');
         }
 
         // Exit basketball court and return to 2D elevator
@@ -7055,7 +7085,10 @@
 
         // Render loop for 3D basketball court
         function render3DBasketballCourt() {
-            if (!basketball3D.isActive) return;
+            if (!basketball3D.isActive) {
+                console.log('Render stopped: isActive = false');
+                return;
+            }
 
             basketball3D.animationId = requestAnimationFrame(render3DBasketballCourt);
 
@@ -7063,7 +7096,14 @@
             update3DBasketballCamera();
 
             // Render the scene
-            basketball3D.renderer.render(basketball3D.scene, basketball3D.camera);
+            if (basketball3D.renderer && basketball3D.scene && basketball3D.camera) {
+                basketball3D.renderer.render(basketball3D.scene, basketball3D.camera);
+            } else {
+                console.error('Render failed: Missing renderer, scene, or camera');
+                console.log('renderer:', !!basketball3D.renderer);
+                console.log('scene:', !!basketball3D.scene);
+                console.log('camera:', !!basketball3D.camera);
+            }
         }
 
         // Handle window resize for 3D scene
