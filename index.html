@@ -6433,7 +6433,7 @@
         canvas.addEventListener('mousemove', (e) => {
             const rect = canvas.getBoundingClientRect();
 
-            // Basketball court 3D mouse look controls
+            // Mouse look camera control (first person VR feel)
             if (sceneState === 'basketball' && basketball3D.isActive) {
                 const dx = e.movementX || (e.clientX - basketball3D.lastMouseX);
                 const dy = e.movementY || (e.clientY - basketball3D.lastMouseY);
@@ -6441,11 +6441,11 @@
                 basketball3D.lastMouseX = e.clientX;
                 basketball3D.lastMouseY = e.clientY;
 
-                // Update yaw and pitch with sensitivity
-                basketball3D.yaw += dx * basketball3D.mouseSensitivity;
-                basketball3D.pitch += dy * basketball3D.mouseSensitivity;
+                // Update yaw and pitch with sensitivity (in degrees)
+                basketball3D.yaw += dx * basketball3D.mouseSensitivity * 180 / Math.PI;
+                basketball3D.pitch += dy * basketball3D.mouseSensitivity * 180 / Math.PI;
 
-                // Clamp to limits
+                // Clamp yaw and pitch to limits
                 basketball3D.yaw = Math.max(basketball3D.minYaw,
                     Math.min(basketball3D.maxYaw, basketball3D.yaw));
                 basketball3D.pitch = Math.max(basketball3D.minPitch,
@@ -6478,6 +6478,11 @@
             // Basketball court 3D: ball interaction reserved for future implementation
             if (sceneState === 'basketball' && basketball3D.isActive) {
                 // TODO: Add ball grab logic when basketballs are implemented in 3D
+                // For now, change cursor to grabbing when clicking
+                // Cursor grabbing when holding ball (future: check if ball grabbed)
+                if (basketball3D.grabbedBall) {
+                    document.body.style.cursor = 'grabbing';
+                }
                 return;
             }
 
@@ -6564,6 +6569,8 @@
             // Basketball court 3D: ball throw logic reserved for future implementation
             if (sceneState === 'basketball' && basketball3D.isActive) {
                 // TODO: Add ball throw logic when basketballs are implemented in 3D
+                // Restore cursor to grab after releasing ball
+                document.body.style.cursor = 'grab';
                 return;
             }
 
@@ -6679,6 +6686,7 @@
 
             // Court objects
             courtFloor: null,
+            hoopGroup: null,  // Group containing all basket components
             basketPole: null,
             basketBackboard: null,
             basketRim: null,
@@ -6686,18 +6694,18 @@
             stands: [],
             lights: [],
 
-            // Camera control (mouse look)
-            yaw: 0,           // Horizontal rotation (-30° to +30°)
-            pitch: 0,         // Vertical rotation (-15° to +15°)
-            minYaw: -30,
-            maxYaw: 30,
-            minPitch: -15,
-            maxPitch: 15,
-            mouseSensitivity: 0.15,
+            // Mouse look camera control (first person VR feel)
+            yaw: 0,           // Horizontal rotation in degrees (-40° to +40°)
+            pitch: 5,         // Vertical rotation in degrees (-20° to +25°), starts slightly up
+            minYaw: -40,      // Maximum left rotation
+            maxYaw: 40,       // Maximum right rotation
+            minPitch: -20,    // Maximum down rotation
+            maxPitch: 25,     // Maximum up rotation
+            mouseSensitivity: 0.003,  // Mouse sensitivity for rotation
 
-            // Initial camera position
-            cameraBasePos: { x: 0, y: 1.7, z: 10 },
-            cameraLookAt: { x: 0, y: 3.05, z: 0 },
+            // Initial camera position (fixed, no movement)
+            cameraBasePos: { x: 0, y: 1.7, z: 10 },  // Eye height at half-court
+            cameraLookAt: { x: 0, y: 3.5, z: 0 },    // Look towards hoop
 
             // Mouse tracking
             lastMouseX: 0,
@@ -6812,7 +6820,12 @@
 
             // ============================================
             // CREATE BASKET STRUCTURE (3D pole, backboard, rim, net)
+            // Scale up hoop as main subject
             // ============================================
+
+            // Create a group to hold all basket components for unified scaling
+            const hoopGroup = new THREE.Group();
+            b3d.hoopGroup = hoopGroup;
 
             // Basket pole (vertical support from ground)
             const poleGeometry = new THREE.BoxGeometry(0.15, 3.5, 0.15);
@@ -6824,7 +6837,7 @@
             b3d.basketPole = new THREE.Mesh(poleGeometry, poleMaterial);
             b3d.basketPole.position.set(0, 1.75, -4.5);
             b3d.basketPole.castShadow = true;
-            b3d.scene.add(b3d.basketPole);
+            hoopGroup.add(b3d.basketPole);
 
             // Support arm (connects pole to backboard)
             const armGeometry = new THREE.BoxGeometry(0.1, 0.1, 1.2);
@@ -6836,7 +6849,7 @@
             const supportArm = new THREE.Mesh(armGeometry, armMaterial);
             supportArm.position.set(0, 3.2, -3.9);
             supportArm.castShadow = true;
-            b3d.scene.add(supportArm);
+            hoopGroup.add(supportArm);
 
             // Backboard (rectangular board behind rim)
             const backboardGeometry = new THREE.BoxGeometry(1.8, 1.05, 0.05);
@@ -6850,7 +6863,7 @@
             b3d.basketBackboard = new THREE.Mesh(backboardGeometry, backboardMaterial);
             b3d.basketBackboard.position.set(0, 3.5, -3.3);
             b3d.basketBackboard.castShadow = true;
-            b3d.scene.add(b3d.basketBackboard);
+            hoopGroup.add(b3d.basketBackboard);
 
             // Backboard border/frame
             const borderMaterial = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 3 });
@@ -6863,7 +6876,7 @@
             ];
             const borderGeometry = new THREE.BufferGeometry().setFromPoints(borderPoints);
             const backboardBorder = new THREE.Line(borderGeometry, borderMaterial);
-            b3d.scene.add(backboardBorder);
+            hoopGroup.add(backboardBorder);
 
             // Basketball rim (orange ring)
             const rimGeometry = new THREE.TorusGeometry(0.225, 0.012, 8, 32);
@@ -6876,7 +6889,7 @@
             b3d.basketRim.position.set(0, 3.05, -3.15);  // Standard 10 feet height (3.05m)
             b3d.basketRim.rotation.x = Math.PI / 2;
             b3d.basketRim.castShadow = true;
-            b3d.scene.add(b3d.basketRim);
+            hoopGroup.add(b3d.basketRim);
 
             // Net (simplified as vertical lines)
             const netMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, opacity: 0.7, transparent: true });
@@ -6892,8 +6905,18 @@
                     new THREE.Vector3(x2, 2.65, -3.15 + z2)
                 ]);
                 const netLine = new THREE.Line(netSegment, netMaterial);
-                b3d.scene.add(netLine);
+                hoopGroup.add(netLine);
             }
+
+            // Scale up the entire hoop group to make it the main visual subject
+            hoopGroup.scale.set(1.5, 1.5, 1.5);
+
+            // Move the hoop group slightly closer to camera after scaling
+            hoopGroup.position.z = 1.5;
+
+            // Add the hoop group to the scene
+            b3d.scene.add(hoopGroup);
+            console.log('Basketball hoop group created and scaled up');
 
             // ============================================
             // CREATE STADIUM STANDS (3D bleachers/seats behind basket)
@@ -7014,9 +7037,13 @@
             canvas.style.display = 'none';
             basketball3D.container.style.display = 'block';
 
-            // Reset camera orientation
+            // Set hand cursor on floor 3 (for grabbing basketballs)
+            document.body.style.cursor = 'grab';
+            console.log('Cursor set to grab for basketball interaction');
+
+            // Reset camera orientation (slightly looking up at hoop)
             basketball3D.yaw = 0;
-            basketball3D.pitch = 0;
+            basketball3D.pitch = 5;
             basketball3D.isActive = true;
 
             // Start render loop
@@ -7043,6 +7070,10 @@
                 basketball3D.animationId = null;
             }
 
+            // Restore cursor when leaving floor 3
+            document.body.style.cursor = 'default';
+            console.log('Cursor restored to default');
+
             // Hide 3D container, show 2D canvas
             basketball3D.container.style.display = 'none';
             canvas.style.display = 'block';
@@ -7061,26 +7092,25 @@
             console.log('Exited 3D Basketball Court, returned to elevator');
         }
 
-        // Update 3D camera based on mouse look
+        // Update 3D camera based on mouse look (first person VR rotation)
         function update3DBasketballCamera() {
             const b3d = basketball3D;
 
-            // Calculate camera rotation based on yaw/pitch
+            // Camera stays at fixed position (no movement, only rotation)
+            b3d.camera.position.set(
+                b3d.cameraBasePos.x,
+                b3d.cameraBasePos.y,
+                b3d.cameraBasePos.z
+            );
+
+            // Convert yaw and pitch from degrees to radians
             const yawRad = b3d.yaw * Math.PI / 180;
             const pitchRad = b3d.pitch * Math.PI / 180;
 
-            // Update camera position with rotation offset
-            const radius = 10;  // Distance from center
-            b3d.camera.position.x = b3d.cameraBasePos.x + Math.sin(yawRad) * 2;
-            b3d.camera.position.y = b3d.cameraBasePos.y + Math.sin(pitchRad) * 1.5;
-            b3d.camera.position.z = b3d.cameraBasePos.z - Math.cos(yawRad) * 1;
-
-            // Always look at basket rim
-            b3d.camera.lookAt(
-                b3d.cameraLookAt.x + Math.sin(yawRad) * 0.5,
-                b3d.cameraLookAt.y + Math.sin(pitchRad) * 0.5,
-                b3d.cameraLookAt.z
-            );
+            // Apply rotation to camera (YXZ order: yaw first, then pitch)
+            b3d.camera.rotation.order = 'YXZ';
+            b3d.camera.rotation.y = yawRad;    // Horizontal rotation (left/right)
+            b3d.camera.rotation.x = pitchRad;  // Vertical rotation (up/down)
         }
 
         // Render loop for 3D basketball court
