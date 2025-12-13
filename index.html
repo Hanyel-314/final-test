@@ -7143,11 +7143,12 @@
                 ball.receiveShadow = true;
                 ball.name = `basketball_${index}`;
 
-                // Add physics properties
+                // Add physics properties and save initial position
                 ball.userData = {
                     velocity: new THREE.Vector3(0, 0, 0),
                     isGrabbed: false,
-                    onRack: true
+                    onRack: true,
+                    initialPosition: { x: pos.x, y: pos.y, z: pos.z }  // Save for reset
                 };
 
                 rackGroup.add(ball);
@@ -7509,6 +7510,72 @@
                     }
                 }
             });
+
+            // Check if all balls are off the rack, if so reset them
+            checkAndResetBasketballs();
+        }
+
+        // Check if all balls are off rack and reset them after a delay
+        let resetTimer = null;
+        function checkAndResetBasketballs() {
+            if (!basketball3D.balls || basketball3D.balls.length === 0) return;
+            if (!basketball3D.basketballRack) return;
+
+            // Count balls still on rack
+            const ballsOnRack = basketball3D.balls.filter(ball => ball.userData.onRack).length;
+
+            // If all balls are off the rack and not grabbed
+            if (ballsOnRack === 0 && !basketball3D.grabbedBall) {
+                // Set a timer to reset balls after 2 seconds
+                if (!resetTimer) {
+                    console.log('All balls off rack, resetting in 2 seconds...');
+                    resetTimer = setTimeout(() => {
+                        resetBasketballsToRack();
+                        resetTimer = null;
+                    }, 2000);
+                }
+            } else {
+                // Cancel timer if balls are back on rack or being grabbed
+                if (resetTimer) {
+                    clearTimeout(resetTimer);
+                    resetTimer = null;
+                }
+            }
+        }
+
+        // Reset all basketballs to their initial positions on the rack
+        function resetBasketballsToRack() {
+            if (!basketball3D.balls || !basketball3D.basketballRack) return;
+
+            console.log('Resetting basketballs to rack...');
+
+            basketball3D.balls.forEach(ball => {
+                if (!ball || !ball.userData || !ball.userData.initialPosition) return;
+
+                // Remove ball from scene if it's there
+                if (ball.parent === basketball3D.scene) {
+                    basketball3D.scene.remove(ball);
+                }
+
+                // Reset position to initial (relative to rack)
+                ball.position.set(
+                    ball.userData.initialPosition.x,
+                    ball.userData.initialPosition.y,
+                    ball.userData.initialPosition.z
+                );
+
+                // Reset state
+                ball.userData.velocity.set(0, 0, 0);
+                ball.userData.isGrabbed = false;
+                ball.userData.onRack = true;
+
+                // Add back to rack group if not already there
+                if (ball.parent !== basketball3D.basketballRack) {
+                    basketball3D.basketballRack.add(ball);
+                }
+            });
+
+            console.log('All basketballs reset to rack');
         }
 
         // Handle window resize for 3D scene
