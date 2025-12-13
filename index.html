@@ -7099,12 +7099,14 @@
             // Scale up the entire hoop group to make it the main visual subject
             hoopGroup.scale.set(1.5, 1.5, 1.5);
 
-            // Move the hoop group slightly closer to camera after scaling
-            hoopGroup.position.z = 1.5;
+            // Move the hoop group much closer to camera (better shooting distance)
+            // Camera at z=10, this puts rim at approximately z=4 (6 meters away)
+            hoopGroup.position.z = 8.5;
 
             // Add the hoop group to the scene
             b3d.scene.add(hoopGroup);
             console.log('Basketball hoop group created and scaled up');
+            console.log('Hoop distance from camera: ~6 meters');
 
             // ============================================
             // CREATE STADIUM STANDS (3D bleachers/seats behind basket)
@@ -7624,14 +7626,14 @@
                         ball.userData.isGrabbed = false;
 
                         // Get camera direction and throw
-                        const throwSpeed = 14;
+                        const throwSpeed = 16;  // Increased for closer hoop distance
                         const cameraDirection = new THREE.Vector3();
                         basketball3D.camera.getWorldDirection(cameraDirection);
                         ball.userData.velocity.copy(cameraDirection.multiplyScalar(throwSpeed));
 
                         basketball3D.grabbedBall = null;
                         document.body.style.cursor = 'grab';
-                        console.log('Threw basketball');
+                        console.log('Threw basketball at speed:', throwSpeed);
                     } catch (err) {
                         console.error('Throw ball error:', err);
                     }
