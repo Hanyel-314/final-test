@@ -239,6 +239,19 @@
             console.error('Failed to load music room image');
         };
 
+        // Basketball court image for Floor 3 elevator lobby
+        // 三楼电梯大厅篮球场图片
+        const basketballCourtImage = new Image();
+        let basketballCourtImageLoaded = false;
+        basketballCourtImage.src = '篮球场.jpg';
+        basketballCourtImage.onload = () => {
+            basketballCourtImageLoaded = true;
+            console.log('Basketball court image loaded successfully');
+        };
+        basketballCourtImage.onerror = () => {
+            console.error('Failed to load basketball court image');
+        };
+
         // ========== 音频播放器 Audio Player ==========
         // Tracks array - 5 songs mapping to GitHub audio files
         // 歌曲数组 - 5首歌对应GitHub音频文件
@@ -1332,7 +1345,48 @@
                         // 不显示文字 - 已删除OFFICE文字
                         break;
                     case 3:
-                        // Basketball court - no text label, image background will be shown in 3D scene
+                        // Display basketball court image - fill entire visible area with cover behavior
+                        // 显示篮球场图片 - 用cover模式填充整个可见区域
+                        if (basketballCourtImageLoaded) {
+                            const geo = getCabinGeometry();
+
+                            // Define the rectangular area to fill (the door opening)
+                            const imgX = geo.doorLeft;
+                            const imgY = doorY;
+                            const imgWidth = geo.doorWidth;
+                            const imgHeight = doorHeight;
+
+                            // Calculate aspect ratios
+                            const imageAspect = basketballCourtImage.width / basketballCourtImage.height;
+                            const boxAspect = imgWidth / imgHeight;
+
+                            let drawWidth, drawHeight, drawX, drawY;
+
+                            // Use "cover" behavior - fill entire box without white borders
+                            if (imageAspect > boxAspect) {
+                                // Image is wider - fit to height, crop sides
+                                drawHeight = imgHeight;
+                                drawWidth = drawHeight * imageAspect;
+                                drawY = imgY;
+                                drawX = imgX - (drawWidth - imgWidth) / 2;
+                            } else {
+                                // Image is taller - fit to width, crop top/bottom
+                                drawWidth = imgWidth;
+                                drawHeight = drawWidth / imageAspect;
+                                drawX = imgX;
+                                drawY = imgY - (drawHeight - imgHeight) / 2;
+                            }
+
+                            // Create clipping path for the door area
+                            ctx.save();
+                            ctx.beginPath();
+                            ctx.rect(imgX, imgY, imgWidth, imgHeight);
+                            ctx.clip();
+
+                            // Draw the image
+                            ctx.drawImage(basketballCourtImage, drawX, drawY, drawWidth, drawHeight);
+                            ctx.restore();
+                        }
                         break;
                 }
             }
@@ -6746,18 +6800,7 @@
 
             // Create scene
             b3d.scene = new THREE.Scene();
-
-            // Load basketball court background image
-            const textureLoader = new THREE.TextureLoader();
-            textureLoader.load('篮球场.jpg', function(texture) {
-                b3d.scene.background = texture;
-                console.log('Basketball court background image loaded');
-            }, undefined, function(error) {
-                console.error('Error loading basketball court background:', error);
-                // Fallback to dark gray if image fails to load
-                b3d.scene.background = new THREE.Color(0x0a0a0a);
-            });
-
+            b3d.scene.background = new THREE.Color(0x0a0a0a);  // Very dark gray (not pure black)
             b3d.scene.fog = new THREE.Fog(0x000000, 15, 40);   // Add fog for depth
             console.log('Scene created');
 
