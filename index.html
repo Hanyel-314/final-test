@@ -8218,6 +8218,16 @@
                         console.log('🏀 SCORE! Ball went through hoop!');
                         basketball3D.score++;
 
+                        // Force ball to fall straight down through net
+                        // Align ball to rim center horizontally
+                        ball.position.x = triggerX;
+                        ball.position.z = triggerZ;
+
+                        // Set velocity to pure vertical drop
+                        ball.userData.velocity.x = 0;
+                        ball.userData.velocity.z = 0;
+                        ball.userData.velocity.y = -3;  // Gentle downward fall through net
+
                         // Spawn confetti at rim position
                         const confettiOrigin = new THREE.Vector3(
                             triggerX,
