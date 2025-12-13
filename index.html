@@ -1332,11 +1332,7 @@
                         // 不显示文字 - 已删除OFFICE文字
                         break;
                     case 3:
-                        ctx.fillStyle = '#666';
-                        ctx.font = 'bold 24px Arial';
-                        ctx.textAlign = 'center';
-                        ctx.textBaseline = 'middle';
-                        ctx.fillText('ROOFTOP', VP_X, doorY + doorHeight * 0.3);
+                        // Basketball court - no text label, image background will be shown in 3D scene
                         break;
                 }
             }
@@ -6750,7 +6746,18 @@
 
             // Create scene
             b3d.scene = new THREE.Scene();
-            b3d.scene.background = new THREE.Color(0x0a0a0a);  // Very dark gray (not pure black)
+
+            // Load basketball court background image
+            const textureLoader = new THREE.TextureLoader();
+            textureLoader.load('篮球场.jpg', function(texture) {
+                b3d.scene.background = texture;
+                console.log('Basketball court background image loaded');
+            }, undefined, function(error) {
+                console.error('Error loading basketball court background:', error);
+                // Fallback to dark gray if image fails to load
+                b3d.scene.background = new THREE.Color(0x0a0a0a);
+            });
+
             b3d.scene.fog = new THREE.Fog(0x000000, 15, 40);   // Add fog for depth
             console.log('Scene created');
 
