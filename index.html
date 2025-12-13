@@ -7099,14 +7099,15 @@
             // Scale up the entire hoop group to make it the main visual subject
             hoopGroup.scale.set(1.5, 1.5, 1.5);
 
-            // Move the hoop group to standard basketball shooting distance
-            // Camera at z=10, this puts rim at approximately z=-0.7 (10-11 meters away)
-            hoopGroup.position.z = 4.0;
+            // Move the hoop group closer for easier scoring
+            // Camera at z=10, this puts rim at approximately z=1.5 (7-8 meters away)
+            // At max pitch, ball can reach backboard; slight angle down goes into hoop
+            hoopGroup.position.z = 7.0;
 
             // Add the hoop group to the scene
             b3d.scene.add(hoopGroup);
             console.log('Basketball hoop group created and scaled up');
-            console.log('Hoop distance from camera: ~10-11 meters');
+            console.log('Hoop distance from camera: ~7-8 meters (ideal shooting range)');
 
             // ============================================
             // CREATE STADIUM STANDS (3D bleachers/seats behind basket)
