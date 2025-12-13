@@ -6930,9 +6930,9 @@
             const boardW = 1.8;
             const boardH = 1.05;
 
-            // Target box dimensions (proportional to backboard) - smaller for better challenge
-            const rectW = boardW * 0.25;  // Width of red box (reduced from 0.34)
-            const rectH = boardH * 0.16;  // Height of red box (reduced from 0.22)
+            // Target box dimensions (proportional to backboard) - wider and shorter
+            const rectW = boardW * 0.32;  // Width of red box (wider for easier targeting)
+            const rectH = boardH * 0.12;  // Height of red box (shorter, more horizontal)
             const stroke = Math.min(boardW, boardH) * 0.018;  // Line thickness
 
             // Position slightly below center (above rim in real basketball)
