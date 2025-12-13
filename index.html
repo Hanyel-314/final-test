@@ -7099,11 +7099,11 @@
                 rackGroup.add(wheel);
             });
 
-            // Position rack to the right-front of camera
+            // Position rack very close to user's right side
             // Camera is at (0, 1.7, 10), looking forward (-z direction)
-            // Place rack in user's right-front view
-            rackGroup.position.set(4.0, 0, 6.0);  // Right-front, clearly visible
-            rackGroup.rotation.y = -Math.PI / 4;  // Angle towards camera for better view
+            // Place rack very close in user's right-front view
+            rackGroup.position.set(2.0, 0, 8.5);  // Much closer - only 1.5m in front
+            rackGroup.rotation.y = -Math.PI / 3;  // Angle more towards camera
 
             b3d.scene.add(rackGroup);
             console.log('Basketball rack created and positioned');
@@ -7198,7 +7198,7 @@
                         basketball3D.raycaster.setFromCamera(basketball3D.mouse, basketball3D.camera);
                         const intersects = basketball3D.raycaster.intersectObjects(basketball3D.balls);
 
-                        if (intersects.length > 0 && intersects[0].distance < 3.0) {
+                        if (intersects.length > 0 && intersects[0].distance < 6.0) {
                             document.body.style.cursor = 'grab';
                         } else {
                             document.body.style.cursor = 'default';
@@ -7231,7 +7231,7 @@
                         console.log('First intersection distance:', intersects[0].distance);
                     }
 
-                    if (intersects.length > 0 && intersects[0].distance < 3.0) {
+                    if (intersects.length > 0 && intersects[0].distance < 6.0) {
                         const ball = intersects[0].object;
                         basketball3D.grabbedBall = ball;
                         ball.userData.isGrabbed = true;
@@ -7245,9 +7245,9 @@
                         ball.position.copy(worldPos);
 
                         document.body.style.cursor = 'grabbing';
-                        console.log('Grabbed basketball:', ball.name);
+                        console.log('Grabbed basketball:', ball.name, 'at distance:', intersects[0].distance);
                     } else if (intersects.length > 0) {
-                        console.log('Ball too far:', intersects[0].distance);
+                        console.log('Ball too far (limit 6.0m):', intersects[0].distance);
                     }
                 } catch (err) {
                     console.error('Grab ball error:', err);
