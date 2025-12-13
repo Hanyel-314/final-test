@@ -6934,6 +6934,44 @@
             rightBar.position.set(rectCenterX + rectW/2, rectCenterY, zOffset);
             backboardTargetBoxGroup.add(rightBar);
 
+            // ============================================
+            // Connected red target box: legs extend to backboard bottom
+            // ============================================
+
+            // Calculate backboard bottom edge Y
+            const boardBottomY = -boardH / 2;
+
+            // Calculate rectangle left/right edge X positions (legs align with rectangle sides)
+            const leftX = rectCenterX - rectW / 2;
+            const rightX = rectCenterX + rectW / 2;
+
+            // Calculate rectangle bottom edge Y (legs start from here)
+            const rectBottomY = rectCenterY - rectH / 2;
+
+            // Calculate leg length (from rectangle bottom to backboard bottom)
+            const legLength = rectBottomY - boardBottomY;
+
+            // Calculate leg center Y position (midpoint between rect bottom and board bottom)
+            const legCenterY = (rectBottomY + boardBottomY) / 2;
+
+            // Left leg (vertical line from rectangle's left-bottom corner to backboard bottom)
+            const leftLeg = new THREE.Mesh(
+                new THREE.BoxGeometry(stroke, legLength, stroke),
+                redBoxMaterial
+            );
+            leftLeg.position.set(leftX, legCenterY, zOffset);
+            backboardTargetBoxGroup.add(leftLeg);
+
+            // Right leg (vertical line from rectangle's right-bottom corner to backboard bottom)
+            const rightLeg = new THREE.Mesh(
+                new THREE.BoxGeometry(stroke, legLength, stroke),
+                redBoxMaterial
+            );
+            rightLeg.position.set(rightX, legCenterY, zOffset);
+            backboardTargetBoxGroup.add(rightLeg);
+
+            console.log(`Connected red target box: rect + 2 legs, legLength=${legLength.toFixed(3)}`);
+
             // Add target box as child of backboard (follows backboard transform)
             b3d.basketBackboard.add(backboardTargetBoxGroup);
             console.log('Red target box added to backboard');
