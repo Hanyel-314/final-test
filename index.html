@@ -7545,7 +7545,8 @@
                         basketball3D.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
 
                         basketball3D.raycaster.setFromCamera(basketball3D.mouse, basketball3D.camera);
-                        const intersects = basketball3D.raycaster.intersectObjects(basketball3D.balls);
+                        // Use recursive=true to detect children (ball groups contain sphere + groove lines)
+                        const intersects = basketball3D.raycaster.intersectObjects(basketball3D.balls, true);
 
                         if (intersects.length > 0 && intersects[0].distance < 6.0) {
                             document.body.style.cursor = 'grab';
@@ -7573,7 +7574,8 @@
                     basketball3D.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
 
                     basketball3D.raycaster.setFromCamera(basketball3D.mouse, basketball3D.camera);
-                    const intersects = basketball3D.raycaster.intersectObjects(basketball3D.balls);
+                    // Use recursive=true to detect children (ball groups contain sphere + groove lines)
+                    const intersects = basketball3D.raycaster.intersectObjects(basketball3D.balls, true);
 
                     console.log('Raycast intersects:', intersects.length);
                     if (intersects.length > 0) {
@@ -7581,20 +7583,31 @@
                     }
 
                     if (intersects.length > 0 && intersects[0].distance < 6.0) {
-                        const ball = intersects[0].object;
-                        basketball3D.grabbedBall = ball;
-                        ball.userData.isGrabbed = true;
-                        ball.userData.onRack = false;
+                        // Find the ball Group (intersected object might be child mesh)
+                        let ballGroup = intersects[0].object;
 
-                        // Move ball from rack to scene (world coordinates)
-                        const worldPos = new THREE.Vector3();
-                        ball.getWorldPosition(worldPos);
-                        basketball3D.basketballRack.remove(ball);
-                        basketball3D.scene.add(ball);
-                        ball.position.copy(worldPos);
+                        // Traverse up to find the basketball Group in balls array
+                        while (ballGroup && !basketball3D.balls.includes(ballGroup)) {
+                            ballGroup = ballGroup.parent;
+                        }
 
-                        document.body.style.cursor = 'grabbing';
-                        console.log('Grabbed basketball:', ball.name, 'at distance:', intersects[0].distance);
+                        if (ballGroup && basketball3D.balls.includes(ballGroup)) {
+                            basketball3D.grabbedBall = ballGroup;
+                            ballGroup.userData.isGrabbed = true;
+                            ballGroup.userData.onRack = false;
+
+                            // Move ball from rack to scene (world coordinates)
+                            const worldPos = new THREE.Vector3();
+                            ballGroup.getWorldPosition(worldPos);
+                            basketball3D.basketballRack.remove(ballGroup);
+                            basketball3D.scene.add(ballGroup);
+                            ballGroup.position.copy(worldPos);
+
+                            document.body.style.cursor = 'grabbing';
+                            console.log('Grabbed basketball:', ballGroup.name, 'at distance:', intersects[0].distance);
+                        } else {
+                            console.log('Could not find basketball group for intersected object');
+                        }
                     } else if (intersects.length > 0) {
                         console.log('Ball too far (limit 6.0m):', intersects[0].distance);
                     }
