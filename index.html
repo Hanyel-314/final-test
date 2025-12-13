@@ -30,12 +30,35 @@
             display: none;
             z-index: 10;
         }
+
+        #basketball-exit-btn {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            padding: 12px 24px;
+            background: rgba(34, 40, 50, 0.9);
+            color: white;
+            border: 2px solid rgba(120, 160, 255, 0.7);
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 0 8px rgba(120, 160, 255, 0.4);
+            z-index: 100;
+            display: none;
+        }
+
+        #basketball-exit-btn:hover {
+            background: rgba(50, 60, 80, 0.95);
+            box-shadow: 0 0 15px rgba(120, 160, 255, 0.6);
+        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
     <canvas id="elevator"></canvas>
-    <div id="threejs-container"></div>
+    <div id="threejs-container">
+        <button id="basketball-exit-btn">Back to Elevator</button>
+    </div>
     <script>
         'use strict';
 
@@ -7076,11 +7099,11 @@
                 rackGroup.add(wheel);
             });
 
-            // Position rack to the right of camera
+            // Position rack to the right-front of camera
             // Camera is at (0, 1.7, 10), looking forward (-z direction)
-            // Place rack at camera's right-front
-            rackGroup.position.set(3.0, 0, 8.5);  // Right side, slightly forward
-            rackGroup.rotation.y = -Math.PI / 6;  // Angle slightly towards camera
+            // Place rack in user's right-front view
+            rackGroup.position.set(4.0, 0, 6.0);  // Right-front, clearly visible
+            rackGroup.rotation.y = -Math.PI / 4;  // Angle towards camera for better view
 
             b3d.scene.add(rackGroup);
             console.log('Basketball rack created and positioned');
@@ -7188,7 +7211,13 @@
 
             // Mouse down handler - grab ball on mousedown
             b3d.mouseDownHandler = function(e) {
-                if (!basketball3D.balls || basketball3D.balls.length === 0) return;
+                console.log('Mouse down event triggered');
+                console.log('Balls array length:', basketball3D.balls ? basketball3D.balls.length : 0);
+
+                if (!basketball3D.balls || basketball3D.balls.length === 0) {
+                    console.log('No balls available');
+                    return;
+                }
 
                 try {
                     basketball3D.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
@@ -7196,6 +7225,11 @@
 
                     basketball3D.raycaster.setFromCamera(basketball3D.mouse, basketball3D.camera);
                     const intersects = basketball3D.raycaster.intersectObjects(basketball3D.balls);
+
+                    console.log('Raycast intersects:', intersects.length);
+                    if (intersects.length > 0) {
+                        console.log('First intersection distance:', intersects[0].distance);
+                    }
 
                     if (intersects.length > 0 && intersects[0].distance < 3.0) {
                         const ball = intersects[0].object;
@@ -7212,6 +7246,8 @@
 
                         document.body.style.cursor = 'grabbing';
                         console.log('Grabbed basketball:', ball.name);
+                    } else if (intersects.length > 0) {
+                        console.log('Ball too far:', intersects[0].distance);
                     }
                 } catch (err) {
                     console.error('Grab ball error:', err);
@@ -7291,6 +7327,15 @@
             document.body.style.cursor = 'default';
             console.log('Cursor set to default');
 
+            // Show and setup "Back to Elevator" button
+            const exitBtn = document.getElementById('basketball-exit-btn');
+            exitBtn.style.display = 'block';
+            exitBtn.onclick = () => {
+                console.log('Exit button clicked');
+                exitBasketballCourt();
+            };
+            console.log('Exit button shown and configured');
+
             // Add event listeners to 3D canvas for mouse-follow controls
             canvas3D.addEventListener('mousemove', basketball3D.mouseMoveHandler);
             canvas3D.addEventListener('mousedown', basketball3D.mouseDownHandler);
@@ -7345,6 +7390,13 @@
                 basketball3D.renderer.domElement.style.cursor = 'default';
             }
             console.log('Cursor restored to default');
+
+            // Hide exit button
+            const exitBtn = document.getElementById('basketball-exit-btn');
+            if (exitBtn) {
+                exitBtn.style.display = 'none';
+                exitBtn.onclick = null;
+            }
 
             // Hide 3D container, show 2D canvas
             basketball3D.container.style.display = 'none';
