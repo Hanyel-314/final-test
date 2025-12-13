@@ -8046,7 +8046,7 @@
             });
 
             // ============================================
-            // Score detection (check if ball passes through hoop)
+            // Score detection (simplified - score when ball falls through hoop)
             // ============================================
             if (basketball3D.scoreTrigger && basketball3D.scoreCooldown <= 0) {
                 // Get trigger position in world space
@@ -8065,52 +8065,50 @@
                     const ballX = ball.position.x;
                     const ballZ = ball.position.z;
 
-                    // Initialize last position tracking
-                    if (!basketball3D.lastBallPositions[index]) {
-                        basketball3D.lastBallPositions[index] = ballY;
-                    }
+                    // Check horizontal distance from rim center
+                    const dx = ballX - triggerX;
+                    const dz = ballZ - triggerZ;
+                    const horizontalDistance = Math.sqrt(dx * dx + dz * dz);
 
-                    const lastY = basketball3D.lastBallPositions[index];
+                    // Check if ball is inside hoop area and falling down
+                    const isInHoopArea = horizontalDistance < triggerRadius;
+                    const isNearRimHeight = Math.abs(ballY - triggerY) < 0.3;  // Within 30cm of rim
+                    const isFallingDown = ball.userData.velocity && ball.userData.velocity.y < -1;  // Moving downward
 
-                    // Check if ball passed through trigger from above
-                    if (lastY > triggerY && ballY <= triggerY) {
-                        // Check horizontal distance from trigger center
-                        const dx = ballX - triggerX;
-                        const dz = ballZ - triggerZ;
-                        const distance = Math.sqrt(dx * dx + dz * dz);
+                    // Calculate horizontal speed to detect vertical fall
+                    const horizontalSpeed = ball.userData.velocity ?
+                        Math.sqrt(ball.userData.velocity.x ** 2 + ball.userData.velocity.z ** 2) : 0;
+                    const isVerticalFall = horizontalSpeed < 3;  // Low horizontal movement
 
-                        if (distance < triggerRadius) {
-                            // SCORE!
-                            console.log('🏀 SCORE! Ball went through hoop!');
-                            basketball3D.score++;
+                    // Score if ball is in hoop, near rim height, falling down vertically
+                    if (isInHoopArea && isNearRimHeight && isFallingDown && isVerticalFall) {
+                        // SCORE!
+                        console.log('🏀 SCORE! Ball went through hoop!');
+                        basketball3D.score++;
 
-                            // Spawn confetti at rim position
-                            const confettiOrigin = new THREE.Vector3(
-                                triggerX,
-                                triggerY + 0.2,
-                                triggerZ
-                            );
-                            spawnConfetti(confettiOrigin);
+                        // Spawn confetti at rim position
+                        const confettiOrigin = new THREE.Vector3(
+                            triggerX,
+                            triggerY + 0.2,
+                            triggerZ
+                        );
+                        spawnConfetti(confettiOrigin);
 
-                            // Set cooldown to prevent multiple triggers
-                            basketball3D.scoreCooldown = 0.8;
+                        // Set cooldown to prevent multiple triggers
+                        basketball3D.scoreCooldown = 1.0;
 
-                            // Brief rim glow effect
-                            if (basketball3D.basketRim) {
-                                const originalEmissive = basketball3D.basketRim.material.emissive.clone();
-                                basketball3D.basketRim.material.emissive.setHex(0xFFFF00);
-                                basketball3D.basketRim.material.emissiveIntensity = 1.0;
+                        // Brief rim glow effect
+                        if (basketball3D.basketRim) {
+                            const originalEmissive = basketball3D.basketRim.material.emissive.clone();
+                            basketball3D.basketRim.material.emissive.setHex(0xFFFF00);
+                            basketball3D.basketRim.material.emissiveIntensity = 1.0;
 
-                                setTimeout(() => {
-                                    basketball3D.basketRim.material.emissive.copy(originalEmissive);
-                                    basketball3D.basketRim.material.emissiveIntensity = 0;
-                                }, 200);
-                            }
+                            setTimeout(() => {
+                                basketball3D.basketRim.material.emissive.copy(originalEmissive);
+                                basketball3D.basketRim.material.emissiveIntensity = 0;
+                            }, 200);
                         }
                     }
-
-                    // Update last position
-                    basketball3D.lastBallPositions[index] = ballY;
                 });
             }
 
