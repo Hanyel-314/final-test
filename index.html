@@ -6908,6 +6908,7 @@
             supportArm.position.set(0, 3.2, -3.9);
             supportArm.castShadow = true;
             hoopGroup.add(supportArm);
+            basketball3D.basketSupportArm = supportArm;  // Store for collision detection
 
             // Backboard (rectangular board behind rim)
             const backboardGeometry = new THREE.BoxGeometry(1.8, 1.05, 0.05);
@@ -6929,9 +6930,9 @@
             const boardW = 1.8;
             const boardH = 1.05;
 
-            // Target box dimensions (proportional to backboard)
-            const rectW = boardW * 0.34;  // Width of red box
-            const rectH = boardH * 0.22;  // Height of red box
+            // Target box dimensions (proportional to backboard) - smaller for better challenge
+            const rectW = boardW * 0.25;  // Width of red box (reduced from 0.34)
+            const rectH = boardH * 0.16;  // Height of red box (reduced from 0.22)
             const stroke = Math.min(boardW, boardH) * 0.018;  // Line thickness
 
             // Position slightly below center (above rim in real basketball)
@@ -7022,6 +7023,15 @@
 
             // Add target box as child of backboard (follows backboard transform)
             b3d.basketBackboard.add(backboardTargetBoxGroup);
+
+            // Store target box info for bank shot detection
+            basketball3D.targetBox = {
+                group: backboardTargetBoxGroup,
+                width: rectW,
+                height: rectH,
+                centerX: rectCenterX,
+                centerY: rectCenterY
+            };
             console.log('Red target box added to backboard');
 
             // Backboard border/frame
@@ -7949,7 +7959,7 @@
                     const ballRadius = 0.12;
 
                     // ============================================
-                    // Backboard collision (robust collision detection to prevent clipping)
+                    // Backboard collision with red target box bank shot detection
                     // ============================================
                     if (basketball3D.basketBackboard) {
                         const backboardPos = new THREE.Vector3();
@@ -7968,16 +7978,61 @@
                         const withinY = Math.abs(ball.position.y - backboardPos.y) <= (backboardHeight / 2 + ballRadius);
 
                         // Detect collision early - when ball is approaching backboard
-                        // Check if ball is in front of or near the backboard plane
                         const distanceToBackboard = ball.position.z - frontFaceZ;
 
                         // If ball is within detection range and moving toward backboard
                         if (withinX && withinY && distanceToBackboard < ballRadius * 2 && ball.userData.velocity.z < 0) {
-                            // Ball is approaching or touching backboard - bounce it back
-                            ball.position.z = frontFaceZ + ballRadius;
-                            ball.userData.velocity.z = Math.abs(ball.userData.velocity.z) * 0.7;  // Reverse and dampen
-                            ball.userData.velocity.x *= 0.9;   // Slight friction
-                            ball.userData.velocity.y *= 0.9;
+                            // Check if ball hit the red target box (bank shot zone)
+                            let hitRedBox = false;
+                            if (basketball3D.targetBox) {
+                                // Red box dimensions after 1.5x scaling
+                                const redBoxWidth = basketball3D.targetBox.width * 1.5;
+                                const redBoxHeight = basketball3D.targetBox.height * 1.5;
+                                const redBoxCenterX = basketball3D.targetBox.centerX;
+                                const redBoxCenterY = basketball3D.targetBox.centerY * 1.5;
+
+                                // Calculate ball position relative to backboard
+                                const relX = ball.position.x - backboardPos.x;
+                                const relY = ball.position.y - backboardPos.y;
+
+                                // Check if ball hit within red box bounds
+                                const inRedBoxX = Math.abs(relX - redBoxCenterX) <= redBoxWidth / 2;
+                                const inRedBoxY = Math.abs(relY - redBoxCenterY) <= redBoxHeight / 2;
+
+                                if (inRedBoxX && inRedBoxY) {
+                                    hitRedBox = true;
+                                    console.log('🎯 Bank shot! Ball hit red target box!');
+
+                                    // Bank shot - redirect ball toward hoop with optimal trajectory
+                                    if (basketball3D.basketRim) {
+                                        const rimPos = new THREE.Vector3();
+                                        basketball3D.basketRim.getWorldPosition(rimPos);
+
+                                        // Calculate direction to rim
+                                        const toRimX = rimPos.x - ball.position.x;
+                                        const toRimY = rimPos.y - ball.position.y;
+                                        const toRimZ = rimPos.z - ball.position.z;
+
+                                        // Set velocity toward rim with arc
+                                        const speed = 5;  // Moderate speed for controlled descent
+                                        const distance = Math.sqrt(toRimX * toRimX + toRimY * toRimY + toRimZ * toRimZ);
+
+                                        ball.userData.velocity.x = (toRimX / distance) * speed;
+                                        ball.userData.velocity.z = (toRimZ / distance) * speed;
+                                        ball.userData.velocity.y = Math.max(ball.userData.velocity.y * 0.5, -2);  // Gentle downward arc
+
+                                        ball.position.z = frontFaceZ + ballRadius;
+                                    }
+                                }
+                            }
+
+                            // If not a bank shot, normal bounce
+                            if (!hitRedBox) {
+                                ball.position.z = frontFaceZ + ballRadius;
+                                ball.userData.velocity.z = Math.abs(ball.userData.velocity.z) * 0.7;  // Reverse and dampen
+                                ball.userData.velocity.x *= 0.9;   // Slight friction
+                                ball.userData.velocity.y *= 0.9;
+                            }
                         }
                     }
 
@@ -8023,6 +8078,87 @@
                             ball.userData.velocity.x -= 1.5 * dotProduct * nx;
                             ball.userData.velocity.z -= 1.5 * dotProduct * nz;
                             ball.userData.velocity.multiplyScalar(0.6);  // Energy loss
+                        }
+                    }
+
+                    // ============================================
+                    // Basket pole collision (vertical support pole)
+                    // ============================================
+                    if (basketball3D.basketPole) {
+                        const polePos = new THREE.Vector3();
+                        basketball3D.basketPole.getWorldPosition(polePos);
+
+                        // Pole dimensions (after 1.5x scaling)
+                        const poleWidth = 0.15 * 1.5;
+                        const poleHeight = 3.5 * 1.5;
+                        const poleDepth = 0.15 * 1.5;
+
+                        // Check if ball is within pole bounds
+                        const withinPoleX = Math.abs(ball.position.x - polePos.x) < (poleWidth / 2 + ballRadius);
+                        const withinPoleY = ball.position.y >= polePos.y - poleHeight / 2 && ball.position.y <= polePos.y + poleHeight / 2;
+                        const withinPoleZ = Math.abs(ball.position.z - polePos.z) < (poleDepth / 2 + ballRadius);
+
+                        if (withinPoleX && withinPoleY && withinPoleZ) {
+                            // Ball hit pole - bounce away
+                            // Determine which side of pole was hit
+                            const dx = ball.position.x - polePos.x;
+                            const dz = ball.position.z - polePos.z;
+
+                            if (Math.abs(dx) > Math.abs(dz)) {
+                                // Hit from side (X axis)
+                                ball.position.x = polePos.x + Math.sign(dx) * (poleWidth / 2 + ballRadius);
+                                ball.userData.velocity.x *= -0.6;
+                            } else {
+                                // Hit from front/back (Z axis)
+                                ball.position.z = polePos.z + Math.sign(dz) * (poleDepth / 2 + ballRadius);
+                                ball.userData.velocity.z *= -0.6;
+                            }
+                            ball.userData.velocity.multiplyScalar(0.8);  // Energy loss
+                        }
+                    }
+
+                    // ============================================
+                    // Support arm collision (connects pole to backboard)
+                    // ============================================
+                    if (basketball3D.basketSupportArm) {
+                        const armPos = new THREE.Vector3();
+                        basketball3D.basketSupportArm.getWorldPosition(armPos);
+
+                        // Support arm dimensions (after 1.5x scaling)
+                        const armWidth = 0.1 * 1.5;
+                        const armHeight = 0.1 * 1.5;
+                        const armDepth = 1.2 * 1.5;
+
+                        // Check if ball is within arm bounds
+                        const withinArmX = Math.abs(ball.position.x - armPos.x) < (armWidth / 2 + ballRadius);
+                        const withinArmY = Math.abs(ball.position.y - armPos.y) < (armHeight / 2 + ballRadius);
+                        const withinArmZ = Math.abs(ball.position.z - armPos.z) < (armDepth / 2 + ballRadius);
+
+                        if (withinArmX && withinArmY && withinArmZ) {
+                            // Ball hit support arm - bounce away
+                            const dx = ball.position.x - armPos.x;
+                            const dy = ball.position.y - armPos.y;
+                            const dz = ball.position.z - armPos.z;
+
+                            // Find which axis has the smallest penetration (that's where we hit)
+                            const penetrationX = (armWidth / 2 + ballRadius) - Math.abs(dx);
+                            const penetrationY = (armHeight / 2 + ballRadius) - Math.abs(dy);
+                            const penetrationZ = (armDepth / 2 + ballRadius) - Math.abs(dz);
+
+                            if (penetrationY < penetrationX && penetrationY < penetrationZ) {
+                                // Hit from top/bottom
+                                ball.position.y = armPos.y + Math.sign(dy) * (armHeight / 2 + ballRadius);
+                                ball.userData.velocity.y *= -0.6;
+                            } else if (penetrationX < penetrationZ) {
+                                // Hit from side
+                                ball.position.x = armPos.x + Math.sign(dx) * (armWidth / 2 + ballRadius);
+                                ball.userData.velocity.x *= -0.6;
+                            } else {
+                                // Hit from front/back
+                                ball.position.z = armPos.z + Math.sign(dz) * (armDepth / 2 + ballRadius);
+                                ball.userData.velocity.z *= -0.6;
+                            }
+                            ball.userData.velocity.multiplyScalar(0.8);  // Energy loss
                         }
                     }
 
