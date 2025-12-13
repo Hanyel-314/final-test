@@ -7626,11 +7626,14 @@
                         const ball = basketball3D.grabbedBall;
                         ball.userData.isGrabbed = false;
 
-                        // Get camera direction and throw
-                        const throwSpeed = 13;  // Adjusted for better arc trajectory at 10-11m distance
+                        // Get camera direction and throw with increased arc
+                        const throwSpeed = 13;  // Base throw speed
+                        const upwardBoost = 3;  // Additional upward velocity for higher arc
                         const cameraDirection = new THREE.Vector3();
                         basketball3D.camera.getWorldDirection(cameraDirection);
                         ball.userData.velocity.copy(cameraDirection.multiplyScalar(throwSpeed));
+                        // Add extra upward component for better arc trajectory
+                        ball.userData.velocity.y += upwardBoost;
 
                         basketball3D.grabbedBall = null;
                         document.body.style.cursor = 'grab';
