@@ -7294,18 +7294,173 @@
             b3d.scene.add(rackGroup);
             console.log('Basketball rack created and positioned');
 
+            // Add dedicated light for basketball rack area (enhance basketball leather highlights)
+            const rackLight = new THREE.PointLight(0xffffff, 1.5, 10);
+            rackLight.position.set(2.5, 2.5, 9.0);  // Above and slightly in front of rack
+            b3d.lights.push(rackLight);
+            b3d.scene.add(rackLight);
+            console.log('Basketball rack light added for better leather highlights');
+
             // ============================================
-            // PLACE 5 BASKETBALLS ON RACK (3D spheres)
+            // PROCEDURAL BASKETBALL TEXTURE GENERATION
             // ============================================
-            console.log('Creating basketballs...');
+
+            // Generate procedural bump/normal noise for leather grain texture
+            function createBasketballLeatherTexture() {
+                const size = 256;
+                const canvas = document.createElement('canvas');
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext('2d');
+
+                // Fill with orange base color
+                ctx.fillStyle = '#d97a2b';
+                ctx.fillRect(0, 0, size, size);
+
+                // Add random noise for leather grain (fine granular texture)
+                const imageData = ctx.getImageData(0, 0, size, size);
+                const data = imageData.data;
+
+                for (let i = 0; i < data.length; i += 4) {
+                    // Add subtle random variation to simulate leather pebbling
+                    const noise = (Math.random() - 0.5) * 30;
+                    data[i] += noise;     // R
+                    data[i+1] += noise;   // G
+                    data[i+2] += noise;   // B
+                    // Alpha stays at 255
+                }
+
+                ctx.putImageData(imageData, 0, 0);
+
+                // Slight blur to make grain more natural (not sharp pixels)
+                ctx.globalAlpha = 0.5;
+                ctx.filter = 'blur(1px)';
+                ctx.drawImage(canvas, 0, 0);
+
+                return new THREE.CanvasTexture(canvas);
+            }
+
+            // Create basketball leather material with realistic properties
+            function createBasketballMaterial() {
+                const leatherTexture = createBasketballLeatherTexture();
+                leatherTexture.wrapS = THREE.RepeatWrapping;
+                leatherTexture.wrapT = THREE.RepeatWrapping;
+
+                return new THREE.MeshStandardMaterial({
+                    color: 0xd97a2b,           // Basketball orange
+                    map: leatherTexture,       // Leather grain texture
+                    roughness: 0.75,           // Leather is quite rough
+                    metalness: 0.0,            // No metallic reflection
+                    clearcoat: 0.15,           // Slight sheen (worn leather)
+                    clearcoatRoughness: 0.6,   // Diffused sheen, not glossy plastic
+                });
+            }
+
+            // Create basketball groove lines (black curved lines on sphere surface)
+            function createBasketballGrooveLines(ballRadius) {
+                const grooveGroup = new THREE.Group();
+                const grooveRadius = ballRadius * 0.015;  // Thickness of groove lines
+                const sphereRadius = ballRadius * 1.002;  // Slightly outside ball to avoid z-fighting
+
+                const grooveMaterial = new THREE.MeshStandardMaterial({
+                    color: 0x111111,      // Near-black groove
+                    roughness: 0.9,       // Very rough (rubber-like groove)
+                    metalness: 0.0
+                });
+
+                // Helper function: create a curved line (great circle arc) on sphere
+                function createGrooveCurve(points) {
+                    const curve = new THREE.CatmullRomCurve3(points, false, 'catmullrom', 0.1);
+                    const tubeGeometry = new THREE.TubeGeometry(curve, 64, grooveRadius, 8, false);
+                    const tubeMesh = new THREE.Mesh(tubeGeometry, grooveMaterial);
+                    return tubeMesh;
+                }
+
+                // Basketball groove lines pattern (8 curved segments forming classic basketball look)
+
+                // 1) Equatorial line (horizontal circle around Y-axis)
+                const equatorPoints = [];
+                for (let i = 0; i <= 64; i++) {
+                    const angle = (i / 64) * Math.PI * 2;
+                    equatorPoints.push(new THREE.Vector3(
+                        Math.cos(angle) * sphereRadius,
+                        0,
+                        Math.sin(angle) * sphereRadius
+                    ));
+                }
+                grooveGroup.add(createGrooveCurve(equatorPoints));
+
+                // 2) Meridian line (vertical circle around X-axis)
+                const meridianPoints = [];
+                for (let i = 0; i <= 64; i++) {
+                    const angle = (i / 64) * Math.PI * 2;
+                    meridianPoints.push(new THREE.Vector3(
+                        0,
+                        Math.sin(angle) * sphereRadius,
+                        Math.cos(angle) * sphereRadius
+                    ));
+                }
+                grooveGroup.add(createGrooveCurve(meridianPoints));
+
+                // 3) Two curved seam lines (distinctive basketball curves)
+                // Left curved seam (S-curve on left hemisphere)
+                const leftSeamPoints = [];
+                for (let i = 0; i <= 32; i++) {
+                    const t = i / 32;
+                    const theta = Math.PI * t;  // 0 to PI (top to bottom)
+                    const phi = Math.PI * 0.5 + Math.sin(theta * 2) * 0.8;  // Curved path
+
+                    leftSeamPoints.push(new THREE.Vector3(
+                        Math.sin(theta) * Math.cos(phi) * sphereRadius,
+                        Math.cos(theta) * sphereRadius,
+                        Math.sin(theta) * Math.sin(phi) * sphereRadius
+                    ));
+                }
+                grooveGroup.add(createGrooveCurve(leftSeamPoints));
+
+                // Right curved seam (S-curve on right hemisphere, mirrored)
+                const rightSeamPoints = [];
+                for (let i = 0; i <= 32; i++) {
+                    const t = i / 32;
+                    const theta = Math.PI * t;
+                    const phi = Math.PI * 1.5 - Math.sin(theta * 2) * 0.8;  // Mirror curve
+
+                    rightSeamPoints.push(new THREE.Vector3(
+                        Math.sin(theta) * Math.cos(phi) * sphereRadius,
+                        Math.cos(theta) * sphereRadius,
+                        Math.sin(theta) * Math.sin(phi) * sphereRadius
+                    ));
+                }
+                grooveGroup.add(createGrooveCurve(rightSeamPoints));
+
+                return grooveGroup;
+            }
+
+            // Create complete basketball (sphere + groove lines as single group)
+            function createBasketball(ballRadius) {
+                const ballGroup = new THREE.Group();
+
+                // Main basketball sphere (higher resolution for smoother look)
+                const ballGeometry = new THREE.SphereGeometry(ballRadius, 48, 48);
+                const ballMaterial = createBasketballMaterial();
+                const ballMesh = new THREE.Mesh(ballGeometry, ballMaterial);
+                ballMesh.castShadow = true;
+                ballMesh.receiveShadow = true;
+                ballGroup.add(ballMesh);
+
+                // Add black groove lines on surface
+                const grooveLines = createBasketballGrooveLines(ballRadius);
+                ballGroup.add(grooveLines);
+
+                return ballGroup;
+            }
+
+            // ============================================
+            // PLACE 5 BASKETBALLS ON RACK (realistic 3D basketballs)
+            // ============================================
+            console.log('Creating realistic basketballs with leather texture and groove lines...');
 
             const ballRadius = 0.12;
-            const ballGeometry = new THREE.SphereGeometry(ballRadius, 16, 16);
-            const ballMaterial = new THREE.MeshStandardMaterial({
-                color: 0xee6611,  // Basketball orange
-                roughness: 0.8,
-                metalness: 0.1
-            });
 
             // Ball positions on rack (relative to rack group)
             // Tier 0 (bottom): 2 balls
@@ -7323,10 +7478,9 @@
             ];
 
             ballPositions.forEach((pos, index) => {
-                const ball = new THREE.Mesh(ballGeometry, ballMaterial.clone());
+                // Create realistic basketball (group containing sphere + groove lines)
+                const ball = createBasketball(ballRadius);
                 ball.position.set(pos.x, pos.y, pos.z);
-                ball.castShadow = true;
-                ball.receiveShadow = true;
                 ball.name = `basketball_${index}`;
 
                 // Add physics properties and save initial position
@@ -7336,6 +7490,14 @@
                     onRack: true,
                     initialPosition: { x: pos.x, y: pos.y, z: pos.z }  // Save for reset
                 };
+
+                // Enable shadows on all children (sphere and groove lines)
+                ball.traverse((child) => {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                    }
+                });
 
                 rackGroup.add(ball);
                 b3d.balls.push(ball);
