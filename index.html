@@ -7940,9 +7940,81 @@
                     ball.position.y += ball.userData.velocity.y * deltaTime;
                     ball.position.z += ball.userData.velocity.z * deltaTime;
 
-                    // Simple floor collision (y = 0)
-                    if (ball.position.y < 0.12) {  // ball radius
-                        ball.position.y = 0.12;
+                    const ballRadius = 0.12;
+
+                    // ============================================
+                    // Backboard collision (plane collision)
+                    // ============================================
+                    if (basketball3D.basketBackboard) {
+                        const backboardPos = new THREE.Vector3();
+                        basketball3D.basketBackboard.getWorldPosition(backboardPos);
+
+                        // Backboard dimensions (after 1.5x scaling)
+                        const backboardWidth = 1.8 * 1.5;
+                        const backboardHeight = 1.05 * 1.5;
+                        const backboardThickness = 0.05 * 1.5;
+
+                        // Check if ball is within backboard bounds (X and Y)
+                        const withinX = Math.abs(ball.position.x - backboardPos.x) < backboardWidth / 2;
+                        const withinY = Math.abs(ball.position.y - backboardPos.y) < backboardHeight / 2;
+
+                        // Check if ball hit backboard from front (Z collision)
+                        const backFaceZ = backboardPos.z + backboardThickness / 2;
+                        if (withinX && withinY && ball.position.z < backFaceZ && ball.position.z > backFaceZ - ballRadius) {
+                            // Ball hit backboard - bounce back
+                            ball.position.z = backFaceZ;
+                            ball.userData.velocity.z *= -0.7;  // Bounce with energy loss
+                            ball.userData.velocity.x *= 0.9;   // Slight friction
+                            ball.userData.velocity.y *= 0.9;
+                        }
+                    }
+
+                    // ============================================
+                    // Rim collision (torus/ring collision simplified as cylinder)
+                    // ============================================
+                    if (basketball3D.basketRim) {
+                        const rimPos = new THREE.Vector3();
+                        basketball3D.basketRim.getWorldPosition(rimPos);
+
+                        // Rim dimensions (after 1.5x scaling)
+                        const rimRadius = 0.225 * 1.5;       // Outer radius of ring
+                        const rimTubeRadius = 0.012 * 1.5;   // Thickness of ring
+                        const rimInnerRadius = rimRadius - rimTubeRadius;
+
+                        // Calculate horizontal distance from ball to rim center
+                        const dx = ball.position.x - rimPos.x;
+                        const dz = ball.position.z - rimPos.z;
+                        const horizontalDist = Math.sqrt(dx * dx + dz * dz);
+
+                        // Check if ball is at rim height (vertical range)
+                        const dy = ball.position.y - rimPos.y;
+                        const atRimHeight = Math.abs(dy) < rimTubeRadius + ballRadius;
+
+                        // Check if ball hits rim from outside
+                        if (atRimHeight && horizontalDist > rimInnerRadius && horizontalDist < rimRadius + ballRadius) {
+                            // Ball hit rim - bounce away
+                            const angle = Math.atan2(dz, dx);
+                            const pushOutDist = rimRadius + ballRadius;
+
+                            ball.position.x = rimPos.x + Math.cos(angle) * pushOutDist;
+                            ball.position.z = rimPos.z + Math.sin(angle) * pushOutDist;
+
+                            // Reflect velocity
+                            const nx = Math.cos(angle);
+                            const nz = Math.sin(angle);
+                            const dotProduct = ball.userData.velocity.x * nx + ball.userData.velocity.z * nz;
+
+                            ball.userData.velocity.x -= 1.5 * dotProduct * nx;
+                            ball.userData.velocity.z -= 1.5 * dotProduct * nz;
+                            ball.userData.velocity.multiplyScalar(0.6);  // Energy loss
+                        }
+                    }
+
+                    // ============================================
+                    // Floor collision
+                    // ============================================
+                    if (ball.position.y < ballRadius) {
+                        ball.position.y = ballRadius;
                         ball.userData.velocity.y *= -0.6;  // Bounce with energy loss
 
                         // Apply friction on ground
