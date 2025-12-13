@@ -120,6 +120,12 @@
         let enterHintPhase = 0;         // 提示文字淡入淡出相位 Fade in/out phase for hint text
         let readyToEnter = false;       // 玩家是否可以进入 Whether player can enter
 
+        // ========== 白光淡入淡出效果 White Flash Transition Effect ==========
+        let whiteFlashAlpha = 0;        // 白光透明度 0-1，0=invisible, 1=fully white
+        let whiteFlashState = 'none';   // 'none', 'fade-in', 'fade-out'
+        let whiteFlashCallback = null;  // 淡入完成后的回调函数 Callback after fade-in completes
+        const WHITE_FLASH_SPEED = 3;    // 淡入淡出速度 Fade speed (higher = faster)
+
         // ========== 场景状态 Scene State ==========
         // 'elevator' = 电梯内部场景 Elevator interior scene
         // 'corridor1' = 一层电梯外的长廊场景 Corridor on floor 1
@@ -6381,10 +6387,18 @@
 
             scene.elevator.update(deltaTime);
 
+            // Update white flash transition effect
+            // 更新白光淡入淡出效果
+            updateWhiteFlash(dt);
+
             // 3D Basketball court updates handled by its own render loop
             // No physics update needed here for basketball scene
 
             scene.render();
+
+            // Draw white flash overlay on top of everything
+            // 在所有内容之上绘制白光遮罩
+            drawWhiteFlash();
 
             requestAnimationFrame(animate);
         }
@@ -6666,6 +6680,48 @@
         canvas.addEventListener('touchcancel', () => {
             handlePointerCancel();
         });
+
+        // ========== 白光淡入淡出效果函数 White Flash Transition Functions ==========
+        // Start white flash fade-in effect with callback when complete
+        // 启动白光淡入效果，完成后执行回调函数
+        function startWhiteFlashTransition(callback) {
+            whiteFlashState = 'fade-in';
+            whiteFlashAlpha = 0;
+            whiteFlashCallback = callback;
+        }
+
+        // Update white flash effect (called every frame in game loop)
+        // 更新白光效果（在游戏循环中每帧调用）
+        function updateWhiteFlash(dt) {
+            if (whiteFlashState === 'fade-in') {
+                whiteFlashAlpha += WHITE_FLASH_SPEED * dt;
+                if (whiteFlashAlpha >= 1) {
+                    whiteFlashAlpha = 1;
+                    // At peak white, execute callback and start fade-out
+                    // 到达最亮时，执行回调并开始淡出
+                    if (whiteFlashCallback) {
+                        whiteFlashCallback();
+                        whiteFlashCallback = null;
+                    }
+                    whiteFlashState = 'fade-out';
+                }
+            } else if (whiteFlashState === 'fade-out') {
+                whiteFlashAlpha -= WHITE_FLASH_SPEED * dt;
+                if (whiteFlashAlpha <= 0) {
+                    whiteFlashAlpha = 0;
+                    whiteFlashState = 'none';
+                }
+            }
+        }
+
+        // Draw white flash overlay (called at end of render)
+        // 绘制白光遮罩层（在渲染结束时调用）
+        function drawWhiteFlash() {
+            if (whiteFlashAlpha > 0) {
+                ctx.fillStyle = `rgba(255, 255, 255, ${whiteFlashAlpha})`;
+                ctx.fillRect(0, 0, W, H);
+            }
+        }
 
         // === 进入走廊函数 Enter Corridor Function ===
         // Corridor1: long hallway on floor 1
@@ -7678,7 +7734,7 @@
                 const success = init3DBasketballCourt();
                 if (!success) {
                     console.error('Failed to initialize 3D scene!');
-                    // Return to elevator
+                    // Return to elevator (no white flash needed, initialization failed)
                     sceneState = 'elevator';
                     return;
                 }
@@ -7691,6 +7747,7 @@
                 console.log('scene:', !!basketball3D.scene);
                 console.log('camera:', !!basketball3D.camera);
                 console.log('container:', !!basketball3D.container);
+                // Return to elevator (no white flash needed, components missing)
                 sceneState = 'elevator';
                 return;
             }
@@ -7743,56 +7800,59 @@
             console.log('>>> Entered 3D Basketball Court scene (Floor 3)');
         }
 
-        // Exit basketball court and return to 2D elevator
+        // Exit basketball court and return to 2D elevator with white flash
         function exitBasketballCourt() {
-            basketball3D.isActive = false;
+            // Start white flash transition
+            startWhiteFlashTransition(() => {
+                basketball3D.isActive = false;
 
-            // Stop animation loop
-            if (basketball3D.animationId) {
-                cancelAnimationFrame(basketball3D.animationId);
-                basketball3D.animationId = null;
-            }
+                // Stop animation loop
+                if (basketball3D.animationId) {
+                    cancelAnimationFrame(basketball3D.animationId);
+                    basketball3D.animationId = null;
+                }
 
-            // Remove event listeners from 3D canvas
-            if (basketball3D.renderer && basketball3D.renderer.domElement) {
-                const canvas3D = basketball3D.renderer.domElement;
-                canvas3D.removeEventListener('mousemove', basketball3D.mouseMoveHandler);
-                canvas3D.removeEventListener('mousedown', basketball3D.mouseDownHandler);
-                canvas3D.removeEventListener('mouseup', basketball3D.mouseUpHandler);
-                canvas3D.removeEventListener('mouseleave', basketball3D.mouseLeaveHandler);
-                console.log('3D canvas event listeners removed');
-            }
+                // Remove event listeners from 3D canvas
+                if (basketball3D.renderer && basketball3D.renderer.domElement) {
+                    const canvas3D = basketball3D.renderer.domElement;
+                    canvas3D.removeEventListener('mousemove', basketball3D.mouseMoveHandler);
+                    canvas3D.removeEventListener('mousedown', basketball3D.mouseDownHandler);
+                    canvas3D.removeEventListener('mouseup', basketball3D.mouseUpHandler);
+                    canvas3D.removeEventListener('mouseleave', basketball3D.mouseLeaveHandler);
+                    console.log('3D canvas event listeners removed');
+                }
 
-            // Restore cursor when leaving floor 3
-            document.body.style.cursor = 'default';
-            if (basketball3D.renderer && basketball3D.renderer.domElement) {
-                basketball3D.renderer.domElement.style.cursor = 'default';
-            }
-            console.log('Cursor restored to default');
+                // Restore cursor when leaving floor 3
+                document.body.style.cursor = 'default';
+                if (basketball3D.renderer && basketball3D.renderer.domElement) {
+                    basketball3D.renderer.domElement.style.cursor = 'default';
+                }
+                console.log('Cursor restored to default');
 
-            // Hide exit button
-            const exitBtn = document.getElementById('basketball-exit-btn');
-            if (exitBtn) {
-                exitBtn.style.display = 'none';
-                exitBtn.onclick = null;
-            }
+                // Hide exit button
+                const exitBtn = document.getElementById('basketball-exit-btn');
+                if (exitBtn) {
+                    exitBtn.style.display = 'none';
+                    exitBtn.onclick = null;
+                }
 
-            // Hide 3D container, show 2D canvas
-            basketball3D.container.style.display = 'none';
-            canvas.style.display = 'block';
+                // Hide 3D container, show 2D canvas
+                basketball3D.container.style.display = 'none';
+                canvas.style.display = 'block';
 
-            // Return to elevator
-            sceneState = 'elevator';
-            walkProgress = 0;
-            walkVelocity = 0;
-            floorScroll = 0;
-            wallScroll = 0;
-            ceilingScroll = 0;
-            readyToEnter = false;
-            enterHintPhase = 0;
-            viewMode = 'corridor';
+                // Return to elevator
+                sceneState = 'elevator';
+                walkProgress = 0;
+                walkVelocity = 0;
+                floorScroll = 0;
+                wallScroll = 0;
+                ceilingScroll = 0;
+                readyToEnter = false;
+                enterHintPhase = 0;
+                viewMode = 'corridor';
 
-            console.log('Exited 3D Basketball Court, returned to elevator');
+                console.log('Exited 3D Basketball Court, returned to elevator');
+            });
         }
 
         // Update 3D camera based on mouse look (first person VR rotation)
@@ -8360,17 +8420,17 @@
                                        my >= hb.y && my <= hb.y + hb.h;
 
                     if (insideDoor) {
-                        // Floor 1: Gaming room (corridor1)
+                        // Floor 1: Gaming room (corridor1) with white flash
                         if (scene.elevator.currentFloor === 1) {
-                            enterCorridor1();
+                            startWhiteFlashTransition(() => enterCorridor1());
                         }
-                        // Floor 2: Audio room
+                        // Floor 2: Audio room with white flash
                         else if (scene.elevator.currentFloor === 2) {
-                            enterAudioRoom();
+                            startWhiteFlashTransition(() => enterAudioRoom());
                         }
-                        // Floor 3: Basketball court
+                        // Floor 3: Basketball court with white flash
                         else if (scene.elevator.currentFloor === 3) {
-                            enterBasketballCourt();
+                            startWhiteFlashTransition(() => enterBasketballCourt());
                         }
                     }
                 }
@@ -8386,17 +8446,19 @@
                         my >= backButton.y &&
                         my <= backButton.y + backButton.h
                     ) {
-                        // Return to elevator scene
-                        // 返回电梯场景
-                        sceneState = 'elevator';
-                        walkProgress = 0;
-                        walkVelocity = 0;
-                        floorScroll = 0;
-                        wallScroll = 0;
-                        ceilingScroll = 0;
-                        readyToEnter = false;
-                        enterHintPhase = 0;
-                        viewMode = 'corridor';  // Reset view mode
+                        // Return to elevator scene with white flash
+                        // 返回电梯场景（带白光淡入淡出）
+                        startWhiteFlashTransition(() => {
+                            sceneState = 'elevator';
+                            walkProgress = 0;
+                            walkVelocity = 0;
+                            floorScroll = 0;
+                            wallScroll = 0;
+                            ceilingScroll = 0;
+                            readyToEnter = false;
+                            enterHintPhase = 0;
+                            viewMode = 'corridor';  // Reset view mode
+                        });
                     } else {
                         // Check if clicking monitor to enter monitor view
                         // 检查是否点击显示器以进入显示器视角
@@ -8437,17 +8499,19 @@
                         isPlaying = false;
                         console.log('Music stopped when exiting audio room');
 
-                        // Return to elevator scene
-                        // 返回电梯场景
-                        sceneState = 'elevator';
-                        walkProgress = 0;
-                        walkVelocity = 0;
-                        floorScroll = 0;
-                        wallScroll = 0;
-                        ceilingScroll = 0;
-                        readyToEnter = false;
-                        enterHintPhase = 0;
-                        viewMode = 'corridor';  // Reset view mode
+                        // Return to elevator scene with white flash
+                        // 返回电梯场景（带白光淡入淡出）
+                        startWhiteFlashTransition(() => {
+                            sceneState = 'elevator';
+                            walkProgress = 0;
+                            walkVelocity = 0;
+                            floorScroll = 0;
+                            wallScroll = 0;
+                            ceilingScroll = 0;
+                            readyToEnter = false;
+                            enterHintPhase = 0;
+                            viewMode = 'corridor';  // Reset view mode
+                        });
                     }
                     // === Check if playlist or player controls were clicked ===
                     // 检查是否点击了歌单或播放器控制
