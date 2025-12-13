@@ -6683,6 +6683,7 @@
             basketBackboard: null,
             basketRim: null,
             basketNet: null,
+            scoreTrigger: null,
             stands: [],
             lights: [],
 
@@ -6716,6 +6717,11 @@
             raycaster: null,         // For mouse picking
             mouse: null,             // Normalized device coordinates
             score: 0,
+
+            // Score and confetti
+            scoreCooldown: 0,
+            confettiParticles: [],
+            lastBallPositions: [],  // Track ball Y positions for score detection
 
             // Animation
             animationId: null,
@@ -6867,6 +6873,71 @@
             b3d.basketBackboard.castShadow = true;
             hoopGroup.add(b3d.basketBackboard);
 
+            // ============================================
+            // Add red target box on backboard (shooter's square)
+            // ============================================
+            const boardW = 1.8;
+            const boardH = 1.05;
+
+            // Target box dimensions (proportional to backboard)
+            const rectW = boardW * 0.34;  // Width of red box
+            const rectH = boardH * 0.22;  // Height of red box
+            const stroke = Math.min(boardW, boardH) * 0.018;  // Line thickness
+
+            // Position slightly below center (above rim in real basketball)
+            const rectCenterX = 0;
+            const rectCenterY = -boardH * 0.08;
+            const zOffset = 0.028;  // Offset from backboard surface to avoid z-fighting
+
+            // Red glowing material for target box
+            const redBoxMaterial = new THREE.MeshStandardMaterial({
+                color: 0xFF3B30,
+                emissive: 0xFF3B30,
+                emissiveIntensity: 0.6,
+                roughness: 0.4,
+                metalness: 0.3
+            });
+
+            // Create 4 bars forming a rectangle (more reliable than LineSegments)
+            const backboardTargetBoxGroup = new THREE.Group();
+            backboardTargetBoxGroup.name = "targetBox";
+
+            // Top bar
+            const topBar = new THREE.Mesh(
+                new THREE.BoxGeometry(rectW, stroke, stroke),
+                redBoxMaterial
+            );
+            topBar.position.set(rectCenterX, rectCenterY + rectH/2, zOffset);
+            backboardTargetBoxGroup.add(topBar);
+
+            // Bottom bar
+            const bottomBar = new THREE.Mesh(
+                new THREE.BoxGeometry(rectW, stroke, stroke),
+                redBoxMaterial
+            );
+            bottomBar.position.set(rectCenterX, rectCenterY - rectH/2, zOffset);
+            backboardTargetBoxGroup.add(bottomBar);
+
+            // Left bar
+            const leftBar = new THREE.Mesh(
+                new THREE.BoxGeometry(stroke, rectH, stroke),
+                redBoxMaterial
+            );
+            leftBar.position.set(rectCenterX - rectW/2, rectCenterY, zOffset);
+            backboardTargetBoxGroup.add(leftBar);
+
+            // Right bar
+            const rightBar = new THREE.Mesh(
+                new THREE.BoxGeometry(stroke, rectH, stroke),
+                redBoxMaterial
+            );
+            rightBar.position.set(rectCenterX + rectW/2, rectCenterY, zOffset);
+            backboardTargetBoxGroup.add(rightBar);
+
+            // Add target box as child of backboard (follows backboard transform)
+            b3d.basketBackboard.add(backboardTargetBoxGroup);
+            console.log('Red target box added to backboard');
+
             // Backboard border/frame
             const borderMaterial = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 3 });
             const borderPoints = [
@@ -6909,6 +6980,35 @@
                 const netLine = new THREE.Line(netSegment, netMaterial);
                 hoopGroup.add(netLine);
             }
+
+            // ============================================
+            // Score trigger volume (invisible cylinder for score detection)
+            // ============================================
+            const rimY = 3.05;
+            const rimX = 0;
+            const rimZ = -3.15;
+            const rimInnerRadius = 0.225;  // Rim radius
+
+            // Create invisible trigger slightly below rim
+            const triggerGeometry = new THREE.CylinderGeometry(
+                rimInnerRadius * 0.85,  // Radius slightly smaller than rim
+                rimInnerRadius * 0.85,
+                0.4,  // Height
+                16
+            );
+            const triggerMaterial = new THREE.MeshBasicMaterial({
+                visible: false  // Invisible trigger
+            });
+            b3d.scoreTrigger = new THREE.Mesh(triggerGeometry, triggerMaterial);
+            b3d.scoreTrigger.position.set(rimX, rimY - 0.15, rimZ);  // Below rim
+            b3d.scoreTrigger.name = "scoreTrigger";
+            hoopGroup.add(b3d.scoreTrigger);
+
+            // Score detection state
+            b3d.scoreCooldown = 0;
+            b3d.confettiParticles = [];
+
+            console.log('Score trigger created at rim position');
 
             // Scale up the entire hoop group to make it the main visual subject
             hoopGroup.scale.set(1.5, 1.5, 1.5);
@@ -7464,6 +7564,91 @@
             }
         }
 
+        // ============================================
+        // Spawn confetti on score
+        // ============================================
+        function spawnConfetti(origin) {
+            const particleCount = 150;
+            const colors = [0xFF0000, 0xFFFF00, 0x00FF00, 0x0000FF, 0xFF00FF, 0x00FFFF];
+
+            console.log('Spawning confetti at:', origin);
+
+            for (let i = 0; i < particleCount; i++) {
+                // Create small colorful particle
+                const size = 0.03 + Math.random() * 0.02;
+                const geometry = new THREE.BoxGeometry(size, size * 0.1, size);
+                const material = new THREE.MeshStandardMaterial({
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    emissive: colors[Math.floor(Math.random() * colors.length)],
+                    emissiveIntensity: 0.5
+                });
+
+                const particle = new THREE.Mesh(geometry, material);
+
+                // Set initial position at rim
+                particle.position.copy(origin);
+
+                // Random initial velocity (up and outward)
+                particle.userData = {
+                    velocity: new THREE.Vector3(
+                        (Math.random() - 0.5) * 3.0,  // vx: -1.5 to 1.5
+                        2.0 + Math.random() * 2.0,     // vy: 2.0 to 4.0
+                        (Math.random() - 0.5) * 3.0    // vz: -1.5 to 1.5
+                    ),
+                    angularVelocity: new THREE.Vector3(
+                        Math.random() * 10,
+                        Math.random() * 10,
+                        Math.random() * 10
+                    ),
+                    life: 1.2,  // Lifetime in seconds
+                    maxLife: 1.2
+                };
+
+                basketball3D.scene.add(particle);
+                basketball3D.confettiParticles.push(particle);
+            }
+        }
+
+        // ============================================
+        // Confetti update and cleanup
+        // ============================================
+        function updateConfetti(deltaTime) {
+            const gravity = -9.8;
+
+            for (let i = basketball3D.confettiParticles.length - 1; i >= 0; i--) {
+                const particle = basketball3D.confettiParticles[i];
+                const data = particle.userData;
+
+                // Update lifetime
+                data.life -= deltaTime;
+
+                if (data.life <= 0) {
+                    // Remove expired particle
+                    basketball3D.scene.remove(particle);
+                    particle.geometry.dispose();
+                    particle.material.dispose();
+                    basketball3D.confettiParticles.splice(i, 1);
+                    continue;
+                }
+
+                // Apply gravity
+                data.velocity.y += gravity * deltaTime;
+
+                // Update position
+                particle.position.add(data.velocity.clone().multiplyScalar(deltaTime));
+
+                // Apply rotation
+                particle.rotation.x += data.angularVelocity.x * deltaTime;
+                particle.rotation.y += data.angularVelocity.y * deltaTime;
+                particle.rotation.z += data.angularVelocity.z * deltaTime;
+
+                // Fade out over time
+                const lifeRatio = data.life / data.maxLife;
+                particle.material.opacity = lifeRatio;
+                particle.material.transparent = true;
+            }
+        }
+
         // Update basketball physics (temporarily disabled)
         function updateBasketballPhysics() {
             if (!basketball3D.balls || basketball3D.balls.length === 0) return;
@@ -7510,6 +7695,83 @@
                     }
                 }
             });
+
+            // ============================================
+            // Score detection (check if ball passes through hoop)
+            // ============================================
+            if (basketball3D.scoreTrigger && basketball3D.scoreCooldown <= 0) {
+                // Get trigger position in world space
+                const triggerWorldPos = new THREE.Vector3();
+                basketball3D.scoreTrigger.getWorldPosition(triggerWorldPos);
+
+                const triggerY = triggerWorldPos.y;
+                const triggerX = triggerWorldPos.x;
+                const triggerZ = triggerWorldPos.z;
+                const triggerRadius = 0.225 * 0.85 * 1.5;  // Account for hoop scaling
+
+                basketball3D.balls.forEach((ball, index) => {
+                    if (!ball || !ball.userData || ball.userData.onRack) return;
+
+                    const ballY = ball.position.y;
+                    const ballX = ball.position.x;
+                    const ballZ = ball.position.z;
+
+                    // Initialize last position tracking
+                    if (!basketball3D.lastBallPositions[index]) {
+                        basketball3D.lastBallPositions[index] = ballY;
+                    }
+
+                    const lastY = basketball3D.lastBallPositions[index];
+
+                    // Check if ball passed through trigger from above
+                    if (lastY > triggerY && ballY <= triggerY) {
+                        // Check horizontal distance from trigger center
+                        const dx = ballX - triggerX;
+                        const dz = ballZ - triggerZ;
+                        const distance = Math.sqrt(dx * dx + dz * dz);
+
+                        if (distance < triggerRadius) {
+                            // SCORE!
+                            console.log('🏀 SCORE! Ball went through hoop!');
+                            basketball3D.score++;
+
+                            // Spawn confetti at rim position
+                            const confettiOrigin = new THREE.Vector3(
+                                triggerX,
+                                triggerY + 0.2,
+                                triggerZ
+                            );
+                            spawnConfetti(confettiOrigin);
+
+                            // Set cooldown to prevent multiple triggers
+                            basketball3D.scoreCooldown = 0.8;
+
+                            // Brief rim glow effect
+                            if (basketball3D.basketRim) {
+                                const originalEmissive = basketball3D.basketRim.material.emissive.clone();
+                                basketball3D.basketRim.material.emissive.setHex(0xFFFF00);
+                                basketball3D.basketRim.material.emissiveIntensity = 1.0;
+
+                                setTimeout(() => {
+                                    basketball3D.basketRim.material.emissive.copy(originalEmissive);
+                                    basketball3D.basketRim.material.emissiveIntensity = 0;
+                                }, 200);
+                            }
+                        }
+                    }
+
+                    // Update last position
+                    basketball3D.lastBallPositions[index] = ballY;
+                });
+            }
+
+            // Update score cooldown
+            if (basketball3D.scoreCooldown > 0) {
+                basketball3D.scoreCooldown -= deltaTime;
+            }
+
+            // Update confetti particles
+            updateConfetti(deltaTime);
 
             // Check if all balls are off the rack, if so reset them
             checkAndResetBasketballs();
