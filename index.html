@@ -7949,7 +7949,7 @@
                     const ballRadius = 0.12;
 
                     // ============================================
-                    // Backboard collision (improved plane collision detection)
+                    // Backboard collision (robust collision detection to prevent clipping)
                     // ============================================
                     if (basketball3D.basketBackboard) {
                         const backboardPos = new THREE.Vector3();
@@ -7960,27 +7960,24 @@
                         const backboardHeight = 1.05 * 1.5;
                         const backboardThickness = 0.05 * 1.5;
 
-                        // Check if ball is within backboard bounds (X and Y) with extra margin
-                        const withinX = Math.abs(ball.position.x - backboardPos.x) < (backboardWidth / 2 + ballRadius);
-                        const withinY = Math.abs(ball.position.y - backboardPos.y) < (backboardHeight / 2 + ballRadius);
-
-                        // Front and back face positions of backboard
+                        // Front face position of backboard (the face facing the camera)
                         const frontFaceZ = backboardPos.z + backboardThickness / 2;
-                        const backFaceZ = backboardPos.z - backboardThickness / 2;
 
-                        // Check if ball is hitting backboard from front
-                        if (withinX && withinY) {
-                            // Ball is within backboard area - check front collision
-                            if (ball.position.z < frontFaceZ && ball.position.z > backFaceZ) {
-                                // Ball is inside or touching backboard plane
-                                if (ball.userData.velocity.z < 0) {
-                                    // Ball moving toward backboard - bounce it back
-                                    ball.position.z = frontFaceZ + ballRadius * 0.1;
-                                    ball.userData.velocity.z *= -0.7;  // Bounce with energy loss
-                                    ball.userData.velocity.x *= 0.9;   // Slight friction
-                                    ball.userData.velocity.y *= 0.9;
-                                }
-                            }
+                        // Check if ball is within backboard bounds (X and Y) with generous margin
+                        const withinX = Math.abs(ball.position.x - backboardPos.x) <= (backboardWidth / 2 + ballRadius);
+                        const withinY = Math.abs(ball.position.y - backboardPos.y) <= (backboardHeight / 2 + ballRadius);
+
+                        // Detect collision early - when ball is approaching backboard
+                        // Check if ball is in front of or near the backboard plane
+                        const distanceToBackboard = ball.position.z - frontFaceZ;
+
+                        // If ball is within detection range and moving toward backboard
+                        if (withinX && withinY && distanceToBackboard < ballRadius * 2 && ball.userData.velocity.z < 0) {
+                            // Ball is approaching or touching backboard - bounce it back
+                            ball.position.z = frontFaceZ + ballRadius;
+                            ball.userData.velocity.z = Math.abs(ball.userData.velocity.z) * 0.7;  // Reverse and dampen
+                            ball.userData.velocity.x *= 0.9;   // Slight friction
+                            ball.userData.velocity.y *= 0.9;
                         }
                     }
 
