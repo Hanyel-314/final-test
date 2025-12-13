@@ -8208,16 +8208,12 @@
 
                     // Check if ball is inside hoop area and falling down
                     const isInHoopArea = horizontalDistance < triggerRadius;
-                    const isNearRimHeight = Math.abs(ballY - triggerY) < 0.3;  // Within 30cm of rim
-                    const isFallingDown = ball.userData.velocity && ball.userData.velocity.y < -1;  // Moving downward
+                    const isNearRimHeight = Math.abs(ballY - triggerY) < 0.5;  // Within 50cm of rim (more lenient)
+                    const isFallingDown = ball.userData.velocity && ball.userData.velocity.y < -0.5;  // Moving downward (more lenient)
 
-                    // Calculate horizontal speed to detect vertical fall
-                    const horizontalSpeed = ball.userData.velocity ?
-                        Math.sqrt(ball.userData.velocity.x ** 2 + ball.userData.velocity.z ** 2) : 0;
-                    const isVerticalFall = horizontalSpeed < 3;  // Low horizontal movement
-
-                    // Score if ball is in hoop, near rim height, falling down vertically
-                    if (isInHoopArea && isNearRimHeight && isFallingDown && isVerticalFall) {
+                    // Score if ball is in hoop and falling down (no horizontal speed requirement)
+                    // This allows balls that bounce inside rim to still score
+                    if (isInHoopArea && isNearRimHeight && isFallingDown) {
                         // SCORE!
                         console.log('🏀 SCORE! Ball went through hoop!');
                         basketball3D.score++;
