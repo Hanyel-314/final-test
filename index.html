@@ -7626,7 +7626,7 @@
                         ball.userData.isGrabbed = false;
 
                         // Get camera direction and throw
-                        const throwSpeed = 16;  // Increased for closer hoop distance
+                        const throwSpeed = 13;  // Adjusted for better arc trajectory at 10-11m distance
                         const cameraDirection = new THREE.Vector3();
                         basketball3D.camera.getWorldDirection(cameraDirection);
                         ball.userData.velocity.copy(cameraDirection.multiplyScalar(throwSpeed));
