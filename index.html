@@ -6910,13 +6910,11 @@
             topBar.position.set(rectCenterX, rectCenterY + rectH/2, zOffset);
             backboardTargetBoxGroup.add(topBar);
 
-            // Bottom bar
-            const bottomBar = new THREE.Mesh(
-                new THREE.BoxGeometry(rectW, stroke, stroke),
-                redBoxMaterial
-            );
-            bottomBar.position.set(rectCenterX, rectCenterY - rectH/2, zOffset);
-            backboardTargetBoxGroup.add(bottomBar);
+            // ============================================
+            // Remove extra middle red line on backboard
+            // ============================================
+            // Bottom bar removed - legs will extend from rectangle's open bottom
+            // This creates an open rectangle (top + left + right) with legs extending down
 
             // Left bar
             const leftBar = new THREE.Mesh(
