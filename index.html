@@ -7992,8 +7992,12 @@
                         const dy = ball.position.y - rimPos.y;
                         const atRimHeight = Math.abs(dy) < rimTubeRadius + ballRadius;
 
-                        // Check if ball hits rim from outside
-                        if (atRimHeight && horizontalDist > rimInnerRadius && horizontalDist < rimRadius + ballRadius) {
+                        // Only bounce if ball is moving horizontally (not falling through from above)
+                        // If ball is falling down (vy < 0) and inside rim area, let it pass through
+                        const isFallingThrough = ball.userData.velocity.y < 0 && horizontalDist < rimInnerRadius;
+
+                        // Check if ball hits rim from outside (not when falling through)
+                        if (atRimHeight && !isFallingThrough && horizontalDist > rimInnerRadius && horizontalDist < rimRadius + ballRadius) {
                             // Ball hit rim - bounce away
                             const angle = Math.atan2(dz, dx);
                             const pushOutDist = rimRadius + ballRadius;
