@@ -7099,10 +7099,10 @@
             // Scale up the entire hoop group to make it the main visual subject
             hoopGroup.scale.set(1.5, 1.5, 1.5);
 
-            // Move the hoop group to optimal shooting distance
-            // Camera at z=10, this puts rim at approximately z=2.35 (7.5-8 meters away)
-            // At max pitch, ball can reach backboard; slight angle down goes into hoop
-            hoopGroup.position.z = 5.5;
+            // Move the hoop group to proper distance to prevent ball clipping through backboard
+            // Camera at z=10, this puts rim at approximately z=1.85 (8-9 meters away)
+            // Farther distance prevents clipping while still reachable with arc trajectory
+            hoopGroup.position.z = 4.5;
 
             // Add the hoop group to the scene
             b3d.scene.add(hoopGroup);
